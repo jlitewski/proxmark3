@@ -115,7 +115,7 @@ static fudan_type_t fudan_detected(iso14a_card_select_t *card, bool verbose) {
     }
     if(verbose) {
         PrintAndLogEx(INFO, "Unknown or no Fudan chip detected");
-        PrintAndLogEx(INFO, "SAK = %s", card->sak);
+        PrintAndLogEx(INFO, "SAK = %i", card->sak);
      }
     return FUDAN_NONE;
 }
