@@ -35,10 +35,10 @@
 #include "crc16.h"      // compute_crc
 #include "util_posix.h" // msclock
 
-#define FUDAN_BLOCK_READ_RETRY 3
-#define MAX_FUDAN_BLOCK_SIZE   4
-#define MAX_FUDAN_05_BLOCKS    8 // 16
-#define MAX_FUDAN_08_BLOCKS    64
+#define FUDAN_BLOCK_READ_RETRY  3
+#define FUDAN_005_BLOCK_SIZE    4
+#define MAX_FUDAN_005_BLOCKS    16 // 0-7 are readable without auth, 8-15 are not
+#define MAX_FUDAN_08_BLOCKS     64
 
 #ifndef AddCrc14A
 # define AddCrc14A(data, len) compute_crc(CRC_14443_A, (data), (len), (data)+(len), (data)+(len)+1)
@@ -63,8 +63,8 @@ static void fudan_print_blocks(uint8_t sector, uint8_t num_blocks, uint8_t block
     PrintAndLogEx(INFO, "----+-------------+-----------------");
     PrintAndLogEx(INFO, "blk | data        | ascii");
     PrintAndLogEx(INFO, "----+-------------+-----------------");
-    for (uint16_t b = 0; b < num_blocks; b++) {
-        PrintAndLogEx(INFO, "%3d | %s ", b, sprint_hex_ascii(carddata + (b * block_size), block_size));
+    for (uint16_t block = 0; block < num_blocks; block++) {
+        PrintAndLogEx(INFO, "%3d | %s ", b, sprint_hex_ascii(carddata + ((sector+1) * block * block_size), block_size));
     }
     PrintAndLogEx(INFO, "----+-------------+-----------------");
     PrintAndLogEx(NORMAL, "");
@@ -116,6 +116,7 @@ static fudan_type_t fudan_detected(iso14a_card_select_t *card, bool verbose) {
     if(verbose) {
         PrintAndLogEx(INFO, "Unknown or no Fudan chip detected");
         PrintAndLogEx(INFO, "SAK = %i", card->sak);
+        PrintAndLogEx(INFO, "Hint: try `" _YELLOW("hf search") "`");
      }
     return FUDAN_NONE;
 }
@@ -296,11 +297,11 @@ static int CmdHFFudanDump(const char *Cmd) {
 
     // detect card size
     // default to 512 bit settings
-    uint8_t num_blocks  = 16;
-    uint8_t block_size  = 4;
+    uint8_t num_blocks  = MAX_FUDAN_005_BLOCKS;
+    uint8_t block_size  = FUDAN_005_BLOCK_SIZE;
     uint8_t num_sectors = 1;
     switch (t) {
-        case FM11RF008M: // ?
+        case FM11RF008M: // ? Need to find Datasheet for this
             num_blocks = MAX_FUDAN_08_BLOCKS;
             break;
         case FM11RF08SH:  // 8K bits
@@ -333,53 +334,55 @@ static int CmdHFFudanDump(const char *Cmd) {
         PrintAndLogEx(INFO, "Block size: %i bytes", block_size);
     }
 
-    //uint8_t carddata[num_blocks * MAX_FUDAN_BLOCK_SIZE];
-    uint8_t carddata[num_blocks * block_size];
+    //uint8_t carddata[num_blocks * FUDAN_005_BLOCK_SIZE];
+    uint8_t carddata[num_sectors * num_blocks * block_size];
 
     //
     uint16_t flags = (ISO14A_NO_SELECT | ISO14A_NO_DISCONNECT | ISO14A_NO_RATS | ISO14A_RAW);
     uint32_t argtimeout = 0;
     uint32_t numbits = 0;
 
-    //TODO: Implement a sector loop to dump all blocks in all sectors
     PrintAndLogEx(SUCCESS, "." NOLF);
     // dump memory
-    for (uint8_t b = 0; b < num_blocks; b++) {
+    for(uint8_t sector = 0; sector < num_sectors; sector++) {
+        for (uint8_t block = 0; block < num_blocks; block++) {
 
-        // read block
-        uint8_t cmd[4] = {ISO14443A_CMD_READBLOCK, b, 0x00, 0x00};
-        AddCrc14A(cmd, 2);
+            // read block
+            uint8_t cmd[4] = {ISO14443A_CMD_READBLOCK, block, 0x00, 0x00};
+            AddCrc14A(cmd, 2);
 
-        for (uint8_t tries = 0; tries < FUDAN_BLOCK_READ_RETRY; tries++) {
+            for (uint8_t tries = 0; tries < FUDAN_BLOCK_READ_RETRY; tries++) {
 
-            clearCommandBuffer();
-            PacketResponseNG resp;
-            SendCommandMIX(CMD_HF_ISO14443A_READER, flags, sizeof(cmd) | ((uint32_t)(numbits << 16)), argtimeout, cmd, sizeof(cmd));
+                clearCommandBuffer();
+                PacketResponseNG resp;
+                SendCommandMIX(CMD_HF_ISO14443A_READER, flags, sizeof(cmd) | ((uint32_t)(numbits << 16)), argtimeout, cmd, sizeof(cmd));
 
-            if (WaitForResponseTimeout(CMD_ACK, &resp, 1500)) {
-                if (resp.status == PM3_SUCCESS) {
-                    uint8_t *data  = resp.data.asBytes;
-                    //memcpy(carddata + (b * MAX_FUDAN_BLOCK_SIZE), data, MAX_FUDAN_BLOCK_SIZE);
-                    memcpy(carddata + (b * block_size), data, block_size);
-                    PrintAndLogEx(NORMAL, "." NOLF);
-                    break;
+                if (WaitForResponseTimeout(CMD_ACK, &resp, 1500)) {
+                    if (resp.status == PM3_SUCCESS) {
+                        uint8_t *data  = resp.data.asBytes;
+                        memcpy(carddata + ((sector+1) * block * block_size), data, block_size);
+                        PrintAndLogEx(NORMAL, "." NOLF);
+                        break;
+                    } else {
+                        PrintAndLogEx(NORMAL, "");
+                        PrintAndLogEx(FAILED, "could not read block %2d", block);
+                    }
                 } else {
                     PrintAndLogEx(NORMAL, "");
-                    PrintAndLogEx(FAILED, "could not read block %2d", b);
+                    PrintAndLogEx(WARNING, "command execute timeout when trying to read block %2d", block);
                 }
-            } else {
-                PrintAndLogEx(NORMAL, "");
-                PrintAndLogEx(WARNING, "command execute timeout when trying to read block %2d", b);
             }
-        }
 
+            PrintAndLogEx(NORMAL, "\nDumped Sector %i", sector);
+        }
     }
     DropField();
 
     PrintAndLogEx(SUCCESS, "\nSucceeded in dumping all blocks");
 
-    //TODO Implement 
-    fudan_print_blocks(0, num_blocks, block_size, carddata);
+    for(uint8_t sector = 0; sector < num_sectors; sector++) {
+        fudan_print_blocks(sector, num_blocks, block_size, carddata);
+    }
 
     if (nosave) {
         PrintAndLogEx(INFO, "Called with no save option");
@@ -423,12 +426,12 @@ static int CmdHFFudanWrBl(const char *Cmd) {
     uint8_t key[6] = {0};
     CLIGetHexWithReturn(ctx, 2, key, &keylen);
 
-    uint8_t block[MAX_FUDAN_BLOCK_SIZE] = {0x00};
+    uint8_t block[FUDAN_005_BLOCK_SIZE] = {0x00};
     int blen = 0;
     CLIGetHexWithReturn(ctx, 3, block, &blen);
     CLIParserFree(ctx);
 
-    if (blen != MAX_FUDAN_BLOCK_SIZE) {
+    if (blen != FUDAN_005_BLOCK_SIZE) {
         PrintAndLogEx(WARNING, "block data must include 4 HEX bytes. Got %i", blen);
         return PM3_EINVARG;
     }
@@ -523,7 +526,7 @@ static int CmdHFFudanView(const char *Cmd) {
     // read dump file
     uint8_t *dump = NULL;
     size_t bytes_read = 0;
-    int res = pm3_load_dump(filename, (void **)&dump, &bytes_read, (MAX_FUDAN_BLOCK_SIZE * MAX_FUDAN_08_BLOCKS));
+    int res = pm3_load_dump(filename, (void **)&dump, &bytes_read, (FUDAN_005_BLOCK_SIZE * MAX_FUDAN_08_BLOCKS));
     if (res != PM3_SUCCESS) {
         return res;
     }
