@@ -37,7 +37,7 @@
 
 #define FUDAN_BLOCK_READ_RETRY  3
 #define FUDAN_512_BLOCK_SIZE    4  
-#define MAX_FUDAN_512_BLOCKS    16 // 0-7 are readable without auth, 8-15 are not
+#define MAX_FUDAN_512_BLOCKS    16
 #define MAX_FUDAN_08_BLOCKS     64
 
 #ifndef AddCrc14A
@@ -46,11 +46,12 @@
 
 
 // iceman:  these types are quite unsure.
+// HACK: They are now moderately unsure.
 typedef enum {
-    FM11RF005M,
-    FM11RF005U,
-    FM11RF005SH,
-    FM11RF008M,
+    FM11RF005M,  //512 bit, 4 Byte UID, Uses unknown algo, Requires auth to write 2-15 & read 8-15
+    FM11RF005U,  //512 bit, 7 Byte UID, locking bits, Mifare Ultralight EV1 Clone
+    FM11RF005SH, //512 bit, 4 Byte UID, Uses Shanghai algo, Requires auth to write 2-15 & read 8-15
+    FM11RF008M,  //Unknown? 4-5 Byte UID? Potentially uses Shanghai algo, might need auth to write & read
     FM11RF08SH,
     FM11RF32M,
     FM11RF32N,
@@ -81,9 +82,9 @@ static char *GenerateFilename(iso14a_card_select_t *card, const char *prefix, co
 }
 
 static fudan_type_t fudan_detected(iso14a_card_select_t *card, bool verbose) {
-
+    //TODO Add the other Fudan chips to this
     if ((card->sak & 0x0A) == 0x0A) {
-
+        
         uint8_t atqa = MemLeToUint2byte(card->atqa);
         if ((atqa & 0x0003) == 0x0003) {
             // Uses Shanghai algo
@@ -107,10 +108,12 @@ static fudan_type_t fudan_detected(iso14a_card_select_t *card, bool verbose) {
         }
 
     } else if ((card->sak & 0x53) == 0x53) {
-        // printTag("FM11RF08SH (FUDAN)");
+        // Potentially uses Shanghai algo
+        // http://proxmark.nl/forum/viewtopic.php?id=8738
         if(verbose) {
              PrintAndLogEx(INFO, "FM11RF08SH (FUDAN) detected");
         }
+        // printTag("FM11RF08SH (FUDAN)");
         return FM11RF08SH;
     }
     if(verbose) {
@@ -301,7 +304,7 @@ static int CmdHFFudanDump(const char *Cmd) {
     uint8_t block_size  = FUDAN_512_BLOCK_SIZE;
     uint8_t num_sectors = 1;
     switch (t) {
-        case FM11RF008M: // ? Need to find Datasheet for this
+        case FM11RF008M: // Need to find Datasheet for this
             num_blocks = MAX_FUDAN_08_BLOCKS;
             break;
         case FM11RF08SH:  // 8K bits
@@ -322,6 +325,14 @@ static int CmdHFFudanDump(const char *Cmd) {
             //TODO Figure out how to implement this cluster of a block layout
         case FM11RF005M:  // 512 bits
         case FM11RF005SH: // 512 bits
+            //TODO Once the Auth handshake for the 005M and 005SH is figured out, replace the warning with the method to authenticate
+            PrintAndLogEx(NORMAL, "");
+            PrintAndLogEx(WARNING, _RED_("Authentication is needed to read blocks 8 through 15. They will show ") _YELLOW_("00"));
+            PrintAndLogEx(WARNING, _RED_("until Authentication can be implemented!"));
+            PrintAndLogEx(NORMAL, "");
+            PrintAndLogEx(INFO, _YELLOW_("If you can help with this, please considering contributing!"));
+            PrintAndLogEx(NORMAL, "");
+            break;
         case FM11RF005U:  // 512 bits
         case FUDAN_NONE:
         default:
@@ -371,9 +382,8 @@ static int CmdHFFudanDump(const char *Cmd) {
                 }
             }
         }
-        PrintAndLogEx(NORMAL, "\nDumped Sector %i" NOLF, sector);
+        PrintAndLogEx(INFO, "\nDumped Sector %i" NOLF, sector);
     }
-    PrintAndLogEx(NORMAL, "");
     DropField();
 
     PrintAndLogEx(SUCCESS, _GREEN_("Succeeded in dumping all data!"));
@@ -512,16 +522,14 @@ static int CmdHFFudanRdBlk512(const char *Cmd) {
 
     switch(tag_type) {
         case FM11RF005M:
-            //TODO Remove this check once proper authentication is implemented for the 005M
+        case FM11RF005SH:
+            //TODO Remove this check once proper authentication is implemented for the 005M and 005SH
             if(blockCTX > 7) { //Warn the user, for now, that we can't read these blocks
-                PrintAndLogEx(WARNING, "Authentication is needed to read block %i", blockCTX);
+                PrintAndLogEx(WARNING, _RED_("Authentication is needed to read block %i"), blockCTX);
                 PrintAndLogEx(INFO, _YELLOW_("Feel free to contribute if you have knowledge of how this authentication works!"));
                 DropField();
                 return PM3_SUCCESS;
             }
-            break;
-        case FM11RF005SH:
-            //Do authentication or whatever here
             break;
         case FM11RF005U:
             //Do authentication or whatever here
@@ -646,11 +654,11 @@ static command_t CommandTable[] = {
     {"reader",      CmdHFFudanReader,   IfPm3Iso14443a,   "Act like a fudan reader"},
     {"dump",        CmdHFFudanDump,     IfPm3Iso14443a,   "Dump FUDAN tag to binary file"},
     {"view",        CmdHFFudanView,     AlwaysAvailable,  "Display content from tag dump file"},
+    {"rdbl",        CmdHFFudanRdBl,     IfPm3Iso14443a,   "Read a fudan tag"},
+    {"wrbl",        CmdHFFudanWrBl,     IfPm3Iso14443a,   "Write a fudan tag"},
     //{"sim",        CmdHFFudanSim,     IfPm3Iso14443a,   "Simulate a fudan tag"},
     {"-----------", CmdHelp,            IfPm3Iso14443a,   "----------------------- " _CYAN_("512 bit tag Commands") " -----------------------"},
     {"rd512",       CmdHFFudanRdBlk512, IfPm3Iso14443a,   "Read a 512 bit tag block"},
-    {"rdbl",        CmdHFFudanRdBl,     IfPm3Iso14443a,   "Read a fudan tag"},
-    {"wrbl",        CmdHFFudanWrBl,     IfPm3Iso14443a,   "Write a fudan tag"},
     {NULL,      NULL,               0, NULL}
 };
 
