@@ -57,7 +57,6 @@ int GetNrzClock(const char *str, bool verbose);
 int GetFskClock(const char *str, bool verbose);
 bool fskClocks(uint8_t *fc1, uint8_t *fc2, uint8_t *rf1, int *firstClockEdge);
 
-//Temporary Marker Functions
 extern void add_temporary_marker(uint32_t position, const char *label);
 extern void remove_temporary_markers(void);
 
