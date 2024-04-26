@@ -28,7 +28,7 @@
 #include "pm3line.h"
 #include "usart_defs.h"
 #include "util_posix.h"
-#include "proxgui.h"
+#include "gui/proxgui.h"
 #include "cmdmain.h"
 #include "ui.h"
 #include "cmdhw.h"

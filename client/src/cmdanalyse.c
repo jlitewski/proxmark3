@@ -32,7 +32,7 @@
 #include "legic_prng.h"
 #include "cmddata.h"      // g_DemodBuffer
 #include "graph.h"
-#include "proxgui.h"
+#include "gui/proxgui.h"
 #include "cliparser.h"
 #include "generator.h"    // generate nuid
 #include "iso14b.h"       // defines for ETU conversions

@@ -28,7 +28,7 @@
 #include "ecp.h"
 #include "commonutil.h"         // ARRAYLEN
 #include "pm3_cmd.h"
-#include "proxgui.h"            // Base64 Picture Window
+#include "gui/proxgui.h"            // Base64 Picture Window
 
 #define STRBOOL(p) ((p) ? "1" : "0")
 

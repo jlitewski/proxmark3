@@ -27,7 +27,7 @@
 #include "commonutil.h"     // ARRAYLEN
 #include "lfdemod.h"        // device/client demods of LF signals
 #include "ui.h"             // for show graph controls
-#include "proxgui.h"
+#include "gui/proxgui.h"
 #include "cliparser.h"      // args parsing
 #include "graph.h"          // for graph data
 #include "cmddata.h"        // for `lf search`
