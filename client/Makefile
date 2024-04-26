@@ -795,9 +795,9 @@ endif
 
 # gui
 ifeq ($(QT_FOUND),1)
-    CXXSRCS = proxgui.cpp proxguiqt.cpp proxguiqt.moc.cpp
+    CXXSRCS = gui/proxgui.cpp gui/proxguiqt.cpp gui/proxguiqt.moc.cpp
 else
-    CXXSRCS = guidummy.cpp
+    CXXSRCS = gui/guidummy.cpp
 endif
 
 # OS X
@@ -831,15 +831,15 @@ proxmark3: $(OBJS) $(STATICLIBS) lualibs/pm3_cmd.lua lualibs/mfc_default_keys.lu
 #	$(Q)$(CXX) $(PM3LDFLAGS) $(OBJS) $(STATICLIBS) $(LDLIBS) -o $@
 	$(Q)$(CXX) $(PM3CFLAGS) $(PM3LDFLAGS) $(OBJS) $(STATICLIBS) $(LDLIBS) -o $@
 
-src/proxgui.cpp: src/ui/ui_overlays.h src/ui/ui_image.h
+src/gui/proxgui.cpp: src/ui/ui_overlays.h src/ui/ui_image.h
 
-src/proxguiqt.cpp: src/proxguiqt.h
+src/gui/proxguiqt.cpp: src/gui/proxguiqt.h
 
-src/proxguiqt.moc.cpp: src/proxguiqt.h
+src/gui/proxguiqt.moc.cpp: src/gui/proxguiqt.h
 	$(info [-] MOC $@)
 	$(Q)$(MOC) -o$@ $^
 
-src/proxguiqt.h: src/ui/ui_overlays.h src/ui/ui_image.h
+src/gui/proxguiqt.h: src/ui/ui_overlays.h src/ui/ui_image.h
 
 src/ui/ui_overlays.h: src/ui/overlays.ui
 	$(info [-] UIC $@)

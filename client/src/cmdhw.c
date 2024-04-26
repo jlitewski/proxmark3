@@ -38,7 +38,7 @@
 #include "uart/uart.h"      // configure timeout
 #include "util_posix.h"
 #include "flash.h"          // reboot to bootloader mode
-#include "proxgui.h"
+#include "gui/proxgui.h"
 #include "graph.h"          // for graph data
 
 static int CmdHelp(const char *Cmd);

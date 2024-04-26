@@ -28,7 +28,7 @@
 #include "comms.h"
 #include "commonutil.h"
 #include "protocols.h"
-#include "proxgui.h"
+#include "gui/proxgui.h"
 #include "graph.h"
 #include "cmddata.h"
 #include "lfdemod.h"

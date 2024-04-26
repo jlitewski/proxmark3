@@ -55,7 +55,7 @@
 #include "cmdhfxerox.h"     // Xerox
 #include "cmdtrace.h"       // trace list
 #include "ui.h"
-#include "proxgui.h"
+#include "gui/proxgui.h"
 #include "cmddata.h"
 #include "graph.h"
 #include "fpga.h"

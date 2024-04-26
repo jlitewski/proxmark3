@@ -36,11 +36,11 @@
 #include <string.h>
 #include <QtGui>
 #include "proxgui.h"
-#include "ui.h"
-#include "comms.h"
-#include "graph.h"
-#include "cmddata.h"
-#include "util_darwin.h"
+#include "../ui.h"
+#include "../comms.h"
+#include "../graph.h"
+#include "../cmddata.h"
+#include "../util_darwin.h"
 //#include "fileutils.h"
 
 extern "C" int preferences_save(void);

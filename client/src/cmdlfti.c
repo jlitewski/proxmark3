@@ -26,8 +26,8 @@
 #include "comms.h"
 #include "crc16.h"
 #include "ui.h"
-#include "proxgui.h"
 #include "graph.h"
+#include "gui/proxgui.h"
 #include "cliparser.h"
 
 static int CmdHelp(const char *Cmd);

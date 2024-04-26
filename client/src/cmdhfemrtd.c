@@ -33,7 +33,7 @@
 #include "commonutil.h"             // num_to_bytes
 #include "util_posix.h"             // msclock
 #include "ui.h"                     // search home directory
-#include "proxgui.h"                // Picture Window
+#include "gui/proxgui.h"                // Picture Window
 
 // Max file size in bytes. Used in several places.
 // Average EF_DG2 seems to be around 20-25kB or so, but ICAO doesn't set an upper limit
