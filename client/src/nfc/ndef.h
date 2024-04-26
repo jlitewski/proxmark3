@@ -20,7 +20,7 @@
 #define _NDEF_H_
 
 #include <stdbool.h>
-#include "common.h"
+#include "../include/common.h"
 
 #define NDEF_MFC_AID    0xE103
 

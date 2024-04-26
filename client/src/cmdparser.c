@@ -36,6 +36,14 @@ bool IfClientDebugEnabled(void) {
     return g_debugMode;
 }
 
+bool IfGUIEnabled(void) {
+#ifdef HAVE_GUI
+    return true;
+#else
+    return false;
+#endif
+}
+
 bool IfPm3Present(void) {
     if (g_session.help_dump_mode)
         return false;
