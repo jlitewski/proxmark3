@@ -19,8 +19,7 @@
 #ifndef CMDDATA_H__
 #define CMDDATA_H__
 
-#include "common.h"
-#include <stdbool.h>
+#include "../include/common.h"
 
 #ifdef __cplusplus
 extern "C" {
