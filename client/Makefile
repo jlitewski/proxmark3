@@ -717,7 +717,7 @@ SRCS =  mifare/aiddesfire.c \
 		cipurse/cipursecore.c \
 		cipurse/cipursecrypto.c \
 		cipurse/cipursetest.c \
-		fileutils.c \
+		utils/fileutils.c \
 		flash.c \
 		generator.c \
 		graph.c \
@@ -755,7 +755,7 @@ SRCS =  mifare/aiddesfire.c \
 		uart/uart_win32.c \
 		scripting.c \
 		ui.c \
-		util.c \
+		utils/util.c \
 		version_pm3.c \
 		wiegand_formats.c \
 		wiegand_formatutils.c
@@ -779,7 +779,7 @@ SRCS += bucketsort.c \
 
 ifeq ($(GD_FOUND),1)
     # electronic shelf labels
-    SRCS += imgutils.c \
+    SRCS += utils/imgutils.c \
 	cmdhfwaveshare.c
 endif
 
