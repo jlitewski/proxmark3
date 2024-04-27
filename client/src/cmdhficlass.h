@@ -19,7 +19,7 @@
 #define CMDHFICLASS_H__
 
 #include "common.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "iclass_cmd.h"
 
 int CmdHFiClass(const char *Cmd);

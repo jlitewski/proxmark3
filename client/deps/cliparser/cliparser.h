@@ -13,7 +13,7 @@
 #include "argtable3.h"
 #include <stdlib.h>
 #include <stdbool.h>
-#include "util.h"
+#include "utils/util.h"
 
 #define arg_param_begin arg_lit0("h",  "help",    "This help")
 #define arg_param_end arg_end(20)

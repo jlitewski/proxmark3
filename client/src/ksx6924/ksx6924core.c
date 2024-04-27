@@ -35,7 +35,7 @@
 #include "fido/fidocore.h" // FIDOExchange
 #include "protocols.h"
 #include "ui.h"
-#include "util.h"
+#include "utils/util.h"
 #include "comms.h"         // clearCommandBuffer
 #include "commonutil.h"    // ntohl (pm3 version)
 #include "protocols.h"     // ISO7816 APDU return codes

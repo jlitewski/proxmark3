@@ -22,7 +22,7 @@
 #include <stdlib.h>
 
 #include "ui.h"
-#include "util.h"                // sprint_hex
+#include "utils/util.h"                // sprint_hex
 #include "crypto/asn1utils.h"
 #include "crypto/libpcrypto.h"
 #include "ecp.h"

@@ -22,7 +22,7 @@
 
 #include "common.h"
 
-#include "util.h"       // FILE_PATH_SIZE
+#include "../utils/util.h"       // FILE_PATH_SIZE
 #include "protocol_vigik.h"
 
 #define MIFARE_SECTOR_RETRY     10

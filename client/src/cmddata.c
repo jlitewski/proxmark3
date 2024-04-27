@@ -31,7 +31,7 @@
 #include "lfdemod.h"             // for demod code
 #include "loclass/cipherutils.h" // for decimating samples in getsamples
 #include "cmdlfem410x.h"         // askem410xdecode
-#include "fileutils.h"           // searchFile
+#include "utils/fileutils.h"           // searchFile
 #include "cliparser.h"
 #include "cmdlft55xx.h"          // print...
 #include "crypto/asn1utils.h"    // ASN1 decode / print

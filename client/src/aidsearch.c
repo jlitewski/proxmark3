@@ -18,7 +18,7 @@
 #include "aidsearch.h"
 #include <ctype.h>
 #include <string.h>
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "pm3_cmd.h"
 
 static int openAIDFile(json_t **root, bool verbose) {

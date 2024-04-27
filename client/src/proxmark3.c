@@ -34,7 +34,7 @@
 #include "cmdhw.h"
 #include "whereami.h"
 #include "comms.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "flash.h"
 #include "preferences.h"
 #include "commonutil.h"

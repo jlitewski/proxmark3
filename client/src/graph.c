@@ -20,7 +20,7 @@
 #include <string.h>
 #include "ui.h"
 #include "gui/proxgui.h"
-#include "util.h"           // param_get32ex
+#include "utils/util.h"           // param_get32ex
 #include "lfdemod.h"
 #include "cmddata.h"        // for g_debugmode
 #include "commonutil.h"     // Uint4bytetomemle
@@ -31,10 +31,6 @@ int32_t g_OverlayBuffer[MAX_GRAPH_TRACE_LEN];
 bool    g_useOverlays = false;
 size_t  g_GraphTraceLen;
 buffer_savestate_t g_saveState_gb;
-marker_t g_MarkerA, g_MarkerB, g_MarkerC, g_MarkerD;
-marker_t *g_TempMarkers;
-uint8_t g_TempMarkerSize = 0;
-
 marker_t g_MarkerA, g_MarkerB, g_MarkerC, g_MarkerD;
 marker_t *g_TempMarkers;
 uint8_t g_TempMarkerSize = 0;

@@ -37,8 +37,8 @@
 #include "ui.h"
 #include "cmdhf14a.h"
 #include "cmdtrace.h"
-#include "util.h"
-#include "fileutils.h"   // laodFileJSONroot
+#include "utils/util.h"
+#include "utils/fileutils.h"   // laodFileJSONroot
 #include "crypto/libpcrypto.h"
 #include "protocols.h"   // ISO7816 APDU return codes
 

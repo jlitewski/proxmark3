@@ -39,7 +39,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #ifndef ON_DEVICE
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #endif
 
 

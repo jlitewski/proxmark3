@@ -22,7 +22,7 @@
 #include <stdio.h>
 
 #include "ui.h"  // Print...
-#include "util.h"
+#include "utils/util.h"
 #include "commonutil.h"  // ARRAYLEN
 
 const APDUCode_t APDUCodeTable[] = {

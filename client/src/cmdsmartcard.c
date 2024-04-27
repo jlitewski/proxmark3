@@ -28,8 +28,8 @@
 #include "emv/emvcore.h"        // decodeTVL
 #include "crypto/libpcrypto.h"  // sha512hash
 #include "ui.h"
-#include "util.h"
-#include "fileutils.h"
+#include "utils/util.h"
+#include "utils/fileutils.h"
 #include "crc16.h"              // crc
 #include "cliparser.h"          // cliparsing
 #include "atrs.h"               // ATR lookup

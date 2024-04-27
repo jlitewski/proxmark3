@@ -20,7 +20,7 @@
 
 #include "cmdhfemrtd.h"
 #include <ctype.h>
-#include "fileutils.h"              // saveFile
+#include "utils/fileutils.h"              // saveFile
 #include "cmdparser.h"              // command_t
 #include "cmdtrace.h"               // CmdTraceList
 #include "cliparser.h"              // CLIParserContext etc

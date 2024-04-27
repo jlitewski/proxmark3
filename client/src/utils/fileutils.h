@@ -23,15 +23,15 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <stdarg.h>
-#include "ui.h"
-#include "emv/emvjson.h"
-#include "mifare/mifare4.h"
-#include "mifare/mifarehost.h"
-#include "cmdhfmfu.h"
+#include "../ui.h"
+#include "../emv/emvjson.h"
+#include "../mifare/mifare4.h"
+#include "../mifare/mifarehost.h"
+#include "../cmdhfmfu.h"
 
 #include "protocols.h"    // iclass defines
-#include "cmdhftopaz.h"   // TOPAZ defines
-#include "mifare/mifaredefault.h"     // MFP / AES defines
+#include "../cmdhftopaz.h"   // TOPAZ defines
+#include "../mifare/mifaredefault.h"     // MFP / AES defines
 
 typedef union {
     void *v;

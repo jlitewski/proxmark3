@@ -43,7 +43,7 @@
 #include "hardnested_bruteforce.h"
 #include "hardnested_bf_core.h"
 #include "hardnested_bitarray_core.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 
 #define NUM_CHECK_BITFLIPS_THREADS      (num_CPUs())
 #define NUM_REDUCTION_WORKING_THREADS   (num_CPUs())

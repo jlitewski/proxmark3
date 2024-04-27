@@ -9,7 +9,7 @@
 #include "md.h"
 #include "aes.h"
 #include "commonutil.h"
-#include "../src/fileutils.h"
+#include "../src/utils/fileutils.h"
 
 #define HMAC_POS_DATA 0x008
 #define HMAC_POS_TAG 0x1B4

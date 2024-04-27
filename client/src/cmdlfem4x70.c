@@ -20,7 +20,7 @@
 #include <ctype.h>
 #include "cmdparser.h"    // command_t
 #include "cliparser.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "commonutil.h"
 #include "em4x70.h"
 #include "id48.h"

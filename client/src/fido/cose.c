@@ -22,7 +22,7 @@
 #include "cbortools.h"
 #include "commonutil.h"  // ARRAYLEN
 #include "ui.h" // Print...
-#include "util.h"
+#include "utils/util.h"
 
 static const char COSEEmptyStr[] = "";
 

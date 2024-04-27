@@ -33,7 +33,7 @@
 #include "cmddata.h"
 #include "lfdemod.h"
 #include "cmdhf14a.h"     // for getTagInfo
-#include "fileutils.h"    // loadDictionary
+#include "utils/fileutils.h"    // loadDictionary
 #include "util_posix.h"
 #include "cmdlf.h"        // for lf sniff
 #include "generator.h"

@@ -29,7 +29,7 @@
 #include "loclass/cipher.h"
 #include "loclass/ikeys.h"
 #include "loclass/elite_crack.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "protocols.h"
 #include "cardhelper.h"
 #include "wiegand_formats.h"

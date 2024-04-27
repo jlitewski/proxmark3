@@ -21,7 +21,7 @@
 #include "cmdparser.h"
 #include "cmdsmartcard.h"
 #include "ui.h"
-#include "util.h"
+#include "utils/util.h"
 #include "commonutil.h"
 
 #define CARD_INS_DECRYPT    0x01

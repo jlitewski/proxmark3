@@ -64,7 +64,7 @@ From "Dismantling iclass":
 
 #include "commonutil.h"  // ARRAYLEN
 
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "cipherutils.h"
 #include "mbedtls/des.h"
 

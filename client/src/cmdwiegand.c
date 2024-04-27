@@ -29,7 +29,7 @@
 #include "cmdhflist.h"          // annotations
 #include "wiegand_formats.h"
 #include "wiegand_formatutils.h"
-#include "util.h"
+#include "utils/util.h"
 
 static int CmdHelp(const char *Cmd);
 

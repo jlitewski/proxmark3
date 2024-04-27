@@ -4,7 +4,7 @@
 
 #include "cmdhfxerox.h"
 
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "cmdtrace.h"
 #include "cmdparser.h"      // command_t
 #include "cliparser.h"

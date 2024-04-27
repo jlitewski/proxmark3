@@ -23,7 +23,7 @@
 #include "cmdparser.h"             // command_t
 #include "commonutil.h"            // ARRAYLEN
 #include "comms.h"                 // clearCommandBuffer
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "cmdtrace.h"
 #include "mifare/mifaredefault.h"  // mifare default key array
 #include "cliparser.h"             // argtable

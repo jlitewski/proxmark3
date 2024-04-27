@@ -26,7 +26,7 @@
 #include "uart/uart.h"
 #include "ui.h"
 #include "crc16.h"
-#include "util.h" // g_pendingPrompt
+#include "utils/util.h" // g_pendingPrompt
 #include "util_posix.h" // msclock
 #include "util_darwin.h" // en/dis-ableNapp();
 #include "usart_defs.h"

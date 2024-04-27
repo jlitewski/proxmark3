@@ -18,7 +18,7 @@
 
 #include "aiddesfire.h"
 #include "pm3_cmd.h"
-#include "fileutils.h"
+#include "../utils/fileutils.h"
 #include "jansson.h"
 
 // NXP Appnote AN10787 - Application Directory (MAD)

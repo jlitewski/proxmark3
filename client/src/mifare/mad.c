@@ -21,8 +21,8 @@
 #include "commonutil.h"  // ARRAYLEN
 #include "pm3_cmd.h"
 #include "crc.h"
-#include "util.h"
-#include "fileutils.h"
+#include "utils/util.h"
+#include "utils/fileutils.h"
 #include "jansson.h"
 #include "mifaredefault.h"
 

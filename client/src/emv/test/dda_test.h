@@ -21,6 +21,7 @@
 #ifndef __DDA_TEST_H
 #define __DDA_TEST_H
 #include <stdbool.h>
+#include <stdint.h>
 
 int exec_dda_test(bool verbose);
 #endif

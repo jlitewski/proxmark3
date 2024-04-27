@@ -30,7 +30,7 @@
 #include "pm3line_vocabulary.h"
 #include "pm3_cmd.h"
 #include "ui.h"                          // g_session
-#include "util.h"                        // str_ndup
+#include "utils/util.h"                        // str_ndup
 
 #if defined(HAVE_READLINE)
 

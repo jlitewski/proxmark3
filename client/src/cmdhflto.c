@@ -29,7 +29,7 @@
 #include "ui.h"
 #include "cmdhf14a.h"
 #include "protocols.h"
-#include "fileutils.h"    // saveFile
+#include "utils/fileutils.h"    // saveFile
 #include "commonutil.h"   // ARRAYLEN
 /*
   iceman notes

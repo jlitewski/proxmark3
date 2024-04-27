@@ -18,7 +18,7 @@
 #ifndef PREFERENCES_H_
 #define PREFERENCES_H_
 
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include <errno.h>
 
 // Current working directory will be prepended.

@@ -25,12 +25,12 @@
 #include "protocols.h"
 #include "cliparser.h"
 #include "cmdmain.h"
-#include "fileutils.h"          // saveFile
+#include "utils/fileutils.h"          // saveFile
 #include "crypto/libpcrypto.h"  // aes_decode
 #include "cmac.h"
 #include "cmdhf14a.h"
 #include "ui.h"
-#include "util.h"
+#include "utils/util.h"
 #include "crc32.h"
 #include "cmdhfmfdes.h"
 

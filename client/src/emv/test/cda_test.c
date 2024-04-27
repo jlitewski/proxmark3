@@ -31,7 +31,7 @@
 #include "../tlv.h"
 #include "../emv_pki.h"
 #include "ui.h"             // printandlog
-#include "util.h"       // print_buffer
+#include "utils/util.h"       // print_buffer
 
 struct emv_pk c_mchip_05 = {
     .rid = { 0xa0, 0x00, 0x00, 0x00, 0x04, },

@@ -17,16 +17,16 @@
 // this define is needed for scandir/alphasort to work
 #define _GNU_SOURCE
 #include "fileutils.h"
-#include "preferences.h"
+#include "../preferences.h"
 
 #include <dirent.h>
 #include <ctype.h>
 
 #include "pm3_cmd.h"
 #include "commonutil.h"
-#include "proxmark3.h"
+#include "../proxmark3.h"
 #include "util.h"
-#include "cmdhficlass.h"  // pagemap
+#include "../cmdhficlass.h"  // pagemap
 #include "iclass_cmd.h"
 #include "iso15.h"
 

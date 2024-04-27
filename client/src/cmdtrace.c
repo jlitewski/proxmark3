@@ -26,7 +26,7 @@
 #include "commonutil.h"         // ARRAYLEN
 #include "mifare/mifaredefault.h"          // mifare default key array
 #include "comms.h"              // for sending cmds to device. GetFromBigBuf
-#include "fileutils.h"          // for saveFile
+#include "utils/fileutils.h"          // for saveFile
 #include "cmdlfhitag.h"         // annotate hitag
 #include "pm3_cmd.h"            // tracelog_hdr_t
 #include "cliparser.h"          // args..

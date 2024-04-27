@@ -25,7 +25,7 @@
 #include <stdlib.h>
 
 #include "util_posix.h"  // msclock
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "cmdparser.h"    // command_t
 #include "comms.h"
 #include "commonutil.h"
@@ -41,7 +41,7 @@
 #include "generator.h"
 #include "cliparser.h"
 #include "cmdhw.h"
-#include "util.h"
+#include "utils/util.h"
 
 //////////////// 4205 / 4305 commands
 

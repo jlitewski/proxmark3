@@ -25,7 +25,7 @@
 #include "comms.h"
 #include "cmdtrace.h"
 #include "crc16.h"
-#include "util.h"
+#include "utils/util.h"
 #include "ui.h"
 #include "iso18.h"       // felica_card_select_t struct
 #include "des.h"

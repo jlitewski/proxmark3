@@ -28,7 +28,7 @@
 #include "cmddata.h"
 #include "mifare.h"     // xiso
 #include "cmdhf.h"      //
-#include "fileutils.h"  // saveFile
+#include "utils/fileutils.h"  // saveFile
 #include "ui.h"
 #include "commonutil.h" // MemLeToUint2byte
 #include "protocols.h"  // ISO14 defines

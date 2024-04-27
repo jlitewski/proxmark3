@@ -20,7 +20,7 @@
 #include "cmdparser.h"         // command_t
 #include "cliparser.h"
 #include "pmflash.h"           // rdv40validation_t
-#include "fileutils.h"         // saveFile
+#include "utils/fileutils.h"         // saveFile
 #include "comms.h"             // getfromdevice
 #include "cmdflashmemspiffs.h" // spiffs commands
 #include "rsa.h"

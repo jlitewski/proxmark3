@@ -20,7 +20,7 @@
 #include "cbortools.h"
 #include <inttypes.h>
 #include "emv/emvjson.h"
-#include "util.h"
+#include "utils/util.h"
 #include "ui.h"           // PrintAndLogEx(
 #include "fidocore.h"
 

@@ -25,7 +25,7 @@
 #include "commonutil.h"   // ARRAYLEN
 #include "emv/tlv.h"
 #include "asn1dump.h"
-#include "util.h"
+#include "utils/util.h"
 
 
 int ecdsa_asn1_get_signature(uint8_t *signature, size_t signaturelen, uint8_t *rval, uint8_t *sval) {

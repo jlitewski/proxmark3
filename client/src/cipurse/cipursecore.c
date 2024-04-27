@@ -26,7 +26,7 @@
 #include "../emv/emvjson.h"
 #include "../iso7816/apduinfo.h"    // sAPDU_t
 #include "ui.h"
-#include "util.h"
+#include "utils/util.h"
 #include "protocols.h"              // ISO7816 APDU return codes
 
 // context for secure channel

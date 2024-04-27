@@ -26,7 +26,7 @@
 #include "cmdtrace.h"
 #include "crc.h"
 #include "crc16.h"
-#include "fileutils.h"  //saveFile
+#include "utils/fileutils.h"  //saveFile
 
 static int CmdHelp(const char *Cmd);
 

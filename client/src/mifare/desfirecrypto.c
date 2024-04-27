@@ -20,7 +20,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <util.h>
+#include "../utils/util.h"
 #include "ui.h"
 #include "aes.h"
 #include "des.h"

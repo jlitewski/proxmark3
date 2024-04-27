@@ -27,7 +27,7 @@
 #include "emv/tlv.h"
 #include "proxmark3.h"
 #include "cmdhf14a.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "crypto/asn1utils.h"
 #include "protocols.h"
 

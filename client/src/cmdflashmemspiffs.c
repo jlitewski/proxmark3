@@ -20,7 +20,7 @@
 #include <ctype.h>
 #include "cmdparser.h"  // command_t
 #include "pmflash.h"
-#include "fileutils.h"  //saveFile
+#include "utils/fileutils.h"  //saveFile
 #include "comms.h"      //getfromdevice
 #include "cliparser.h"
 

@@ -34,7 +34,7 @@
 
 #include "reveng.h"
 #include "ui.h"
-#include "util.h"
+#include "utils/util.h"
 #include "pm3_cmd.h"
 
 #define MAX_ARGS 20

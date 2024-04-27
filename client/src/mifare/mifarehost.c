@@ -38,7 +38,7 @@
 #include "mifaredefault.h"      // default keys
 #include "protocol_vigik.h"     // VIGIK struct
 #include "crypto/libpcrypto.h"
-#include "util.h" // xor
+#include "utils/util.h" // xor
 #include "mbedtls/sha1.h"       // SHA1
 #include "cmdhf14a.h"
 #include "gen4.h"

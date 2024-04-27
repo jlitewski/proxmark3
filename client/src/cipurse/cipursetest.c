@@ -20,7 +20,7 @@
 
 #include <unistd.h>
 #include <string.h>      // memcpy memset
-#include "fileutils.h"
+#include "utils/fileutils.h"
 
 #include "crypto/libpcrypto.h"
 #include "cipurse/cipursecrypto.h"

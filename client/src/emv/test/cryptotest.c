@@ -17,7 +17,7 @@
 //-----------------------------------------------------------------------------
 
 #include "cryptotest.h"
-#include "util.h"
+#include "utils/util.h"
 #include "ui.h"              // printandlog
 #include "bignum.h"
 #include "aes.h"

@@ -24,11 +24,11 @@
 #include "comms.h"
 #include "cmdparser.h"
 #include "ui.h"
-#include "util.h"
-#include "fileutils.h"
+#include "utils/util.h"
+#include "utils/fileutils.h"
 #include "util_posix.h"     // msleep
 #include "cliparser.h"
-#include "imgutils.h"
+#include "utils/imgutils.h"
 
 #define EPD_1IN54B     0
 #define EPD_1IN54C     1

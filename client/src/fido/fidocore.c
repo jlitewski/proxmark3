@@ -30,7 +30,7 @@
 #include "additional_ca.h"
 #include "cose.h"
 #include "ui.h"
-#include "util.h"
+#include "utils/util.h"
 
 typedef struct {
     uint8_t ErrorCode;

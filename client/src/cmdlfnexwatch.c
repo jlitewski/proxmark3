@@ -33,7 +33,7 @@
 #include "cmdlft55xx.h"    // clone..
 #include "cmdlfem4x05.h"   //
 #include "cliparser.h"
-#include "util.h"
+#include "utils/util.h"
 
 
 typedef enum {

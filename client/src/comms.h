@@ -21,7 +21,7 @@
 
 #include "common.h"
 #include "pm3_cmd.h"    // Packet structs
-#include "util.h"       // FILE_PATH_SIZE
+#include "utils/util.h"       // FILE_PATH_SIZE
 #include "iso7816/iso7816core.h" // SetISODEPState
 
 #ifdef __cplusplus

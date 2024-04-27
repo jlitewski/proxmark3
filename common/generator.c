@@ -25,7 +25,7 @@
 #include <string.h>
 #include "commonutil.h"   //BSWAP_16
 #include "common.h"       //BSWAP_32/64
-#include "util.h"
+#include "../client/src/utils/util.h"
 #include "pm3_cmd.h"
 #include "crc16.h"        // crc16 ccitt
 #include "mbedtls/sha1.h"

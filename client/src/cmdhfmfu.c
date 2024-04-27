@@ -32,7 +32,7 @@
 #include "cmdmain.h"
 #include "amiibo.h"         // amiiboo fcts
 #include "base64.h"
-#include "fileutils.h"      // saveFile
+#include "utils/fileutils.h"      // saveFile
 #include "cmdtrace.h"       // trace list
 #include "preferences.h"    // setDeviceDebugLevel
 

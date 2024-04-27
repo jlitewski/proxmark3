@@ -26,7 +26,7 @@
 #include "desfirecore.h"
 #include <stdlib.h>
 #include <string.h>
-#include <util.h>
+#include "../utils/util.h"
 #include "commonutil.h"
 #include "generator.h"
 #include "aes.h"

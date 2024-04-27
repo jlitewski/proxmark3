@@ -17,7 +17,7 @@
 //-----------------------------------------------------------------------------
 #include "hitag2_crypto.h"
 #include <inttypes.h>
-#include "util.h"
+#include "../../client/src/utils/util.h"
 #include "string.h"
 #include "commonutil.h"
 #include "pm3_cmd.h"

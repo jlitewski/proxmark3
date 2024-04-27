@@ -20,10 +20,10 @@
 #include <string.h>
 #include "commonutil.h"  // ARRAYLEN
 #include "ui.h"
-#include "util.h"
+#include "utils/util.h"
 #include "proxmark3.h"
 #include "emv_tags.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "pm3_cmd.h"
 
 static const ApplicationDataElm_t ApplicationData[] = {

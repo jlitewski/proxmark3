@@ -11,7 +11,7 @@
 #include "cliparser.h"
 #include <string.h>
 #include <stdlib.h>
-#include <util.h>       // color constants
+#include "utils/util.h" // color constants
 #include <ui.h>         // PrintAndLogEx
 #include <ctype.h>      // tolower
 #include <inttypes.h>   // PRIu64

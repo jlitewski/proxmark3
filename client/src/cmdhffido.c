@@ -42,8 +42,8 @@
 #include "ui.h"
 #include "cmdhf14a.h"
 #include "cmdtrace.h"
-#include "util.h"
-#include "fileutils.h"   // laodFileJSONroot
+#include "utils/util.h"
+#include "utils/fileutils.h"   // laodFileJSONroot
 #include "protocols.h"   // ISO7816 APDU return codes
 
 #define DEF_FIDO_SIZE        2048

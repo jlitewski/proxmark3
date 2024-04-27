@@ -38,7 +38,7 @@
 #include <unistd.h>
 #include "comms.h"
 #include "cmdmain.h"
-#include "util.h"
+#include "utils/util.h"
 #include "ui.h"
 #include "proxmark3.h"
 #include "cliparser.h"

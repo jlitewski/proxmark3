@@ -37,7 +37,7 @@
 #include "lauxlib.h"
 #include "proxmark3.h"
 #include "ui.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "cliparser.h"    // cliparsing
 
 #ifdef HAVE_LUA_SWIG

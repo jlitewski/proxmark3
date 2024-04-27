@@ -30,9 +30,9 @@
 #include <mbedtls/oid.h>
 #include "emv/emv_tags.h"
 #include "emv/emvjson.h"
-#include "util.h"
+#include "utils/util.h"
 #include "proxmark3.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "pm3_cmd.h"
 
 enum asn1_tag_t {

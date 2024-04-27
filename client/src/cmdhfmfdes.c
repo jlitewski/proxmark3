@@ -38,13 +38,13 @@
 #include "mifare/desfiresecurechan.h"
 #include "mifare/mifaredefault.h"   // default keys
 #include "crapto1/crapto1.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 //#include "nfc/ndef.h"               // NDEF
 #include "mifare/mad.h"
 #include "mifare/mifaredefault.h"
 #include "generator.h"
 #include "mifare/aiddesfire.h"
-#include "util.h"
+#include "utils/util.h"
 
 #define MAX_KEY_LEN        24
 #define MAX_KEYS_LIST_LEN  1024

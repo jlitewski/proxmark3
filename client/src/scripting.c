@@ -40,7 +40,7 @@
 
 #include "crc16.h"
 #include "protocols.h"
-#include "fileutils.h"    // searchfile
+#include "utils/fileutils.h"    // searchfile
 #include "cmdlf.h"        // lf_config
 #include "generator.h"
 #include "cmdlfem4x05.h"  // read 4305

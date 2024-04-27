@@ -61,11 +61,11 @@ THE SOFTWARE.
 #include "cmdhfmfhard.h"
 #include "hardnested_bf_core.h"
 #include "ui.h"
-#include "util.h"
+#include "utils/util.h"
 #include "util_posix.h"
 #include "crapto1/crapto1.h"
 #include "parity.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "pm3_cmd.h"
 
 #define NUM_BRUTE_FORCE_THREADS         (num_CPUs())

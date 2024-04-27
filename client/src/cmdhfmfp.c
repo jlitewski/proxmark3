@@ -22,7 +22,7 @@
 #include "commonutil.h"  // ARRAYLEN
 #include "comms.h"
 #include "ui.h"
-#include "util.h"
+#include "utils/util.h"
 #include "cmdhf14a.h"
 #include "mifare/mifare4.h"
 #include "mifare/mad.h"
@@ -30,7 +30,7 @@
 #include "cliparser.h"
 #include "mifare/mifaredefault.h"
 #include "util_posix.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "protocols.h"
 #include "crypto/libpcrypto.h"
 #include "cmdhfmf.h"    // printblock, header

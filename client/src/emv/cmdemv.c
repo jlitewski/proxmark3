@@ -32,7 +32,7 @@
 #include "dol.h"
 #include "ui.h"
 #include "emv_tags.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "protocols.h"      // ISO7816 APDU return codes
 #include "commonutil.h"     // MemBeToUint2byte
 #include <mbedtls/des.h>    // DES

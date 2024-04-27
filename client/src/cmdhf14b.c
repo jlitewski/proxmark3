@@ -19,7 +19,7 @@
 #include "cmdhf14b.h"
 #include <ctype.h>
 #include "iso14b.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "cmdparser.h"          // command_t
 #include "commonutil.h"         // ARRAYLEN
 #include "comms.h"              // clearCommandBuffer
@@ -32,7 +32,7 @@
 #include "iso7816/apduinfo.h"   // GetAPDUCodeDescription
 #include "nfc/ndef.h"           // NDEFRecordsDecodeAndPrint
 #include "aidsearch.h"
-#include "fileutils.h"          // saveFile
+#include "utils/fileutils.h"          // saveFile
 #include "iclass_cmd.h"         // picopass defines
 #include "cmdhf.h"               // handle HF plot
 

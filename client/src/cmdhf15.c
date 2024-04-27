@@ -39,7 +39,7 @@
 #include "graph.h"
 #include "crc16.h"              // iso15 crc
 #include "cmddata.h"            // getsamples
-#include "fileutils.h"          // pm3_save_dump
+#include "utils/fileutils.h"          // pm3_save_dump
 #include "cliparser.h"
 #include "util_posix.h"         // msleep
 #include "iso15.h"              // typedef structs / enum

@@ -29,7 +29,7 @@
 #include "cmdhfthinfilm.h"
 #include "cmdhftopaz.h"
 #include "cmdnfc.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "mifare/mifaredefault.h"
 #include "mifare/mad.h"
 

@@ -23,7 +23,7 @@
 #include <inttypes.h>
 #include <ctype.h>
 #include <stdlib.h>
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "cmdparser.h"    // command_t
 #include "comms.h"
 #include "commonutil.h"

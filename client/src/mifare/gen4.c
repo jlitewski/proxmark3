@@ -23,7 +23,7 @@
 #include <string.h>
 
 #include "commonutil.h"
-#include "util.h"
+#include "utils/util.h"
 #include "ui.h"
 #include "mifaredefault.h"
 #include "comms.h"

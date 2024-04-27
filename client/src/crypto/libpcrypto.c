@@ -36,7 +36,7 @@
 #include <mbedtls/error.h>
 #include <mbedtls/blowfish.h>
 #include "libpcrypto.h"
-#include "util.h"
+#include "utils/util.h"
 #include "ui.h"
 #include "math.h"
 

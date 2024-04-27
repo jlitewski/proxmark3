@@ -18,7 +18,7 @@
 #ifndef __UTIL_H_
 #define __UTIL_H_
 
-#include "common.h"
+#include "../include/common.h"
 
 #ifdef ANDROID
 #include <endian.h>

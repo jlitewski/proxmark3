@@ -33,9 +33,9 @@
 #endif
 
 #include <complex.h>
-#include "util.h"
+#include "utils/util.h"
 #include "proxmark3.h"  // PROXLOG
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "pm3_cmd.h"
 
 #ifdef _WIN32

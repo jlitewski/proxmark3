@@ -22,7 +22,7 @@
 #include <math.h>
 #include "cmdparser.h"    // command_t
 #include "util_posix.h"  // msclock
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "commonutil.h"
 #include "pmflash.h"
 #include "cmdflashmemspiffs.h"

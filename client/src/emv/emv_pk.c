@@ -34,7 +34,7 @@
 #include "ui.h"
 #include "crypto.h"
 #include "proxmark3.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "pm3_cmd.h"
 
 #define BCD(c) (((c) >= '0' && (c) <= '9') ? ((c) - '0') : -1)

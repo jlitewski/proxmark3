@@ -25,7 +25,7 @@
 #include "emv/tlv.h"
 #include "iso7816/apduinfo.h"
 #include "ui.h"
-#include "util.h"
+#include "utils/util.h"
 #include "util_posix.h"
 #include "iso7816/iso7816core.h"
 #include <stddef.h>
@@ -34,7 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "crypto/libpcrypto.h"
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "mbedtls/ecp.h"
 #include "mbedtls/bignum.h"
 #include "mbedtls/ecdh.h"

@@ -36,10 +36,10 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "util.h" // sprint_hex
+#include "utils/util.h" // sprint_hex
 #include "commonutil.h"  // ARRAYLEN
 
-#include "fileutils.h"
+#include "utils/fileutils.h"
 /**
  *
  * @brief Return and remove the first bit (x0) in the stream : <x0 x1 x2 x3 ... xn >

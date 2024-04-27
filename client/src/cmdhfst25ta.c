@@ -19,7 +19,7 @@
 #include "cmdhfst25ta.h"
 #include "cmdhfst.h"
 #include <ctype.h>
-#include "fileutils.h"
+#include "utils/fileutils.h"
 #include "cmdparser.h"         // command_t
 #include "comms.h"             // clearCommandBuffer
 #include "cmdtrace.h"

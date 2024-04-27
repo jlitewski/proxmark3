@@ -19,7 +19,7 @@
 #ifndef __CIPURSECRYPTO_H__
 #define __CIPURSECRYPTO_H__
 
-#include "common.h"
+#include "../include/common.h"
 #include "iso7816/apduinfo.h"    // sAPDU_t
 
 #define CIPURSE_KVV_LENGTH 4

@@ -25,13 +25,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "../emv_pk.h"
 #include "../crypto.h"
 #include "../tlv.h"
 #include "../emv_pki.h"
 #include "ui.h"         // printandlog
-#include "util.h"       // print_buffer
+#include "utils/util.h"       // print_buffer
 #include "sda_test.h"
 
 struct emv_pk vsdc_01 = {

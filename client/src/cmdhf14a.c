@@ -37,7 +37,7 @@
 #include "iso7816/apduinfo.h"    // GetAPDUCodeDescription
 #include "nfc/ndef.h"            // NDEFRecordsDecodeAndPrint
 #include "cmdnfc.h"              // print_type4_cc_info
-#include "fileutils.h"           // saveFile
+#include "utils/fileutils.h"           // saveFile
 #include "atrs.h"                // getATRinfo
 #include "desfire.h"             // desfire enums
 #include "mifare/desfirecore.h"  // desfire context

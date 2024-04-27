@@ -28,7 +28,7 @@
 #include "cliparser.h"
 #include "cmdhfmfu.h"
 #include "cmdmain.h"
-#include "fileutils.h"    // convert_mfu..
+#include "utils/fileutils.h"    // convert_mfu..
 
 static int CmdHelp(const char *Cmd);
 

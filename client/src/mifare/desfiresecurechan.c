@@ -22,7 +22,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <util.h>
+#include "../utils/util.h"
 #include "ui.h"
 #include "crc.h"
 #include "crc16.h"        // crc16 ccitt
