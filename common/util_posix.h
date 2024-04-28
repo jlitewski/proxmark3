@@ -12,14 +12,20 @@
 // GNU General Public License for more details.
 //
 // See LICENSE.txt for the text of the license.
+//---------- Original Copyright -----------------------------------------------
+// Copyright (C) 2010 iZsh <izsh at fail0verflow.com>
+//
+// This code is licensed to you under the terms of the GNU GPL, version 2 or,
+// at your option, any later version. See the LICENSE.txt file for the text of
+// the license.
 //-----------------------------------------------------------------------------
-// utilities requiring Posix library functions
+// Utilities requiring Posix library functions
 //-----------------------------------------------------------------------------
 
 #ifndef UTIL_POSIX_H__
 #define UTIL_POSIX_H__
 
-#include "common.h"
+#include "../include/common.h"
 
 #ifdef _WIN32
 # include <windows.h>
