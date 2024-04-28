@@ -31,7 +31,8 @@
 // Flavio D. Garcia, Gerhard de Koning Gans, Roel Verdult and
 // Milosch Meriac in the paper "Dismantling IClass".
 //-----------------------------------------------------------------------------
-/*
+
+/* -- MHS 2015
   This file contains an optimized version of the MAC-calculation algorithm. Some measurements on
   a std laptop showed it runs in about 1/3 of the time:
 
@@ -50,12 +51,9 @@
 
   As a consequence, this implementation is less generic. Also, I haven't bothered documenting this.
   For a thorough documentation, check out the MAC-calculation within cipher.c instead.
-
-  -- MHS 2015
 **/
 
-/**
-
+/* -- piwi 2019
   The runtime of opt_doTagMAC_2() with the MHS optimized version was 403 microseconds on Proxmark3.
   This was still to slow for some newer readers which didn't want to wait that long.
 
@@ -67,19 +65,21 @@
   * remove the necessity to reverse bits of input and output bytes
 
   opt_doTagMAC_2() now completes in 270 microseconds.
-
-  -- piwi 2019
 **/
 
-/**
+/* -- iceman 2020
   add the possibility to do iCLASS on device only
-  -- iceman 2020
 **/
 
-#include "optimized_cipher.h"
-#include "optimized_elite.h"
-#include "optimized_ikeys.h"
-#include "optimized_cipherutils.h"
+#include "cipher.h"
+#include "cipherutils.h"
+
+#ifdef ON_DEVICE
+#include "elite_crack.h"
+#include "ikeys.h"
+#else
+#include "utils/fileutils.h"
+#endif
 
 static const uint8_t opt_select_LUT[256] = {
     00, 03, 02, 01, 02, 03, 00, 01, 04, 07, 07, 04, 06, 07, 05, 04,
@@ -99,7 +99,6 @@ static const uint8_t opt_select_LUT[256] = {
     04, 07, 06, 05, 06, 07, 04, 05, 04, 07, 07, 04, 06, 07, 05, 04,
     01, 02, 03, 00, 02, 03, 00, 01, 01, 02, 02, 01, 02, 03, 01, 00
 };
-
 /********************** the table above has been generated with this code: ********
 #include "util.h"
 static void init_opt_select_LUT(void) {
@@ -115,35 +114,8 @@ static void init_opt_select_LUT(void) {
     print_result("", opt_select_LUT, 256);
 }
 ***********************************************************************************/
-/*
-#define opt__select(x,y,r)  (4 & (((r & (r << 2)) >> 5) ^ ((r & ~(r << 2)) >> 4) ^ ( (r | r << 2) >> 3)))\
-    |(2 & (((r | r << 2) >> 6) ^ ( (r | r << 2) >> 1) ^ (r >> 5) ^ r ^ ((x^y) << 1)))\
-    |(1 & (((r & ~(r << 2)) >> 4) ^ ((r & (r << 2)) >> 3) ^ r ^ x))
 
-
- * Some background on the expression above can be found here...
-uint8_t xopt__select(bool x, bool y, uint8_t r)
-{
-
-    //r:      r0 r1 r2 r3 r4 r5 r6 r7
-    //r_ls2:  r2 r3 r4 r5 r6 r7  0  0
-    //                       z0
-    //                          z1
-
-//  uint8_t z0 = (r0 & r2) ^ (r1 & ~r3) ^ (r2 | r4); // <-- original
-    uint8_t z0 = (r_and_ls2 >> 5) ^ ((r & ~r_ls2) >> 4) ^ ( r_or_ls2 >> 3);
-
-//  uint8_t z1 = (r0 | r2) ^ ( r5 | r7) ^ r1 ^ r6 ^ x ^ y;  // <-- original
-    uint8_t z1 = (r_or_ls2 >> 6) ^ ( r_or_ls2 >> 1) ^ (r >> 5) ^ r ^ ((x^y) << 1);
-
-//  uint8_t z2 = (r3 & ~r5) ^ (r4 & r6 ) ^ r7 ^ x;  // <-- original
-    uint8_t z2 = ((r & ~r_ls2) >> 4) ^ (r_and_ls2 >> 3) ^ r ^ x;
-
-    return (z0 & 4) | (z1 & 2) | (z2 & 1);
-}
-*/
-
-static void opt_successor(const uint8_t *k, State_t *s, uint8_t y) {
+static void opt_successor(const uint8_t *k, cipher_state_t *s, uint8_t y) {
 // #define opt_T(s) (0x1 & ((s->t >> 15) ^ (s->t >> 14) ^ (s->t >> 10) ^ (s->t >> 8) ^ (s->t >> 5) ^ (s->t >> 4)^ (s->t >> 1) ^ s->t))
     // uint8_t Tt = opt_T(s);
     uint16_t Tt = s->t & 0xc533;
@@ -172,7 +144,7 @@ static void opt_successor(const uint8_t *k, State_t *s, uint8_t y) {
     s->l = s->r + r;
 }
 
-static void opt_suc(const uint8_t *k, State_t *s, const uint8_t *in, uint8_t length, bool add32Zeroes) {
+static void opt_suc(const uint8_t *k, cipher_state_t *s, const uint8_t *in, uint8_t length, bool add32Zeroes) {
     for (int i = 0; i < length; i++) {
         uint8_t head;
         head = in[i];
@@ -210,31 +182,39 @@ static void opt_suc(const uint8_t *k, State_t *s, const uint8_t *in, uint8_t len
     }
 }
 
-static void opt_output(const uint8_t *k, State_t *s,  uint8_t *buffer) {
+static void opt_output(const uint8_t *k, cipher_state_t *s,  uint8_t *buffer) {
     for (uint8_t times = 0; times < 4; times++) {
         uint8_t bout = 0;
         bout |= (s->r & 0x4) >> 2;
         opt_successor(k, s, 0);
+
         bout |= (s->r & 0x4) >> 1;
         opt_successor(k, s, 0);
+
         bout |= (s->r & 0x4);
         opt_successor(k, s, 0);
+
         bout |= (s->r & 0x4) << 1;
         opt_successor(k, s, 0);
+
         bout |= (s->r & 0x4) << 2;
         opt_successor(k, s, 0);
+
         bout |= (s->r & 0x4) << 3;
         opt_successor(k, s, 0);
+
         bout |= (s->r & 0x4) << 4;
         opt_successor(k, s, 0);
+
         bout |= (s->r & 0x4) << 5;
         opt_successor(k, s, 0);
+        
         buffer[times] = bout;
     }
 }
 
 static void opt_MAC(uint8_t *k, uint8_t *input, uint8_t *out) {
-    State_t _init  =  {
+    cipher_state_t _init  =  {
         ((k[0] ^ 0x4c) + 0xEC) & 0xFF,// l
         ((k[0] ^ 0x4c) + 0x21) & 0xFF,// r
         0x4c, // b
@@ -246,7 +226,7 @@ static void opt_MAC(uint8_t *k, uint8_t *input, uint8_t *out) {
 }
 
 static void opt_MAC_N(uint8_t *k, uint8_t *input, uint8_t in_size, uint8_t *out) {
-    State_t _init  =  {
+    cipher_state_t _init  =  {
         ((k[0] ^ 0x4c) + 0xEC) & 0xFF,// l
         ((k[0] ^ 0x4c) + 0x21) & 0xFF,// r
         0x4c, // b
@@ -257,26 +237,65 @@ static void opt_MAC_N(uint8_t *k, uint8_t *input, uint8_t in_size, uint8_t *out)
     opt_output(k, &_init, out);
 }
 
-void opt_doReaderMAC(uint8_t *cc_nr_p, uint8_t *div_key_p, uint8_t mac[4]) {
-    uint8_t dest [] = {0, 0, 0, 0, 0, 0, 0, 0};
-    opt_MAC(div_key_p, cc_nr_p, dest);
-    memcpy(mac, dest, 4);
-}
-
-void opt_doReaderMAC_2(State_t _init,  uint8_t *nr, uint8_t mac[4], const uint8_t *div_key_p) {
-    opt_suc(div_key_p, &_init, nr, 4, false);
-    opt_output(div_key_p, &_init, mac);
-}
-
-
+//Optimized version of doMAC_N()
 void doMAC_N(uint8_t *in_p, uint8_t in_size, uint8_t *div_key_p, uint8_t mac[4]) {
     uint8_t dest [] = {0, 0, 0, 0, 0, 0, 0, 0};
     opt_MAC_N(div_key_p, in_p, in_size, dest);
     memcpy(mac, dest, 4);
 }
 
+
+#ifndef ON_DEVICE
+// Semi-optimized version of doMAC() - HACKhalo2
+void doMAC(uint8_t *cc_nr_p, uint8_t *div_key_p, uint8_t mac[4]) {
+    uint8_t cc_nr[13] = { 0 };
+    uint8_t div_key[8];
+
+    memcpy(cc_nr, cc_nr_p, 12);
+    memcpy(div_key, div_key_p, 8);
+
+    reverse_arraybytes(cc_nr, 12);
+    uint8_t dest [] = {0, 0, 0, 0, 0, 0, 0, 0};
+    opt_MAC(div_key, cc_nr, dest);
+    memcpy(mac, dest, 4);
+}
+
+int testMAC(void) {
+    PrintAndLogEx(SUCCESS, "Testing MAC calculation...");
+
+    //From the "dismantling.IClass" paper:
+    uint8_t cc_nr[] = {0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0};
+    //From the paper
+    uint8_t div_key[8] = {0xE0, 0x33, 0xCA, 0x41, 0x9A, 0xEE, 0x43, 0xF9};
+    uint8_t correct_MAC[4] = {0x1d, 0x49, 0xC9, 0xDA};
+
+    uint8_t calculated_mac[4] = {0};
+    doMAC(cc_nr, div_key, calculated_mac);
+
+    if (memcmp(calculated_mac, correct_MAC, 4) == 0) {
+        PrintAndLogEx(SUCCESS, "    MAC calculation ( %s )", _GREEN_("ok"));
+    } else {
+        PrintAndLogEx(FAILED, "    MAC calculation ( %s )", _RED_("fail"));
+        printarr("    Calculated_MAC", calculated_mac, 4);
+        printarr("    Correct_MAC   ", correct_MAC, 4);
+        return PM3_ESOFT;
+    }
+    return PM3_SUCCESS;
+}
+#else
+void opt_doReaderMAC(uint8_t *cc_nr_p, uint8_t *div_key_p, uint8_t mac[4]) {
+    uint8_t dest [] = {0, 0, 0, 0, 0, 0, 0, 0};
+    opt_MAC(div_key_p, cc_nr_p, dest);
+    memcpy(mac, dest, 4);
+}
+
+void opt_doReaderMAC_2(cipher_state_t _init,  uint8_t *nr, uint8_t mac[4], const uint8_t *div_key_p) {
+    opt_suc(div_key_p, &_init, nr, 4, false);
+    opt_output(div_key_p, &_init, mac);
+}
+
 void opt_doTagMAC(uint8_t *cc_p, const uint8_t *div_key_p, uint8_t mac[4]) {
-    State_t _init  =  {
+    cipher_state_t _init  =  {
         ((div_key_p[0] ^ 0x4c) + 0xEC) & 0xFF,// l
         ((div_key_p[0] ^ 0x4c) + 0x21) & 0xFF,// r
         0x4c, // b
@@ -294,8 +313,8 @@ void opt_doTagMAC(uint8_t *cc_p, const uint8_t *div_key_p, uint8_t mac[4]) {
  * @param div_key_p
  * @return the cipher state
  */
-State_t opt_doTagMAC_1(uint8_t *cc_p, const uint8_t *div_key_p) {
-    State_t _init  =  {
+cipher_state_t opt_doTagMAC_1(uint8_t *cc_p, const uint8_t *div_key_p) {
+    cipher_state_t _init  =  {
         ((div_key_p[0] ^ 0x4c) + 0xEC) & 0xFF,// l
         ((div_key_p[0] ^ 0x4c) + 0x21) & 0xFF,// r
         0x4c, // b
@@ -314,11 +333,10 @@ State_t opt_doTagMAC_1(uint8_t *cc_p, const uint8_t *div_key_p) {
  * @param mac - where to store the MAC
  * @param div_key_p - the key to use
  */
-void opt_doTagMAC_2(State_t _init,  uint8_t *nr, uint8_t mac[4], const uint8_t *div_key_p) {
+void opt_doTagMAC_2(cipher_state_t _init,  uint8_t *nr, uint8_t mac[4], const uint8_t *div_key_p) {
     opt_suc(div_key_p, &_init, nr, 4, true);
     opt_output(div_key_p, &_init, mac);
 }
-
 
 void iclass_calc_div_key(uint8_t *csn, uint8_t *key, uint8_t *div_key, bool elite) {
     if (elite) {
@@ -338,3 +356,5 @@ void iclass_calc_div_key(uint8_t *csn, uint8_t *key, uint8_t *div_key, bool elit
         diversifyKey(csn, key, div_key);
     }
 }
+
+#endif

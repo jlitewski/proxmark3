@@ -25,7 +25,8 @@
 // same construction as in ISO 14443;
 // different initial value (CRC_ICLASS)
 #include "crc16.h"
-#include "optimized_cipher.h"
+#include "loclass/cipherutils.h"
+#include "loclass/cipher.h"
 
 #include "appmain.h"
 #include "BigBuf.h"
@@ -297,9 +298,9 @@ int do_iclass_simulation(int simulationMode, uint8_t *reader_mac_buf) {
     uint8_t current_page = 0;
 
     // maintain cipher states for both credit and debit key for each page
-    State_t cipher_state_KD[8];
-    State_t cipher_state_KC[8];
-    State_t *cipher_state = &cipher_state_KD[0];
+    cipher_state_t cipher_state_KD[8];
+    cipher_state_t cipher_state_KC[8];
+    cipher_state_t *cipher_state = &cipher_state_KD[0];
 
     uint8_t *emulator = BigBuf_get_EM_addr();
     uint8_t *csn = emulator;

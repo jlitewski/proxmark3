@@ -21,7 +21,7 @@
 #include "dbprint.h"
 #include "lfadc.h"
 #include "commonutil.h"
-#include "optimized_cipherutils.h"
+#include "loclass/cipherutils.h"
 #include "em4x70.h"
 #include "appmain.h" // tear
 

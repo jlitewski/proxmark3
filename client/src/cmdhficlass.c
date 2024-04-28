@@ -4321,7 +4321,7 @@ static int CmdHFiClassEncode(const char *Cmd) {
 
     uint8_t data[8];
     memset(data, 0, sizeof(data));
-    BitstreamOut_t bout = {data, 0, 0 };
+    output_stream_t bout = {data, 0, 0 };
 
     for (int i = 0; i < 64 - bin_len - 1; i++) {
         pushBit(&bout, 0);
@@ -4559,7 +4559,7 @@ static int CmdHFiClassSAM(const char *Cmd) {
     uint8_t *d = resp.data.asBytes;
     uint8_t n = d[1] - 1;  // skip length byte
     uint8_t pad = d[2];
-    char *binstr = (char *)calloc((n * 8) + 1, sizeof(uint8_t));
+    char *binstr = (char *)calloc((n * 8) + 1, sizeof(char));
     if (binstr == NULL) {
         return PM3_EMALLOC;
     }

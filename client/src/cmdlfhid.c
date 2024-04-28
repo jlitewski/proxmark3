@@ -410,7 +410,7 @@ static int CmdHIDClone(const char *Cmd) {
 
         uint8_t hex[12];
         memset(hex, 0, sizeof(hex));
-        BitstreamOut_t bout = {hex, 0, 0 };
+        output_stream_t bout = {hex, 0, 0 };
 
         for (int i = 0; i < 96 - bin_len - 1; i++) {
             pushBit(&bout, 0);

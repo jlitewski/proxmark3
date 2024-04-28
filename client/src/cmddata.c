@@ -1821,13 +1821,13 @@ int CmdHpf(const char *Cmd) {
     return PM3_SUCCESS;
 }
 
-static bool _headBit(BitstreamOut_t *stream) {
+static bool _headBit(output_stream_t *stream) {
     int bytepos = stream->position >> 3; // divide by 8
     int bitpos = (stream->position++) & 7; // mask out 00000111
     return (*(stream->buffer + bytepos) >> (7 - bitpos)) & 1;
 }
 
-static uint8_t getByte(uint8_t bits_per_sample, BitstreamOut_t *b) {
+static uint8_t getByte(uint8_t bits_per_sample, output_stream_t *b) {
     uint8_t val = 0;
     for (int i = 0 ; i < bits_per_sample; i++)
         val |= (_headBit(b) << (7 - i));
@@ -1895,7 +1895,7 @@ int getSamplesFromBufEx(uint8_t *data, size_t sample_num, uint8_t bits_per_sampl
 
         if (verbose) PrintAndLogEx(INFO, "Unpacking...");
 
-        BitstreamOut_t bout = {data, bits_per_sample * sample_num,  0};
+        output_stream_t bout = {data, bits_per_sample * sample_num,  0};
         size_t j = 0;
         for (j = 0; j < max_num; j++) {
             uint8_t sample = getByte(bits_per_sample, &bout);

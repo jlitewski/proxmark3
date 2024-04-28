@@ -31,35 +31,42 @@
 // Flavio D. Garcia, Gerhard de Koning Gans, Roel Verdult and
 // Milosch Meriac in the paper "Dismantling IClass".
 //-----------------------------------------------------------------------------
-#ifndef IKEYS_H
-#define IKEYS_H
 
-#include <inttypes.h>
+#ifndef CIPHERUTILS_H
+#define CIPHERUTILS_H
 
-/**
- * @brief
- *Definition 11. Let the function hash0 : F 82 × F 82 × (F 62 ) 8 → (F 82 ) 8 be defined as
- *  hash0(x, y, z [0] . . . z [7] ) = k [0] . . . k [7] where
- * z'[i] = (z[i] mod (63-i)) + i        i =  0...3
- * z'[i+4] = (z[i+4] mod (64-i)) + i    i =  0...3
- * ẑ = check(z');
- * @param c
- * @param k this is where the diversified key is put (should be 8 bytes)
- * @return
- */
-void hash0(uint64_t c, uint8_t k[8]);
-/**
- * @brief Performs Elite-class key diversification
- * @param csn
- * @param key
- * @param div_key
- */
+#include "../include/common.h"
 
-void diversifyKey(uint8_t *csn, uint8_t *key, uint8_t *div_key);
-/**
- * @brief Permutes a key from standard NIST format to Iclass specific format
- * @param key
- * @param dest
- */
+typedef struct {
+    uint8_t *buffer;
+    uint32_t numbits;
+    uint32_t position;
+} input_stream_t;
 
-#endif // IKEYS_H
+typedef struct {
+    uint8_t *buffer;
+    uint32_t numbits;
+    uint32_t position;
+} output_stream_t;
+
+bool headBit(input_stream_t *stream);
+bool tailBit(input_stream_t *stream);
+void pushBit(output_stream_t *stream, bool bit);
+int bitsLeft(input_stream_t *stream);
+
+void push6bits(output_stream_t *stream, uint8_t bits);
+void x_num_to_bytes(uint64_t n, size_t len, uint8_t *dest);
+uint64_t x_bytes_to_num(uint8_t *src, size_t len);
+uint8_t reverse_byte(uint8_t b);
+void reverse_arraybytes(uint8_t *array, size_t len);
+void reverse_arraycopy(uint8_t *array, uint8_t *dest, size_t len);
+
+#ifndef ON_DEVICE
+#include "pm3_cmd.h"
+
+void printarr(const char *name, uint8_t *arr, int len);
+void printarr_human_readable(const char *title, uint8_t *arr, int len);
+int testCipherUtils(void);
+#endif // ON_DEVICE
+
+#endif // CIPHERUTILS_H

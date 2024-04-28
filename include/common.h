@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h>
 
 #ifdef _WIN32
 #define ABOVE "../"

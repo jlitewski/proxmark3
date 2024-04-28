@@ -31,42 +31,20 @@
 // Flavio D. Garcia, Gerhard de Koning Gans, Roel Verdult and
 // Milosch Meriac in the paper "Dismantling IClass".
 //-----------------------------------------------------------------------------
-/**
 
-
-From "Dismantling iclass":
-    This section describes in detail the built-in key diversification algorithm of iClass.
-    Besides the obvious purpose of deriving a card key from a master key, this
-    algorithm intends to circumvent weaknesses in the cipher by preventing the
-    usage of certain ‘weak’ keys. In order to compute a diversified key, the iClass
-    reader first encrypts the card identity id with the master key K, using single
-    DES. The resulting ciphertext is then input to a function called hash0 which
-    outputs the diversified key k.
-
-    k = hash0(DES enc (id, K))
-
-    Here the DES encryption of id with master key K outputs a cryptogram c
-    of 64 bits. These 64 bits are divided as c = x, y, z [0] , . . . , z [7] ∈ F 82 × F 82 × (F 62 ) 8
-    which is used as input to the hash0 function. This function introduces some
-    obfuscation by performing a number of permutations, complement and modulo
-    operations, see Figure 2.5. Besides that, it checks for and removes patterns like
-    similar key bytes, which could produce a strong bias in the cipher. Finally, the
-    output of hash0 is the diversified card key k = k [0] , . . . , k [7] ∈ (F 82 ) 8 .
-
-**/
 #include "ikeys.h"
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
-#include <inttypes.h>
-
-#include "commonutil.h"  // ARRAYLEN
-
-#include "utils/fileutils.h"
-#include "cipherutils.h"
 #include "mbedtls/des.h"
+#include "cipherutils.h"
+#ifndef ON_DEVICE
+#include "utils/fileutils.h"
+#include "commonutil.h"
+
+#include <stdio.h>
+#include <string.h>
+#endif
+
+static mbedtls_des_context ctx_enc;
 
 uint8_t pi[35] = {
     0x0F, 0x17, 0x1B, 0x1D, 0x1E, 0x27, 0x2B, 0x2D,
@@ -87,9 +65,7 @@ uint8_t pi[35] = {
  * @param n bitnumber
  * @return
  */
-//#define getSixBitByte(c, n)  ((uint8_t)(((c) >> (42 - 6 * (n))) & 0x3F))
-
-static inline uint8_t getSixBitByte(uint64_t c, int n) {
+static uint8_t getSixBitByte(uint64_t c, int n) {
     return (c >> (42 - 6 * n)) & 0x3F;
 }
 
@@ -99,7 +75,6 @@ static inline uint8_t getSixBitByte(uint64_t c, int n) {
  * @param z the value to place there
  * @param n bitnumber.
  */
-
 static void pushbackSixBitByte(uint64_t *c, uint8_t z, int n) {
     //0x XXXX YYYY ZZZZ ZZZZ ZZZZ
     //             ^z0         ^z7
@@ -118,6 +93,7 @@ static void pushbackSixBitByte(uint64_t *c, uint8_t z, int n) {
     (*c) |= masked;
 
 }
+
 /**
  * @brief Swaps the z-values.
  * If the input value has format XYZ0Z1...Z7, the output will have the format
@@ -167,6 +143,7 @@ static uint64_t ck(int i, int j, uint64_t z) {
         return ck(i, j - 1, z);
     }
 }
+
 /**
 
     Definition 8.
@@ -183,7 +160,6 @@ static uint64_t ck(int i, int j, uint64_t z) {
 
     otherwise.
 **/
-
 static uint64_t check(uint64_t z) {
     //These 64 bits are divided as c = x, y, z [0] , . . . , z [7]
 
@@ -201,40 +177,22 @@ static uint64_t check(uint64_t z) {
     return ck1 | ck2 >> 24;
 }
 
-static void permute(BitstreamIn_t *p_in, uint64_t z, int l, int r, BitstreamOut_t *out) {
+static void permute(input_stream_t *p_in, uint64_t z, int l, int r, output_stream_t *out) {
     if (bitsLeft(p_in) == 0)
         return;
 
     bool pn = tailBit(p_in);
-    if (pn) {
-        // pn = 1
+    if (pn) { // pn = 1
         uint8_t zl = getSixBitByte(z, l);
+
         push6bits(out, zl + 1);
         permute(p_in, z, l + 1, r, out);
-    } else {
-        // otherwise
+    } else { // otherwise
         uint8_t zr = getSixBitByte(z, r);
+
         push6bits(out, zr);
         permute(p_in, z, l, r + 1, out);
     }
-}
-
-static void printState(const char *desc, uint64_t c) {
-    if (g_debugMode == 0)
-        return;
-
-    char s[60] = {0};
-    snprintf(s, sizeof(s), "%s : ", desc);
-
-    uint8_t x = (c & 0xFF00000000000000) >> 56;
-    uint8_t y = (c & 0x00FF000000000000) >> 48;
-
-    snprintf(s + strlen(s), sizeof(s) - strlen(s), "  %02x %02x", x, y);
-
-    for (uint8_t i = 0; i < 8; i++)
-        snprintf(s + strlen(s), sizeof(s) - strlen(s), " %02x", getSixBitByte(c, i));
-
-    PrintAndLogEx(DEBUG, "%s", s);
 }
 
 /**
@@ -251,10 +209,6 @@ static void printState(const char *desc, uint64_t c) {
 void hash0(uint64_t c, uint8_t k[8]) {
     c = swapZvalues(c);
 
-    if (g_debugMode > 0) {
-        PrintAndLogEx(DEBUG, "          | x| y|z0|z1|z2|z3|z4|z5|z6|z7|");
-        printState("origin", c);
-    }
     //These 64 bits are divided as c = x, y, z [0] , . . . , z [7]
     // x = 8 bits
     // y = 8 bits
@@ -268,27 +222,19 @@ void hash0(uint64_t c, uint8_t k[8]) {
         uint8_t zn4 = getSixBitByte(c, n + 4);
         uint8_t _zn = (zn % (63 - n)) + n;
         uint8_t _zn4 = (zn4 % (64 - n)) + n;
-
         pushbackSixBitByte(&zP, _zn, n);
         pushbackSixBitByte(&zP, _zn4, n + 4);
     }
 
-    if (g_debugMode > 0) printState("0|0|z'", zP);
-
     uint64_t zCaret = check(zP);
-
-    if (g_debugMode > 0) printState("0|0|z^", zP);
-
     uint8_t p = pi[x % 35];
 
     if (x & 1) //Check if x7 is 1
         p = ~p;
 
-    if (g_debugMode > 0) PrintAndLogEx(DEBUG, "     p : %02x", p);
-
-    BitstreamIn_t p_in = { &p, 8, 0 };
+    input_stream_t p_in = { &p, 8, 0 };
     uint8_t outbuffer[] = {0, 0, 0, 0, 0, 0, 0, 0};
-    BitstreamOut_t out = {outbuffer, 0, 0};
+    output_stream_t out = {outbuffer, 0, 0};
     permute(&p_in, zCaret, 0, 4, &out); //returns 48 bits? or 6 8-bytes
 
     //Out is now a buffer containing six-bit bytes, should be 48 bits
@@ -298,8 +244,6 @@ void hash0(uint64_t c, uint8_t k[8]) {
     uint64_t zTilde = x_bytes_to_num(outbuffer, sizeof(outbuffer));
 
     zTilde >>= 16;
-
-    if (g_debugMode > 0) printState("0|0|z~", zTilde);
 
     for (int i = 0; i < 8; i++) {
         // the key on index i is first a bit from y
@@ -328,7 +272,6 @@ void hash0(uint64_t c, uint8_t k[8]) {
         uint8_t p_i = p >> i & 0x1;
 
         if (k[i]) { // yi = 1
-            // PrintAndLogEx(NORMAL, "k[%d] + 1", i);
             k[i] |= ~zTilde_i & 0x7E;
             k[i] |= p_i & 1;
             k[i] += 1;
@@ -339,6 +282,7 @@ void hash0(uint64_t c, uint8_t k[8]) {
         }
     }
 }
+
 /**
  * @brief Performs Elite-class key diversification
  * @param csn
@@ -346,65 +290,21 @@ void hash0(uint64_t c, uint8_t k[8]) {
  * @param div_key
  */
 void diversifyKey(uint8_t *csn, uint8_t *key, uint8_t *div_key) {
+    // Prepare the DES key
+    mbedtls_des_setkey_enc(&ctx_enc, key);
 
     uint8_t crypted_csn[8] = {0};
 
     // Calculate DES(CSN, KEY)
-    mbedtls_des_context ctx_enc;
-    mbedtls_des_setkey_enc(&ctx_enc, key);
     mbedtls_des_crypt_ecb(&ctx_enc, csn, crypted_csn);
-    mbedtls_des_free(&ctx_enc);
 
     //Calculate HASH0(DES))
     uint64_t c_csn = x_bytes_to_num(crypted_csn, sizeof(crypted_csn));
+
     hash0(c_csn, div_key);
 }
-/*
-static void testPermute(void) {
-    uint64_t x = 0;
-    pushbackSixBitByte(&x, 0x00, 0);
-    pushbackSixBitByte(&x, 0x01, 1);
-    pushbackSixBitByte(&x, 0x02, 2);
-    pushbackSixBitByte(&x, 0x03, 3);
-    pushbackSixBitByte(&x, 0x04, 4);
-    pushbackSixBitByte(&x, 0x05, 5);
-    pushbackSixBitByte(&x, 0x06, 6);
-    pushbackSixBitByte(&x, 0x07, 7);
 
-    uint8_t mres[8] = { getSixBitByte(x, 0),
-                        getSixBitByte(x, 1),
-                        getSixBitByte(x, 2),
-                        getSixBitByte(x, 3),
-                        getSixBitByte(x, 4),
-                        getSixBitByte(x, 5),
-                        getSixBitByte(x, 6),
-                        getSixBitByte(x, 7)
-                      };
-    printarr("input_perm", mres, 8);
-
-    uint8_t p = ~pi[0];
-    BitstreamIn_t p_in = { &p, 8, 0 };
-    uint8_t outbuffer[] = {0, 0, 0, 0, 0, 0, 0, 0};
-    BitstreamOut_t out = {outbuffer, 0, 0};
-
-    permute(&p_in, x, 0, 4, &out);
-
-    uint64_t permuted = x_bytes_to_num(outbuffer, 8);
-    // PrintAndLogEx(NORMAL, "zTilde 0x%"PRIX64, zTilde);
-    permuted >>= 16;
-
-    uint8_t res[8] = { getSixBitByte(permuted, 0),
-                       getSixBitByte(permuted, 1),
-                       getSixBitByte(permuted, 2),
-                       getSixBitByte(permuted, 3),
-                       getSixBitByte(permuted, 4),
-                       getSixBitByte(permuted, 5),
-                       getSixBitByte(permuted, 6),
-                       getSixBitByte(permuted, 7)
-                     };
-    printarr("permuted", res, 8);
-}
-*/
+#ifndef ON_DEVICE
 // These testcases are
 // { UID , TEMP_KEY, DIV_KEY} using the specific key
 typedef struct {
@@ -418,7 +318,6 @@ static int testDES(uint8_t *key, testcase_t testcase) {
     uint8_t decrypted[8] = {0};
     uint8_t div_key[8] = {0};
 
-    mbedtls_des_context ctx_enc;
     mbedtls_des_context ctx_dec;
 
     mbedtls_des_setkey_enc(&ctx_enc, key);
@@ -601,7 +500,6 @@ static int testDES2(uint8_t *key, uint64_t csn, uint64_t expected) {
     PrintAndLogEx(DEBUG, "   csn      %"PRIx64, csn);
     x_num_to_bytes(csn, 8, input);
 
-    mbedtls_des_context ctx_enc;
     mbedtls_des_setkey_enc(&ctx_enc, key);
     mbedtls_des_crypt_ecb(&ctx_enc, input, result);
     mbedtls_des_free(&ctx_enc);
@@ -696,83 +594,4 @@ int doKeyTests(void) {
     PrintAndLogEx(INFO, "Testing key diversification with non-sensitive keys...");
     return doTestsWithKnownInputs();
 }
-
-/**
-
-void checkParity2(uint8_t* key) {
-
-    uint8_t stored_parity = key[7];
-    PrintAndLogEx(NORMAL, "Parity byte: 0x%02x", stored_parity);
-    int i, byte, fails = 0;
-    BitstreamIn_t bits = {key, 56, 0};
-    bool parity = 0;
-
-    for (i = 0; i  < 56; i++) {
-
-        if ( i > 0 && i % 7 == 0){
-            parity = !parity;
-            bool pbit = stored_parity & (0x80 >> (byte));
-            if (parity != pbit) {
-                PrintAndLogEx(NORMAL, "parity2 fail byte %d, should be %d, was %d", (i / 7), parity, pbit);
-                fails++;
-            }
-            parity =0 ;
-            byte = i / 7;
-        }
-        parity = parity ^ headBit(&bits);
-    }
-    if (fails) {
-        PrintAndLogEx(FAILED, "parity2 fails: %d", fails);
-    } else {
-        PrintAndLogEx(INFO, "Key syntax is with parity bits grouped in the last byte!");
-    }
-}
-
-void modifyKey_put_parity_last(uint8_t * key, uint8_t* output) {
-
-    uint8_t paritybits = 0;
-    bool parity =0;
-    BitstreamOut_t out = { output, 0, 0};
-    unsigned int bbyte, bbit;
-    for (bbyte = 0; bbyte <8; bbyte++ ) {
-        for(bbit = 0; bbit < 7; bbit++) {
-            bool bit = *(key + bbyte) & (1 << (7 - bbit));
-            pushBit(&out, bit);
-            parity ^= bit;
-        }
-        bool paritybit = *(key + bbyte) & 1;
-        paritybits |= paritybit << (7 - bbyte);
-        parity = 0;
-
-    }
-    output[7] = paritybits;
-    PrintAndLogEx(INFO, "Parity byte: %02x", paritybits);
-}
-
- * @brief Modifies a key with parity bits last, so that it is formed with parity
- *    bits inside each byte
- * @param key
- * @param output
-
-void modifyKey_put_parity_allover(uint8_t * key, uint8_t* output) {
-    bool parity =0;
-    BitstreamOut_t out = {output, 0, 0};
-    BitstreamIn_t in = {key, 0, 0};
-    unsigned int bbyte, bbit;
-    for (bbit = 0; bbit < 56; bbit++) {
-        if (bbit > 0 && bbit % 7 == 0) {
-            pushBit(&out, !parity);
-            parity = 0;
-        }
-        bool bit = headBit(&in);
-        pushBit(&out, bit);
-        parity ^= bit;
-    }
-    pushBit(&out, !parity);
-
-    if (des_key_check_key_parity(output))
-        PrintAndLogEx(FAILED, "modifyKey_put_parity_allover fail, DES key invalid parity!");
-}
-*/
-
-
+#endif // ON_DEVICE

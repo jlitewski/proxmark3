@@ -27,8 +27,9 @@
 #include "i2c.h"
 #include "iso15693.h"
 #include "protocols.h"
-#include "optimized_cipher.h"
+#include "loclass/cipher.h"
 #include "fpgaloader.h"
+#include <string.h>
 
 static int sam_rxtx(const uint8_t *data, uint16_t n, uint8_t *resp, uint16_t *resplen) {
 

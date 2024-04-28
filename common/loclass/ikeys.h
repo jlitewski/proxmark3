@@ -31,33 +31,35 @@
 // Flavio D. Garcia, Gerhard de Koning Gans, Roel Verdult and
 // Milosch Meriac in the paper "Dismantling IClass".
 //-----------------------------------------------------------------------------
-#ifndef CIPHERUTILS_H
-#define CIPHERUTILS_H
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdlib.h>
 
-typedef struct {
-    uint8_t *buffer;
-    uint32_t numbits;
-    uint32_t position;
-} BitstreamIn_t;
+#ifndef IKEYS_H
+#define IKEYS_H
 
-typedef struct {
-    uint8_t *buffer;
-    uint32_t numbits;
-    uint32_t position;
-} BitstreamOut_t;
+#include "../include/common.h"
 
-bool headBit(BitstreamIn_t *stream);
-bool tailBit(BitstreamIn_t *stream);
-void pushBit(BitstreamOut_t *stream, bool bit);
-int bitsLeft(BitstreamIn_t *stream);
+/**
+ * @brief
+ *Definition 11. Let the function hash0 : F 82 × F 82 × (F 62 ) 8 → (F 82 ) 8 be defined as
+ *  hash0(x, y, z [0] . . . z [7] ) = k [0] . . . k [7] where
+ * z'[i] = (z[i] mod (63-i)) + i        i =  0...3
+ * z'[i+4] = (z[i+4] mod (64-i)) + i    i =  0...3
+ * ẑ = check(z');
+ * @param c
+ * @param k this is where the diversified key is put (should be 8 bytes)
+ * @return
+ */
+void hash0(uint64_t c, uint8_t k[8]);
 
-void push6bits(BitstreamOut_t *stream, uint8_t bits);
-void x_num_to_bytes(uint64_t n, size_t len, uint8_t *dest);
-uint64_t x_bytes_to_num(uint8_t *src, size_t len);
-uint8_t reversebyte(uint8_t b);
-void reverse_arraybytes(uint8_t *arr, size_t len);
-void reverse_arraycopy(uint8_t *arr, uint8_t *dest, size_t len);
-#endif // CIPHERUTILS_H
+/**
+ * @brief Performs Elite-class key diversification
+ * @param csn
+ * @param key
+ * @param div_key
+ */
+void diversifyKey(uint8_t *csn, uint8_t *key, uint8_t *div_key);
+
+#ifndef ON_DEVICE
+int doKeyTests(void);
+#endif // ON_DEVICE
+
+#endif // IKEYS_H

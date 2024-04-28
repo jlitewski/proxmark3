@@ -725,10 +725,6 @@ SRCS =  mifare/aiddesfire.c \
 		iso4217.c \
 		iso7816/apduinfo.c \
 		iso7816/iso7816core.c \
-		loclass/cipher.c \
-		loclass/cipherutils.c \
-		loclass/elite_crack.c \
-		loclass/ikeys.c \
 		mifare/lrpcrypto.c \
 		mifare/desfirecrypto.c \
 		mifare/desfirecore.c \
@@ -775,6 +771,10 @@ SRCS += bucketsort.c \
 		iso15693tools.c \
 		legic_prng.c \
 		lfdemod.c \
+		loclass/cipher.c \
+		loclass/cipherutils.c \
+		loclass/elite_crack.c \
+		loclass/ikeys.c \
 		util_posix.c
 
 ifeq ($(GD_FOUND),1)
