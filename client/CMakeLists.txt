@@ -294,11 +294,11 @@ set (TARGET_SOURCES
         ${PM3_ROOT}/client/src/cipurse/cipursecrypto.c
         ${PM3_ROOT}/client/src/cipurse/cipursecore.c
         ${PM3_ROOT}/client/src/cipurse/cipursetest.c
-        ${PM3_ROOT}/client/src/loclass/cipher.c
-        ${PM3_ROOT}/client/src/loclass/cipherutils.c
-        ${PM3_ROOT}/client/src/loclass/elite_crack.c
+        ${PM3_ROOT}/common/loclass/cipher.c
+        ${PM3_ROOT}/common/loclass/cipherutils.c
+        ${PM3_ROOT}/common/loclass/elite_crack.c
         ${PM3_ROOT}/client/src/loclass/hash1_brute.c
-        ${PM3_ROOT}/client/src/loclass/ikeys.c
+        ${PM3_ROOT}/common/loclass/ikeys.c
         ${PM3_ROOT}/client/src/mifare/mad.c
         ${PM3_ROOT}/client/src/mifare/aiddesfire.c
         ${PM3_ROOT}/client/src/mifare/mfkey.c
@@ -405,7 +405,7 @@ set (TARGET_SOURCES
         ${PM3_ROOT}/client/src/cmdusart.c
         ${PM3_ROOT}/client/src/cmdwiegand.c
         ${PM3_ROOT}/client/src/comms.c
-        ${PM3_ROOT}/client/src/fileutils.c
+        ${PM3_ROOT}/client/src/utils/fileutils.c
         ${PM3_ROOT}/client/src/flash.c
         ${PM3_ROOT}/client/src/graph.c
         ${PM3_ROOT}/client/src/iso4217.c
@@ -418,7 +418,7 @@ set (TARGET_SOURCES
         ${PM3_ROOT}/client/src/scandir.c
         ${PM3_ROOT}/client/src/scripting.c
         ${PM3_ROOT}/client/src/ui.c
-        ${PM3_ROOT}/client/src/util.c
+        ${PM3_ROOT}/client/src/utils/util.c
         ${PM3_ROOT}/client/src/wiegand_formats.c
         ${PM3_ROOT}/client/src/wiegand_formatutils.c
         ${CMAKE_BINARY_DIR}/version_pm3.c
@@ -464,8 +464,8 @@ if ((NOT SKIPQT EQUAL 1) AND (Qt5_FOUND))
     set(CMAKE_AUTORCC ON)
     set(CMAKE_AUTOUIC ON)
     set (TARGET_SOURCES
-            ${PM3_ROOT}/client/src/proxgui.cpp
-            ${PM3_ROOT}/client/src/proxguiqt.cpp
+            ${PM3_ROOT}/client/src/gui/proxgui.cpp
+            ${PM3_ROOT}/client/src/gui/proxguiqt.cpp
             ${TARGET_SOURCES})
 
     add_definitions("-DHAVE_GUI")
@@ -525,7 +525,7 @@ if (NOT SKIPGD EQUAL 1 AND GD_FOUND)
     set(ADDITIONAL_LNK ${GD_LIBRARIES} ${ADDITIONAL_LNK})
     set(ADDITIONAL_LNKDIRS ${GD_LIBRARY_DIRS} ${ADDITIONAL_LNKDIRS})
     set(TARGET_SOURCES
-            ${PM3_ROOT}/client/src/imgutils.c
+            ${PM3_ROOT}/client/src/utils/imgutils.c
             ${PM3_ROOT}/client/src/cmdhfwaveshare.c
             ${TARGET_SOURCES})
     add_definitions("-DHAVE_GD")

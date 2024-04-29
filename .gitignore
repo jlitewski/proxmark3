@@ -44,12 +44,14 @@ Makefile.platform.*
 .Makefile.options.cache
 
 # cmake
+build/Makefile
 CMakeFiles/
 deps/
 client/CMakeFiles/
 client/deps/
 client/build/
 client/android/build/
+client/proxmark3_autogen
 CMakeCache.txt
 *.cmake
 
