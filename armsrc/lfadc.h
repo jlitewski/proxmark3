@@ -23,7 +23,6 @@
 #include "common.h"
 #include "cmd.h"
 #include "util.h"
-#include "string.h"
 
 extern bool g_logging;
 

@@ -19,7 +19,6 @@
 #include "mifareutil.h"
 
 #include "appmain.h"  // tearoff hook
-#include "string.h"
 #include "BigBuf.h"
 #include "iso14443a.h"
 #include "ticks.h"

@@ -27,7 +27,6 @@
 #include "pmflash.h"
 #include "fpga.h"
 #include "fpgaloader.h"
-#include "string.h"
 #include "printf.h"
 #include "legicrf.h"
 #include "BigBuf.h"
@@ -252,7 +251,7 @@ static uint32_t MeasureAntennaTuningLfData(void) {
 void print_stack_usage(void) {
     for (uint32_t *p = _stack_start; ; ++p) {
         if (*p != 0xdeadbeef) {
-            Dbprintf("  Max stack usage......... %d / %d bytes", (uint32_t)_stack_end - (uint32_t)p, (uint32_t)_stack_end - (uint32_t)_stack_start);
+            Dbprintf("  Max stack usage......... %d / %d bytes", (uint32_t)(_stack_end) - (uint32_t)(p), (uint32_t)_stack_end - (uint32_t)_stack_start);
             break;
         }
     }

@@ -22,7 +22,13 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+
+//Include the correct copy of string.h for the platform we are on
+#ifndef ON_DEVICE
 #include <string.h>
+#else
+#include "../armsrc/string.h"
+#endif
 
 #ifdef _WIN32
 #define ABOVE "../"

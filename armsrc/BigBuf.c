@@ -17,7 +17,6 @@
 //-----------------------------------------------------------------------------
 #include "BigBuf.h"
 
-#include "string.h"
 #include "dbprint.h"
 #include "pm3_cmd.h"
 #include "util.h" // nbytes

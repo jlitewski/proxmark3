@@ -26,7 +26,6 @@
 //#include <stdlib.h>
 //
 #include "printf.h"
-#include "string.h"
 #include "flashmem.h"
 
 //#include <stddef.h>

@@ -23,7 +23,6 @@
 #include "ticks.h"
 #include "dbprint.h"
 #include "util.h"
-#include "string.h"
 
 #define GPIO_RST AT91C_PIO_PA1
 #define GPIO_SCL AT91C_PIO_PA5

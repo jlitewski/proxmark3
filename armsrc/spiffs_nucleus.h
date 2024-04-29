@@ -123,7 +123,6 @@
 
 #include "common.h"
 
-#include "string.h"
 #include "spiffs.h"
 
 #define _SPIFFS_ERR_CHECK_FIRST         (SPIFFS_ERR_INTERNAL - 1)

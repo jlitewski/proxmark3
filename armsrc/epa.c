@@ -24,7 +24,6 @@
 #include "fpgaloader.h"
 #include "iso14443a.h"
 #include "iso14443b.h"
-#include "string.h"
 #include "util.h"
 #include "dbprint.h"
 #include "commonutil.h"

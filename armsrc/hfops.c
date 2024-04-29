@@ -18,7 +18,6 @@
 
 #include "hfops.h"
 
-#include <string.h>
 #include "appmain.h"
 #include "proxmark3_arm.h"
 #include "cmd.h"

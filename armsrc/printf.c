@@ -22,7 +22,6 @@
 // See LICENSE.txt for the text of the license.
 //-----------------------------------------------------------------------------
 #include "printf.h"
-#include "string.h"
 
 typedef unsigned char u_char;
 typedef unsigned int u_int;
@@ -94,14 +93,13 @@ kvsprintf(char const *fmt, void *arg, int radix, va_list ap) {
     const char *p, *percent, *q;
     u_char *up;
     int ch, n;
-    uintmax_t num;
+    uintmax_t num = 0;
     int base, lflag, qflag, tmp, width, ladjust, sharpflag, neg, sign, dot;
     int cflag, hflag, jflag, tflag, zflag;
     int dwidth, upper;
     char padc;
     int stop = 0, retval = 0;
 
-    num = 0;
     d = (char *) arg;
 
     if (fmt == NULL)

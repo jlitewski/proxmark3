@@ -25,7 +25,6 @@
 #include "dbprint.h"
 #include "util.h"
 #include "lfdemod.h"
-#include "string.h"  // memset
 #include "appmain.h" // print stack
 #include "usb_cdc.h" // real-time sampling
 

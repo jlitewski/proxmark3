@@ -18,7 +18,6 @@
 
 #include "spiffs.h"
 #include "spiffs_nucleus.h"
-#include "printf.h"
 
 #if SPIFFS_CACHE == 1
 static s32_t spiffs_fflush_cache(spiffs *fs, spiffs_file fh);

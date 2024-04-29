@@ -17,7 +17,6 @@
 
 #include "common.h"
 #include "proxmark3_arm.h"
-#include "string.h"
 #include "BigBuf.h"
 #include "mifareutil.h"
 #include "desfire_crypto.h"

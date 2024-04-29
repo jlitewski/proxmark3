@@ -25,7 +25,6 @@
 #include "commonutil.h"
 #include "dbprint.h"
 #include "util.h"
-#include "string.h"
 #include "BigBuf.h"
 #include "cmd.h"
 #include "lfadc.h"

@@ -18,7 +18,6 @@
 
 #include "hitag2.h"
 #include "hitag2_crypto.h"
-#include "string.h"
 #include "proxmark3_arm.h"
 #include "cmd.h"
 #include "BigBuf.h"

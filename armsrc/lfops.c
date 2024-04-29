@@ -31,7 +31,6 @@
 #include "commonutil.h"
 
 #include "crc16.h"
-#include "string.h"
 #include "printf.h"
 #include "lfdemod.h"
 #include "lfsampling.h"

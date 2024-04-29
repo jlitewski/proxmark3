@@ -26,7 +26,6 @@
 #include "desfire_crypto.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include "commonutil.h"
 #include "crc32.h"
 #include "crc.h"

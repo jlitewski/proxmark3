@@ -22,7 +22,6 @@
 #include "ticks.h"
 #include "commonutil.h"
 #include "dbprint.h"
-#include "string.h"
 #include "usb_cdc.h"
 #include "usart.h"
 

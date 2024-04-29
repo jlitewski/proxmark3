@@ -62,7 +62,6 @@
 
 #include "proxmark3_arm.h"
 #include "util.h"
-#include "string.h"
 #include "iso15693tools.h"
 #include "protocols.h"
 #include "cmd.h"

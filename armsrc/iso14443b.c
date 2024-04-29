@@ -23,7 +23,6 @@
 #include "proxmark3_arm.h"
 #include "common.h"  // access to global variable: g_dbglevel
 #include "util.h"
-#include "string.h"
 #include "crc16.h"
 #include "protocols.h"
 #include "appmain.h"

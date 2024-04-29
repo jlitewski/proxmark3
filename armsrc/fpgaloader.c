@@ -26,7 +26,6 @@
 #include "dbprint.h"
 #include "util.h"
 #include "fpga.h"
-#include "string.h"
 
 #include "lz4.h"       // uncompress
 

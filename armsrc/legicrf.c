@@ -28,7 +28,6 @@
 #include "ticks.h"
 #include "dbprint.h"
 #include "util.h"
-#include "string.h"
 #include "protocols.h"
 
 static uint8_t *legic_mem;      /* card memory, used for read, write */

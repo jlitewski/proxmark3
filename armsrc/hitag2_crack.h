@@ -19,7 +19,6 @@
 #ifndef _HITAG2_CRACK__H_
 #define _HITAG2_CRACK__H_
 
-#include <stdbool.h>
 #include "common.h"
 
 void ht2_crack1(uint8_t *nrar_hex);

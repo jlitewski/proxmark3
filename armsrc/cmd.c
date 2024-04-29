@@ -17,7 +17,6 @@
 #include "usb_cdc.h"
 #include "usart.h"
 #include "crc16.h"
-#include "string.h"
 #include "BigBuf.h"
 
 // Flags to tell where to add CRC on sent replies

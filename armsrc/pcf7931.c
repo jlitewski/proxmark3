@@ -23,7 +23,6 @@
 #include "dbprint.h"
 #include "util.h"
 #include "lfsampling.h"
-#include "string.h"
 
 #define T0_PCF 8 //period for the pcf7931 in us
 #define ALLOC 16

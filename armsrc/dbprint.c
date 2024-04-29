@@ -17,7 +17,6 @@
 
 #include "dbprint.h"
 
-#include "string.h"
 #include "cmd.h"
 #include "printf.h"
 

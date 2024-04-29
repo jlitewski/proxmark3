@@ -20,7 +20,6 @@
 #include "protocols.h"
 #include "crc16.h"
 #include "fpgaloader.h"
-#include "string.h"
 #include "commonutil.h"
 #include "dbprint.h"
 #include "ticks.h"

@@ -19,7 +19,6 @@
 //-----------------------------------------------------------------------------
 #include "iso14443a.h"
 
-#include "string.h"
 #include "proxmark3_arm.h"
 #include "cmd.h"
 #include "appmain.h"

@@ -31,7 +31,6 @@
 #include "appmain.h"
 #include "BigBuf.h"
 #include "fpgaloader.h"
-#include "string.h"
 #include "util.h"
 #include "dbprint.h"
 #include "protocols.h"

@@ -19,7 +19,6 @@
 
 #include "pmflash.h"
 #include "proxmark3_arm.h"
-#include "string.h"
 #include "mifareutil.h"
 #include "protocols.h"
 #include "parity.h"

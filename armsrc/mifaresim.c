@@ -33,7 +33,6 @@
 
 #include "iso14443a.h"
 #include "BigBuf.h"
-#include "string.h"
 #include "mifareutil.h"
 #include "fpgaloader.h"
 #include "proxmark3_arm.h"

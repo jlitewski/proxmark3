@@ -22,7 +22,6 @@
 #include "frozen.h"
 
 #include <stdlib.h>
-#include <string.h>
 #include "nprintf.h"
 
 #include "BigBuf.h"

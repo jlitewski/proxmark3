@@ -27,7 +27,6 @@
 #include "ticks.h"
 #include "dbprint.h"
 #include "util.h"
-#include "string.h"
 #include "commonutil.h"
 #include "hitag2_crypto.h"
 #include "lfadc.h"

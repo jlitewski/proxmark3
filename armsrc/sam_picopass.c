@@ -29,7 +29,6 @@
 #include "protocols.h"
 #include "loclass/cipher.h"
 #include "fpgaloader.h"
-#include <string.h>
 
 static int sam_rxtx(const uint8_t *data, uint16_t n, uint8_t *resp, uint16_t *resplen) {
 
