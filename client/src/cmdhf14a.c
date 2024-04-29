@@ -3334,7 +3334,6 @@ int CmdHF14ANdefFormat(const char *Cmd) {
         // r/w access:        key0  0x00
         // change access:     key0  0x00
         memset(data, 0x00, sizeof(data));
-        datalen = 0;
 
         data[0] = fid;
         data[1] = isofid & 0xff;
@@ -3409,7 +3408,6 @@ int CmdHF14ANdefFormat(const char *Cmd) {
         // r/w access:        key0  0x00
         // change access:     key0  0x00
         memset(data, 0x00, sizeof(data));
-        datalen = 0;
 
         data[0] = fid;
         data[1] = isofid & 0xff;

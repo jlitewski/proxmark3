@@ -184,7 +184,7 @@ int GetModels(char *Models[], int *count, uint8_t *width) {
                             return 0;
                         }
                         width[Cnt] = width[0];
-                        memcpy(tmp, pset.name, size);
+                        memcpy(tmp, pset.name, size); //TODO Redo this because of chance of nullptr
                         Models[Cnt++] = tmp;
                         *count = Cnt;
                         uflags |= C_RESULT;

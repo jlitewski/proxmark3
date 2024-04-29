@@ -33,7 +33,7 @@ const char *getAtrInfo(const char *atr_str) {
             continue;
 
         if (strstr(AtrTable[i].bytes, ".") != NULL) {
-            char *tmp_atr = calloc(slen, sizeof(uint8_t));
+            char *tmp_atr = calloc(slen, sizeof(char));
             if (tmp_atr == NULL) {
                 PrintAndLogEx(FAILED, "failed to allocate memory");
                 return NULL;

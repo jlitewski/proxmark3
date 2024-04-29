@@ -82,7 +82,8 @@ uint32_t uart_get_timeouts(void) {
 }
 
 serial_port uart_open(const char *pcPortName, uint32_t speed, bool slient) {
-    serial_port_unix_t_t *sp = calloc(sizeof(serial_port_unix_t_t), sizeof(uint8_t));
+    //serial_port_unix_t_t *sp = calloc(sizeof(serial_port_unix_t_t), sizeof(uint8_t));
+    serial_port_unix_t_t *sp = calloc(1, sizeof(serial_port_unix_t_t));
 
     if (sp == 0) {
         PrintAndLogEx(ERR, "UART failed to allocate memory");

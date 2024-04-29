@@ -84,7 +84,8 @@ static int uart_reconfigure_timeouts_polling(serial_port sp) {
 
 serial_port uart_open(const char *pcPortName, uint32_t speed, bool slient) {
     char acPortName[255] = {0};
-    serial_port_windows_t *sp = calloc(sizeof(serial_port_windows_t), sizeof(uint8_t));
+    //serial_port_windows_t *sp = calloc(sizeof(serial_port_windows_t), sizeof(uint8_t));
+    serial_port_windows_t *sp = calloc(1, sizeof(serial_port_windows_t));
 
     if (sp == 0) {
         PrintAndLogEx(WARNING, "UART failed to allocate memory\n");

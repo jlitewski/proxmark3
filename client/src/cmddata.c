@@ -859,7 +859,8 @@ int AutoCorrelate(const int *in, int *out, size_t len, size_t window, bool SaveG
     // Computed variance
     double variance = compute_variance(in, len);
 
-    int *correl_buf = calloc(MAX_GRAPH_TRACE_LEN, sizeof(int));
+    //int *correl_buf = calloc(MAX_GRAPH_TRACE_LEN, sizeof(int));
+    int32_t *correl_buf = calloc(MAX_GRAPH_TRACE_LEN, sizeof(int32_t));
 
     uint8_t peak_cnt = 0;
     size_t peaks[10] = {0};
@@ -1071,25 +1072,26 @@ static int CmdUndecimate(const char *Cmd) {
     CLIParserFree(ctx);
 
     //We have memory, don't we?
-    int *swap = calloc(MAX_GRAPH_TRACE_LEN, sizeof(int));
+    //int *swap = calloc(MAX_GRAPH_TRACE_LEN, sizeof(int));
+    int32_t *swap = calloc(MAX_GRAPH_TRACE_LEN, sizeof(int32_t));
+
     if (swap == NULL) {
         PrintAndLogEx(FAILED, "failed to allocate memory");
         return PM3_EMALLOC;
     }
+
     uint32_t g_index = 0, s_index = 0;
     while (g_index < g_GraphTraceLen && s_index + factor < MAX_GRAPH_TRACE_LEN) {
         int count = 0;
         for (count = 0; count < factor && s_index + count < MAX_GRAPH_TRACE_LEN; count++) {
-            swap[s_index + count] = (
-                                        (double)(factor - count) / (factor - 1)) * g_GraphBuffer[g_index] +
-                                    ((double)count / factor) * g_GraphBuffer[g_index + 1]
-                                    ;
+            swap[s_index + count] = ((double)(factor - count) / (factor - 1)) * g_GraphBuffer[g_index]
+                + ((double)count / factor) * g_GraphBuffer[g_index + 1];
         }
         s_index += count;
         g_index++;
     }
 
-    memcpy(g_GraphBuffer, swap, s_index * sizeof(int));
+    memcpy(g_GraphBuffer, swap, s_index * sizeof(int32_t));
     g_GraphTraceLen = s_index;
     RepaintGraphWindow();
     free(swap);
@@ -1912,11 +1914,17 @@ int getSamplesFromBufEx(uint8_t *data, size_t sample_num, uint8_t bits_per_sampl
         g_GraphTraceLen = max_num;
     }
 
+    if(g_GraphTraceLen == 0) { // Check just in case
+        PrintAndLogEx(FAILED, "Unable to continue, Graph Trace Length is 0!");
+        return PM3_ENODATA;
+    }
+
     uint8_t *bits = calloc(g_GraphTraceLen, sizeof(uint8_t));
     if (bits == NULL) {
         PrintAndLogEx(FAILED, "failed to allocate memory");
         return PM3_EMALLOC;
     }
+
     size_t size = getFromGraphBuffer(bits);
     // set signal properties low/high/mean/amplitude and is_noise detection
     computeSignalProperties(bits, size);
@@ -2350,6 +2358,11 @@ static int CmdZerocrossings(const char *Cmd) {
     // Zero-crossings aren't meaningful unless the signal is zero-mean.
     CmdHpf("");
 
+    if(g_GraphTraceLen == 0) { // Check just in case
+        PrintAndLogEx(FAILED, "Unable to continue, Graph Trace Length is 0!");
+        return PM3_ENODATA;
+    }
+
     int sign = 1, zc = 0, lastZc = 0;
 
     for (uint32_t i = 0; i < g_GraphTraceLen; ++i) {
@@ -2373,6 +2386,7 @@ static int CmdZerocrossings(const char *Cmd) {
         PrintAndLogEx(FAILED, "failed to allocate memory");
         return PM3_EMALLOC;
     }
+
     size_t size = getFromGraphBuffer(bits);
     // set signal properties low/high/mean/amplitude and is_noise detection
     computeSignalProperties(bits, size);
@@ -2491,13 +2505,15 @@ static int FSKToNRZ(int *data, size_t *dataLen, uint8_t clk, uint8_t LowToneFC, 
         return PM3_ESOFT;
     }
 
-    int LowTone[clk];
-    int HighTone[clk];
+    // Initialize the arrays with calloc to prevent the posibility of reading garbage data
+    int32_t *LowTone = (int32_t*)calloc(clk, sizeof(int32_t));
+    int32_t *HighTone = (int32_t*)calloc(clk, sizeof(int32_t));
+
     GetHiLoTone(LowTone, HighTone, clk, LowToneFC, HighToneFC);
 
     // loop through ([all samples] - clk)
     for (size_t i = 0; i < *dataLen - clk; ++i) {
-        int lowSum = 0, highSum = 0;
+        int32_t lowSum = 0, highSum = 0;
 
         // sum all samples together starting from this sample for [clk] samples for each tone (multiply tone value with sample data)
         for (size_t j = 0; j < clk; ++j) {
@@ -2510,6 +2526,10 @@ static int FSKToNRZ(int *data, size_t *dataLen, uint8_t clk, uint8_t LowToneFC, 
         // save these back to buffer for later use
         data[i] = (highSum << 16) | lowSum;
     }
+
+    // Free the memory after we are done with it
+    free(LowTone);
+    free(HighTone);
 
     // now we have the abs( [average sample value per clk] * 100 ) for each tone
     //   loop through again [all samples] - clk - 16
@@ -2930,11 +2950,17 @@ static int CmdDiff(const char *Cmd) {
     PrintAndLogEx(DEBUG, "data len:  %zu   A %zu  B %zu", biggest, datalenA, datalenB);
 
     if (inA == NULL) {
-        PrintAndLogEx(INFO, "inA null");
+        PrintAndLogEx(ERR, "Input File `inA` was somehow null!");
+        free(inA);
+        free(inB);
+        return PM3_EFAILED;
     }
 
     if (inB == NULL) {
-        PrintAndLogEx(INFO, "inB null");
+        PrintAndLogEx(ERR, "Input File `inB` was somehow null!");
+        free(inA);
+        free(inB);
+        return PM3_EFAILED;
     }
 
     char hdr0[400] = {0};
