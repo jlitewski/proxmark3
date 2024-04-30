@@ -91,7 +91,7 @@ static int build_segs_from_phdrs(flash_file_t *ctx, uint32_t flash_size) {
     flash_seg_t *seg;
     uint32_t last_end = 0;
 
-    ctx->segments = calloc(sizeof(flash_seg_t) * ctx->num_phdrs, sizeof(uint8_t));
+    ctx->segments = calloc(1UL, sizeof(flash_seg_t) * ctx->num_phdrs);
     if (!ctx->segments) {
         PrintAndLogEx(ERR, "Out of memory");
         return PM3_EMALLOC;

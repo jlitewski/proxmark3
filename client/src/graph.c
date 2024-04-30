@@ -208,6 +208,11 @@ void convertGraphFromBitstream(void) {
 }
 
 void convertGraphFromBitstreamEx(int hi, int low) {
+    if(g_GraphTraceLen == 0) {
+        PrintAndLogEx(ERR, "There is no data in the Graph Buffer! Load some in first and try again.");
+        return;
+    }
+    
     for (int i = 0; i < g_GraphTraceLen; i++) {
 
         if (g_GraphBuffer[i] == hi)

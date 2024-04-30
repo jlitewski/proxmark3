@@ -639,11 +639,11 @@ static void set_my_executable_path(void) {
     if (path_length == -1)
         return;
 
-    my_executable_path = (char *)calloc(path_length + 1, sizeof(uint8_t));
+    my_executable_path = (char *)calloc(path_length + 1, sizeof(char));
     int dirname_length = 0;
     if (wai_getExecutablePath(my_executable_path, path_length, &dirname_length) != -1) {
         my_executable_path[path_length] = '\0';
-        my_executable_directory = (char *)calloc(dirname_length + 2, sizeof(uint8_t));
+        my_executable_directory = (char *)calloc(dirname_length + 2, sizeof(char));
         strncpy(my_executable_directory, my_executable_path, dirname_length + 1);
         my_executable_directory[dirname_length + 1] = '\0';
     }
@@ -674,7 +674,7 @@ static void set_my_user_directory(void) {
     if (my_user_directory == NULL) {
 
         uint16_t pathLen = FILENAME_MAX; // should be a good starting point
-        char *cwd_buffer = (char *)calloc(pathLen, sizeof(uint8_t));
+        char *cwd_buffer = (char *)calloc(pathLen, sizeof(char));
         if (cwd_buffer == NULL) {
             PrintAndLogEx(WARNING, "failed to allocate memory");
             return;
@@ -1377,7 +1377,7 @@ int main(int argc, char *argv[]) {
             if (addScriptExec) {
                 // add "script run " to command
                 int len = strlen(script_cmd) + 11 + 1;
-                char *ctmp = (char *) calloc(len, sizeof(uint8_t));
+                char *ctmp = (char *) calloc(len, sizeof(char));
                 if (ctmp != NULL) {
                     memset(ctmp, 0, len);
                     strcpy(ctmp, "script run ");

@@ -1325,7 +1325,7 @@ static int l_ewd(lua_State *L) {
 static int l_cwd(lua_State *L) {
 
     uint16_t path_len = FILENAME_MAX; // should be a good starting point
-    char *cwd = (char *)calloc(path_len, sizeof(uint8_t));
+    char *cwd = (char *)calloc(path_len, sizeof(char));
     if (cwd == NULL) {
         return returnToLuaWithError(L, "Failed to allocate memory");
     }

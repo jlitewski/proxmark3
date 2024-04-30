@@ -128,7 +128,7 @@ int preferences_save(void) {
     int fn_len = strlen(fn) + 5; // .bak\0
 
     // [FILENAME_MAX+sizeof(preferencesFilename)+10]
-    char *backupFilename = (char *)calloc(fn_len, sizeof(uint8_t));
+    char *backupFilename = (char *)calloc(fn_len, sizeof(char));
     if (backupFilename == NULL) {
         PrintAndLogEx(ERR, "failed to allocate memory");
         free(fn);

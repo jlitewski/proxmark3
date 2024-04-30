@@ -504,9 +504,11 @@ static bool emojify_token(const char *token, uint8_t token_length, const char **
                 }
                 case EMO_NONE: {
                     *emojified_token_length = 0;
+                    //TODO Pass false to prevent a NULLPTR?
                     break;
                 }
-                case EMO_ALIAS: { // should never happen
+                case EMO_ALIAS:
+                default: { // should never happen
                     return false;
                 }
             }
@@ -558,6 +560,7 @@ void memcpy_filter_emoji(void *dest, const void *src, size_t n, emojiMode_t mode
                         current_token = rsrc + i;
                         current_token_length = 1;
                     } else {
+                        //TODO Possible NULLPTR, need to look into it more
                         memcpy(rdest + si, emojified_token, emojified_token_length);
                         si += emojified_token_length;
                         current_token_length = 0;
@@ -691,7 +694,7 @@ void print_progress(uint64_t count, uint64_t max, barMode_t style) {
 
     size_t unit = strlen(block[mode]);
     // +1 for \0
-    char *bar = (char *)calloc(unit * width + 1, sizeof(uint8_t));
+    char *bar = (char *)calloc(unit * width + 1, sizeof(char));
 
     uint8_t value = PERCENTAGE(count, max);
 
@@ -715,7 +718,7 @@ void print_progress(uint64_t count, uint64_t max, barMode_t style) {
     }
     // color buffer
     size_t collen = strlen(bar) + 40;
-    char *cbar = (char *)calloc(collen, sizeof(uint8_t));
+    char *cbar = (char *)calloc(collen, sizeof(char));
 
     // Add colors
     if (g_session.supports_colors) {
