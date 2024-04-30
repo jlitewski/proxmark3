@@ -14,25 +14,18 @@
 // See LICENSE.txt for the text of the license.
 //-----------------------------------------------------------------------------
 #include "hash1_brute.h"
-#include <stdio.h>
+#include <stdlib.h>
 #include "../common/loclass/cipherutils.h"
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-#include <unistd.h>
-#include <ctype.h>
 #include "../common/loclass/elite_crack.h"
 #include "ui.h"
 
 static void calc_score(uint8_t *csn, uint8_t *k) {
     uint8_t score = 0 ;
     uint8_t i;
-    uint8_t goodvals[16] = {0};
-    uint8_t uniq_vals[8] = {0};
-    memset(goodvals, 0x00, 16);
-    memset(uniq_vals, 0x00, 8);
+    uint8_t *goodvals = calloc(16, sizeof(uint8_t));
+    uint8_t *uniq_vals = calloc(8, sizeof(uint8_t));
     uint8_t badval = 0;
-    int badscore = 0;
+    uint8_t badscore = 0;
     for (i = 0; i < 8 ; i++) {
         if (k[i] == 0x01) continue;
         if (k[i] == 0x00) continue;
