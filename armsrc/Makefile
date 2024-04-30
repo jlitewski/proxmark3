@@ -47,8 +47,6 @@ SRC_ICLASS = cipherutils.c cipher.c ikeys.c elite_crack.c iclass.c sam_picopass.
 SRC_LEGIC = legicrf.c legicrfsim.c legic_prng.c
 SRC_NFCBARCODE = thinfilm.c
 
-#   SRC_BEE = bee.c
-
 # RDV40 related hardware support
 ifneq (,$(findstring WITH_FLASH,$(APP_CFLAGS)))
     SRC_FLASH = flashmem.c
@@ -89,12 +87,6 @@ else
 	SRC_EM4x70 =
 endif
 
-ifneq (,$(findstring WITH_LCD,$(APP_CFLAGS)))
-    SRC_LCD = fonts.c LCD.c
-else
-    SRC_LCD =
-endif
-
 ifneq (,$(findstring WITH_ZX8211,$(APP_CFLAGS)))
     SRC_ZX = lfzx.c
 else
@@ -118,7 +110,6 @@ APP_CFLAGS += -I. -fno-stack-protector -fno-pie
 
 # Compile these in thumb mode (small size)
 THUMBSRC = start.c \
-    $(SRC_LCD) \
     $(SRC_ISO15693) \
     $(SRC_NFCBARCODE) \
     $(SRC_LF) \
