@@ -23,6 +23,7 @@
 
 #include <stdlib.h>
 #include "nprintf.h"
+#include "commonutil.h"
 
 #include "BigBuf.h"
 #define malloc(X) BigBuf_malloc(X)

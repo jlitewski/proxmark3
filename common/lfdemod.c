@@ -997,7 +997,7 @@ int DetectNRZClock(uint8_t *dest, size_t size, int clock, size_t *clockStartIdx)
     uint8_t ignoreCnt = 0, ignoreWindow = 4;
     int lastBit = 0;
     size_t bestStart[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    peakcnt = 0;
+    
     //test each valid clock from smallest to greatest to see which lines up
     for (clkCnt = 0; clkCnt < ARRAYLEN(bestStart); ++clkCnt) {
         //ignore clocks smaller than smallest peak

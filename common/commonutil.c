@@ -536,3 +536,16 @@ bool hexstr_to_byte_array(const char *hexstr, uint8_t *d, size_t *n) {
     }
     return true;
 }
+
+char c_tolower(int c) {
+    // (int)a = 97, (int)A = 65
+    // (a)97 - (A)65 = 32
+    // therefore 32 + 65 = a
+    return c > 64 && c < 91 ? c + 32 : c;
+}
+
+char c_isprint(unsigned char c) {
+    if (c >= 0x20 && c <= 0x7e)
+        return 1;
+    return 0;
+}

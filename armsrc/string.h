@@ -19,7 +19,8 @@
 #ifndef __STRING_H
 #define __STRING_H
 
-#include "common.h"
+#include <stddef.h>
+#include <stdint.h>
 
 int strlen(const char *str);
 void *memcpy(void *dest, const void *src, int len);
@@ -43,7 +44,5 @@ char *strpbrk(const char *s1, const char *s2);
 int strncmp(const char *s1, const char *s2, size_t n);
 unsigned long strtoul(const char *p, char **out_p, int base);
 long strtol(const char *p, char **out_p, int base);
-char c_tolower(int c);
-char c_isprint(unsigned char c);
 
 #endif /* __STRING_H */
