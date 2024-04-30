@@ -43,55 +43,55 @@ enum piv_condition_t {
 };
 
 struct piv_container {
-    uint32_t id;
     const uint8_t *tlv_tag;  // tag is between 1 and 3 bytes.
     size_t len;  // length of the hex-form if the tag (i.e. twice the byte size) for pretty printing
-    enum piv_condition_t cond;
     const char *name;
+    uint32_t id;
+    enum piv_condition_t cond;
 };
 
 #define PIV_TAG_ID(x) ((const uint8_t *)(x))
-#define PIV_CONTAINER_FINISH { (~0), NULL, 0, PIV_INVALID, NULL }
+#define PIV_CONTAINER_FINISH { NULL, 0, NULL, (~0), PIV_INVALID }
 
 // Source: SP800-73-4, Annex A
 // https://nvlpubs.nist.gov/nistpubs/specialpublications/nist.sp.800-73-4.pdf
 static const struct piv_container PIV_CONTAINERS[] = {
-    {0xDB00, PIV_TAG_ID("\x5F\xC1\x07"), 3, PIV_MANDATORY,   "Card Capability Container"},
-    {0x3000, PIV_TAG_ID("\x5F\xC1\x02"), 3, PIV_MANDATORY,   "Card Holder Unique Identifier"},
-    {0x0101, PIV_TAG_ID("\x5F\xC1\x05"), 3, PIV_MANDATORY,   "X.509 Certificate for PIV Authentication (key ref 9A)"},
-    {0x6010, PIV_TAG_ID("\x5F\xC1\x03"), 3, PIV_MANDATORY,   "Cardholder Fingerprints"},
-    {0x9000, PIV_TAG_ID("\x5F\xC1\x06"), 3, PIV_MANDATORY,   "Security Object"},
-    {0x6030, PIV_TAG_ID("\x5F\xC1\x08"), 3, PIV_MANDATORY,   "Cardholder Facial Image"},
-    {0x0500, PIV_TAG_ID("\x5F\xC1\x01"), 3, PIV_MANDATORY,   "X.509 Certificate for Card Authentication (key ref 9E)"},
-    {0x0100, PIV_TAG_ID("\x5F\xC1\x0A"), 3, PIV_CONDITIONAL, "X.509 Certificate for Digital Signature (key ref 9C)"},
-    {0x0102, PIV_TAG_ID("\x5F\xC1\x0B"), 3, PIV_CONDITIONAL, "X.509 Certificate for Key Management (key ref 9D)"},
-    {0x3001, PIV_TAG_ID("\x5F\xC1\x09"), 3, PIV_OPTIONAL,    "Printed Information"},
-    {0x6050, PIV_TAG_ID("\x7E"), 1, PIV_OPTIONAL,    "Discovery Object"},
-    {0x6060, PIV_TAG_ID("\x5F\xC1\x0C"), 3, PIV_OPTIONAL,    "Key History Object"},
-    {0x1001, PIV_TAG_ID("\x5F\xC1\x0D"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 1 (key ref 82)"},
-    {0x1002, PIV_TAG_ID("\x5F\xC1\x0E"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 2 (key ref 83)"},
-    {0x1003, PIV_TAG_ID("\x5F\xC1\x0F"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 3 (key ref 84)"},
-    {0x1004, PIV_TAG_ID("\x5F\xC1\x10"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 4 (key ref 85)"},
-    {0x1005, PIV_TAG_ID("\x5F\xC1\x11"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 5 (key ref 86)"},
-    {0x1006, PIV_TAG_ID("\x5F\xC1\x12"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 6 (key ref 87)"},
-    {0x1007, PIV_TAG_ID("\x5F\xC1\x13"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 7 (key ref 88)"},
-    {0x1008, PIV_TAG_ID("\x5F\xC1\x14"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 8 (key ref 89)"},
-    {0x1009, PIV_TAG_ID("\x5F\xC1\x15"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 9 (key ref 8A)"},
-    {0x100A, PIV_TAG_ID("\x5F\xC1\x16"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 10 (key ref 8B)"},
-    {0x100B, PIV_TAG_ID("\x5F\xC1\x17"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 11 (key ref 8C)"},
-    {0x100C, PIV_TAG_ID("\x5F\xC1\x18"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 12 (key ref 8D)"},
-    {0x100D, PIV_TAG_ID("\x5F\xC1\x19"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 13 (key ref 8E)"},
-    {0x100E, PIV_TAG_ID("\x5F\xC1\x1A"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 14 (key ref 8F)"},
-    {0x100F, PIV_TAG_ID("\x5F\xC1\x1B"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 15 (key ref 90)"},
-    {0x1010, PIV_TAG_ID("\x5F\xC1\x1C"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 16 (key ref 91)"},
-    {0x1011, PIV_TAG_ID("\x5F\xC1\x1D"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 17 (key ref 92)"},
-    {0x1012, PIV_TAG_ID("\x5F\xC1\x1E"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 18 (key ref 93)"},
-    {0x1013, PIV_TAG_ID("\x5F\xC1\x1F"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 19 (key ref 94)"},
-    {0x1014, PIV_TAG_ID("\x5F\xC1\x20"), 3, PIV_OPTIONAL,    "Retired X.509 Certificate for Key Management 20 (key ref 95)"},
-    {0x1015, PIV_TAG_ID("\x5F\xC1\x21"), 3, PIV_OPTIONAL,    "Cardholder Iris Images"},
-    {0x1016, PIV_TAG_ID("\x7F\x61"), 2, PIV_OPTIONAL,    "Biometric Information Templates Group Template"},
-    {0x1017, PIV_TAG_ID("\x5F\xC1\x22"), 3, PIV_OPTIONAL,    "Secure Messaging Certificate Signer"},
-    {0x1018, PIV_TAG_ID("\x5F\xC1\x23"), 3, PIV_OPTIONAL,    "Pairing Code Reference Data Container"},
+    {PIV_TAG_ID("\x5F\xC1\x07"), 3, "Card Capability Container",                                    0xDB00, PIV_MANDATORY},
+    {PIV_TAG_ID("\x5F\xC1\x02"), 3, "Card Holder Unique Identifier",                                0x3000, PIV_MANDATORY},
+    {PIV_TAG_ID("\x5F\xC1\x05"), 3, "X.509 Certificate for PIV Authentication (key ref 9A)",        0x0101, PIV_MANDATORY},
+    {PIV_TAG_ID("\x5F\xC1\x03"), 3, "Cardholder Fingerprints",                                      0x6010, PIV_MANDATORY},
+    {PIV_TAG_ID("\x5F\xC1\x06"), 3, "Security Object",                                              0x9000, PIV_MANDATORY},
+    {PIV_TAG_ID("\x5F\xC1\x08"), 3, "Cardholder Facial Image",                                      0x6030, PIV_MANDATORY},
+    {PIV_TAG_ID("\x5F\xC1\x01"), 3, "X.509 Certificate for Card Authentication (key ref 9E)",       0x0500, PIV_MANDATORY},
+    {PIV_TAG_ID("\x5F\xC1\x0A"), 3, "X.509 Certificate for Digital Signature (key ref 9C)",         0x0100, PIV_CONDITIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x0B"), 3, "X.509 Certificate for Key Management (key ref 9D)",            0x0102, PIV_CONDITIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x09"), 3, "Printed Information",                                          0x3001, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x7E"),         1, "Discovery Object",                                             0x6050, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x0C"), 3, "Key History Object",                                           0x6060, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x0D"), 3, "Retired X.509 Certificate for Key Management 1 (key ref 82)",  0x1001, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x0E"), 3, "Retired X.509 Certificate for Key Management 2 (key ref 83)",  0x1002, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x0F"), 3, "Retired X.509 Certificate for Key Management 3 (key ref 84)",  0x1003, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x10"), 3, "Retired X.509 Certificate for Key Management 4 (key ref 85)",  0x1004, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x11"), 3, "Retired X.509 Certificate for Key Management 5 (key ref 86)",  0x1005, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x12"), 3, "Retired X.509 Certificate for Key Management 6 (key ref 87)",  0x1006, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x13"), 3, "Retired X.509 Certificate for Key Management 7 (key ref 88)",  0x1007, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x14"), 3, "Retired X.509 Certificate for Key Management 8 (key ref 89)",  0x1008, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x15"), 3, "Retired X.509 Certificate for Key Management 9 (key ref 8A)",  0x1009, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x16"), 3, "Retired X.509 Certificate for Key Management 10 (key ref 8B)", 0x100A, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x17"), 3, "Retired X.509 Certificate for Key Management 11 (key ref 8C)", 0x100B, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x18"), 3, "Retired X.509 Certificate for Key Management 12 (key ref 8D)", 0x100C, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x19"), 3, "Retired X.509 Certificate for Key Management 13 (key ref 8E)", 0x100D, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x1A"), 3, "Retired X.509 Certificate for Key Management 14 (key ref 8F)", 0x100E, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x1B"), 3, "Retired X.509 Certificate for Key Management 15 (key ref 90)", 0x100F, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x1C"), 3, "Retired X.509 Certificate for Key Management 16 (key ref 91)", 0x1010, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x1D"), 3, "Retired X.509 Certificate for Key Management 17 (key ref 92)", 0x1011, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x1E"), 3, "Retired X.509 Certificate for Key Management 18 (key ref 93)", 0x1012, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x1F"), 3, "Retired X.509 Certificate for Key Management 19 (key ref 94)", 0x1013, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x20"), 3, "Retired X.509 Certificate for Key Management 20 (key ref 95)", 0x1014, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x21"), 3, "Cardholder Iris Images",                                       0x1015, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x7F\x61"),     2, "Biometric Information Templates Group Template",               0x1016, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x22"), 3, "Secure Messaging Certificate Signer",                          0x1017, PIV_OPTIONAL},
+    {PIV_TAG_ID("\x5F\xC1\x23"), 3, "Pairing Code Reference Data Container",                        0x1018, PIV_OPTIONAL},
     PIV_CONTAINER_FINISH,
 };
 
@@ -110,10 +110,10 @@ enum piv_tag_t {
 };
 
 struct piv_tag {
-    tlv_tag_t tag;
     const char *name;
-    enum piv_tag_t type;
     const void *data;
+    tlv_tag_t tag;
+    enum piv_tag_t type;
 };
 
 struct piv_tag_enum {
@@ -145,71 +145,72 @@ static const struct piv_tag_enum PIV_CERT_INFO[] = {
     PIV_ENUM_FINISH,
 };
 
+//  { Tag Name,                                 data,   id,   type }
 static const struct piv_tag piv_tags[] = {
-    { 0x00,     "Unknown ???",                                                 PIV_TAG_HEXDUMP,  NULL },
-    { 0x01,     "Name",                                                        PIV_TAG_PRINTSTR, NULL },
-    { 0x02,     "Employee Affiliation",                                        PIV_TAG_PRINTSTR, NULL },
-    { 0x04,     "Expiry Date",                                                 PIV_TAG_PRINTSTR, NULL },
-    { 0x05,     "Agency Card Serial Number",                                   PIV_TAG_PRINTSTR, NULL },
-    { 0x06,     "Issuer identification",                                       PIV_TAG_PRINTSTR, NULL },
-    { 0x07,     "Organization Affiliation (Line 1)",                           PIV_TAG_PRINTSTR, NULL },
-    { 0x08,     "Organization Affiliation (Line 2)",                           PIV_TAG_PRINTSTR, NULL },
+    { "Unknown ???",                            NULL, 0x00,   PIV_TAG_HEXDUMP},
+    { "Name",                                   NULL, 0x01,   PIV_TAG_PRINTSTR},
+    { "Employee Affiliation",                   NULL, 0x02,   PIV_TAG_PRINTSTR},
+    { "Expiry Date",                            NULL, 0x04,   PIV_TAG_PRINTSTR},
+    { "Agency Card Serial Number",              NULL, 0x05,   PIV_TAG_PRINTSTR},
+    { "Issuer identification",                  NULL, 0x06,   PIV_TAG_PRINTSTR},
+    { "Organization Affiliation (Line 1)",      NULL, 0x07,   PIV_TAG_PRINTSTR},
+    { "Organization Affiliation (Line 2)",      NULL, 0x08,   PIV_TAG_PRINTSTR},
 
-    { 0x30,     "FASC-N",                                                      PIV_TAG_FASCN,    NULL },
-    { 0x32,     "Organizational Identifier [deprecated]",                      PIV_TAG_HEXDUMP,  NULL },
-    { 0x33,     "DUNS [deprecated]",                                           PIV_TAG_HEXDUMP,  NULL },
-    { 0x34,     "GUID",                                                        PIV_TAG_GUID,     NULL },
-    { 0x35,     "Expiry Date",                                                 PIV_TAG_YYYYMMDD, NULL },
-    { 0x36,     "Cardholder UUID",                                             PIV_TAG_GUID,     NULL },
-    { 0x3d,     "Authentication Key Map",                                      PIV_TAG_HEXDUMP,  NULL },
-    { 0x3e,     "Issuer Asymmetric Signature",                                 PIV_TAG_CERT,     NULL },
+    { "FASC-N",                                 NULL, 0x30,   PIV_TAG_FASCN},
+    { "Organizational Identifier [dep]",        NULL, 0x32,   PIV_TAG_HEXDUMP},
+    { "DUNS [dep]",                             NULL, 0x33,   PIV_TAG_HEXDUMP},
+    { "GUID",                                   NULL, 0x34,   PIV_TAG_GUID},
+    { "Expiry Date",                            NULL, 0x35,   PIV_TAG_YYYYMMDD},
+    { "Cardholder UUID",                        NULL, 0x36,   PIV_TAG_GUID},
+    { "Authentication Key Map",                 NULL, 0x3d,   PIV_TAG_HEXDUMP},
+    { "Issuer Asymmetric Signature",            NULL, 0x3e,   PIV_TAG_CERT},
 
-    { 0x4f,     "Application Identifier (AID)",                                PIV_TAG_STRING,   NULL },
+    { "Application Identifier (AID)",           NULL, 0x4f,   PIV_TAG_STRING},
 
-    { 0x50,     "Application Label",                                           PIV_TAG_PRINTSTR, NULL },
-    { 0x53,     "Discretionary data (or template)",                            PIV_TAG_TLV,      NULL },
-    { 0x5f2f,   "PIN Usage Policy",                                            PIV_TAG_HEXDUMP,  NULL },
-    { 0x5f50,   "Issuer URL",                                                  PIV_TAG_PRINTSTR, NULL },
+    { "Application Label",                      NULL, 0x50,   PIV_TAG_PRINTSTR},
+    { "Discretionary data (or template)",       NULL, 0x53,   PIV_TAG_TLV},
+    { "PIN Usage Policy",                       NULL, 0x5f2f, PIV_TAG_HEXDUMP},
+    { "Issuer URL",                             NULL, 0x5f50, PIV_TAG_PRINTSTR},
 
-    { 0x61,     "Application Property Template",                               PIV_TAG_GENERIC,  NULL },
+    { "Application Property Template",          NULL, 0x61,   PIV_TAG_GENERIC},
 
-    { 0x70,     "Certificate",                                                 PIV_TAG_CERT,     NULL },
-    { 0x71,     "CertInfo",                                                    PIV_TAG_ENUM,     PIV_CERT_INFO },
-    { 0x72,     "MSCUID [deprecated]",                                         PIV_TAG_HEXDUMP,  NULL },
-    { 0x79,     "Coexistent tag allocation authority",                         PIV_TAG_HEXDUMP,  NULL },
-    { 0x7f21,   "Intermediate CVC",                                            PIV_TAG_HEXDUMP,  NULL },
-    { 0x7f60,   "Biometric Information Template",                              PIV_TAG_GENERIC,  NULL },
+    { "Certificate",                            NULL, 0x70,   PIV_TAG_CERT},
+    { "CertInfo",                      PIV_CERT_INFO, 0x71,   PIV_TAG_ENUM},
+    { "MSCUID [dep]",                           NULL, 0x72,   PIV_TAG_HEXDUMP},
+    { "Coexistent tag allocation authority",    NULL, 0x79,   PIV_TAG_HEXDUMP},
+    { "Intermediate CVC",                       NULL, 0x7f21, PIV_TAG_HEXDUMP},
+    { "Biometric Information Template",         NULL, 0x7f60, PIV_TAG_GENERIC},
 
-    { 0x80,     "Cryptographic algorithm identifier",                          PIV_TAG_ENUM,     PIV_CRYPTO_ALG },
+    { "Cryptograpnic Algorithm ID",   PIV_CRYPTO_ALG, 0x80,   PIV_TAG_ENUM},
 
-    { 0x99,     "Pairing Code",                                                PIV_TAG_PRINTSTR, NULL },
+    { "Pairing Code",                           NULL, 0x99,   PIV_TAG_PRINTSTR},
 
-    { 0xac,     "Cryptographic algorithms supported",                          PIV_TAG_GENERIC,  NULL },
+    { "Cryptographic algorithms supported",     NULL, 0xac,   PIV_TAG_GENERIC},
 
-    { 0xb4,     "Security Object Buffer (deprecated)",                         PIV_TAG_GENERIC,  NULL },
-    { 0xba,     "Mapping of DG to Container ID",                               PIV_TAG_HEXDUMP,  NULL },
-    { 0xbb,     "Security Object",                                             PIV_TAG_CERT,     NULL },
-    { 0xbc,     "Fingerprint I & II or Image for Visual Verification",         PIV_TAG_GENERIC,  NULL },
+    { "Security Object Buffer [dep]",           NULL, 0xb4,   PIV_TAG_GENERIC},
+    { "Mapping of DG to Container ID",          NULL, 0xba,   PIV_TAG_HEXDUMP},
+    { "Security Object",                        NULL, 0xbb,   PIV_TAG_CERT},
+    { "Fingerprints or Image (Verification)",   NULL, 0xbc,   PIV_TAG_GENERIC},
 
-    { 0xc1,     "keysWithOnCardCerts",                                         PIV_TAG_NUMERIC,  NULL },
-    { 0xc2,     "keysWithOffCardCerts",                                        PIV_TAG_NUMERIC,  NULL },
+    { "keysWithOnCardCerts",                    NULL, 0xc1,   PIV_TAG_NUMERIC},
+    { "keysWithOffCardCerts",                   NULL, 0xc2,   PIV_TAG_NUMERIC},
 
-    { 0xe3,     "Extended Application CardURL [deprecated]",                   PIV_TAG_GENERIC,  NULL },
-    { 0xee,     "Buffer Length [deprecated]",                                  PIV_TAG_NUMERIC,  NULL },
+    { "Extended Application CardURL [dep]",     NULL, 0xe3, PIV_TAG_GENERIC},
+    { "Buffer Length [dep]",                    NULL, 0xee,   PIV_TAG_NUMERIC},
 
-    { 0xf0,     "Card Identifier",                                             PIV_TAG_STRING,   NULL },
-    { 0xf1,     "Capability Container version number",                         PIV_TAG_NUMERIC,  NULL },
-    { 0xf2,     "Capability Grammar version number",                           PIV_TAG_NUMERIC,  NULL },
-    { 0xf3,     "Application Card URL",                                        PIV_TAG_PRINTSTR, NULL },
-    { 0xf4,     "PKCS#15",                                                     PIV_TAG_NUMERIC,  NULL },
-    { 0xf5,     "Registered Data Model Number",                                PIV_TAG_NUMERIC,  NULL },
-    { 0xf6,     "Access Control Rule Table",                                   PIV_TAG_HEXDUMP,  NULL },
-    { 0xf7,     "Card APDUs",                                                  PIV_TAG_GENERIC,  NULL },
-    { 0xfa,     "Redirection Tag",                                             PIV_TAG_GENERIC,  NULL },
-    { 0xfb,     "Capability Tuples (CT)",                                      PIV_TAG_GENERIC,  NULL },
-    { 0xfc,     "Status Tuples (ST)",                                          PIV_TAG_GENERIC,  NULL },
-    { 0xfd,     "Next CCC",                                                    PIV_TAG_GENERIC,  NULL },
-    { 0xfe,     "Error Detection Code",                                        PIV_TAG_GENERIC,  NULL },
+    { "Card Identifier",                        NULL, 0xf0,   PIV_TAG_STRING},
+    { "Capability Container version number",    NULL, 0xf1,   PIV_TAG_NUMERIC},
+    { "Capability Grammar version number",      NULL, 0xf2,   PIV_TAG_NUMERIC},
+    { "Application Card URL",                   NULL, 0xf3,   PIV_TAG_PRINTSTR},
+    { "PKCS#15",                                NULL, 0xf4,   PIV_TAG_NUMERIC},
+    { "Registered Data Model Number",           NULL, 0xf5,   PIV_TAG_NUMERIC},
+    { "Access Control Rule Table",              NULL, 0xf6,   PIV_TAG_HEXDUMP},
+    { "Card APDUs",                             NULL, 0xf7,   PIV_TAG_GENERIC},
+    { "Redirection Tag",                        NULL, 0xfa,   PIV_TAG_GENERIC},
+    { "Capability Tuples (CT)",                 NULL, 0xfb,   PIV_TAG_GENERIC},
+    { "Status Tuples (ST)",                     NULL, 0xfc,   PIV_TAG_GENERIC},
+    { "Next CCC",                               NULL, 0xfd,   PIV_TAG_GENERIC},
+    { "Error Detection Code",                   NULL, 0xfe,   PIV_TAG_GENERIC},
 };
 
 struct guid {
@@ -645,7 +646,7 @@ static int PivGetDataByTagAndPrint(Iso7816CommandChannel channel, const uint8_t 
         }
     }
     if (PIV_CONTAINERS[idx].len == 0) {
-        struct piv_container cid = {0x00, tag, tag_len, PIV_OPTIONAL, "Getting unknown contained ID"};
+        struct piv_container cid = {tag, tag_len, "Getting unknown contained ID", 0x00, PIV_OPTIONAL};
         return PivGetDataByCidAndPrint(channel, &cid, decodeTLV, verbose);
     }
     return PivGetDataByCidAndPrint(channel, &(PIV_CONTAINERS[idx]), decodeTLV, verbose);

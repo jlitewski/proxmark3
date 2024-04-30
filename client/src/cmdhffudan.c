@@ -70,7 +70,7 @@ static char *GenerateFilename(iso14a_card_select_t *card, const char *prefix, co
     if (card == NULL) {
         return NULL;
     }
-    char *fptr = calloc(sizeof(char) * (strlen(prefix) + strlen(suffix)) + sizeof(card->uid) * 2 + 1,  sizeof(uint8_t));
+    char *fptr = calloc(sizeof(char) * (strlen(prefix) + strlen(suffix)) + sizeof(card->uid) * 2 + 1,  sizeof(char));
     strcpy(fptr, prefix);
     FillFileNameByUID(fptr, card->uid, suffix, card->uidlen);
     return fptr;

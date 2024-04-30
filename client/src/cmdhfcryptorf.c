@@ -283,18 +283,16 @@ static int CmdHFCryptoRFDump(const char *Cmd) {
     bool m512 = arg_get_lit(ctx, 3);
     CLIParserFree(ctx);
 
-    if (m512 + m64 != 1) {
+    uint16_t cardsize = 0;
+    uint8_t blocks = 0;
+
+    if (m512 + m64 != 1) { // Either none, or all, of the memory card sizes are set
         PrintAndLogEx(INFO, "Select only one card memory size");
         return PM3_EINVARG;
-    }
-
-    uint16_t cardsize;
-    uint8_t blocks = 0;
-    if (m64) {
+    }else if (m64) {
         cardsize = (512 / 8) + 4;
         blocks = 0x0F;
-    }
-    if (m512) {
+    } else { //Assume m512
         cardsize = (4096 / 8) + 4;
         blocks = 0x7F;
     }
@@ -333,8 +331,9 @@ static int CmdHFCryptoRFDump(const char *Cmd) {
 
     PrintAndLogEx(INFO, "." NOLF);
 
-    uint8_t data[cardsize];
-    memset(data, 0, sizeof(data));
+    //uint8_t data[cardsize];
+    //memset(data, 0, sizeof(data));
+    uint8_t *data = (uint8_t*)calloc(cardsize, sizeof(uint8_t));
     uint16_t blocknum = 0;
 
     for (int retry = 0; retry < 5; retry++) {

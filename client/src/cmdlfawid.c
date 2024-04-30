@@ -58,7 +58,7 @@ static int sendTry(uint8_t fmtlen, uint32_t fc, uint32_t cn, uint32_t delay, uin
         return PM3_ESOFT;
     }
 
-    lf_fsksim_t *payload = calloc(1, sizeof(lf_fsksim_t) + bs_len);
+    lf_fsksim_t *payload = calloc(1UL, sizeof(lf_fsksim_t) + bs_len);
     payload->fchigh = 10;
     payload->fclow = 8;
     payload->separator = 1;

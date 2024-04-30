@@ -39,7 +39,7 @@
 #include "graph.h"
 #include "crc16.h"              // iso15 crc
 #include "cmddata.h"            // getsamples
-#include "utils/fileutils.h"          // pm3_save_dump
+#include "utils/fileutils.h"    // pm3_save_dump
 #include "cliparser.h"
 #include "util_posix.h"         // msleep
 #include "iso15.h"              // typedef structs / enum
@@ -73,25 +73,6 @@
     } \
     if (resp.length < 2) { \
         PrintAndLogEx(ERR, "iso15693 command failed"); \
-        return PM3_EWRONGANSWER; \
-    } \
-}
-#endif
-
-#ifndef ISO15_ERROR_HANDLING_CARD_RESPONSE
-#define ISO15_ERROR_HANDLING_CARD_RESPONSE(data, len) { \
-    if ((check_crc(CRC_15693, (data), (len))) == false) { \
-        PrintAndLogEx(FAILED, "crc ( " _RED_("fail") " )"); \
-        return PM3_ECRC; \
-    } \
- \
-    if ((d[0] & ISO15_RES_ERROR) == ISO15_RES_ERROR) { \
- \
-        if (data[1] == 0x0F || data[1] == 0x10) { \
-            return PM3_EOUTOFBOUND; \
-        } \
- \
-        PrintAndLogEx(ERR, "iso15693 card returned error %i: %s", d[0], TagErrorStr(d[0])); \
         return PM3_EWRONGANSWER; \
     } \
 }
@@ -771,8 +752,9 @@ static int NxpTestEAS(uint8_t *uid) {
     }
 
     uint8_t *d = resp.data.asBytes;
+    int8_t ret = iso15_error_handling_card_response(d, resp.length);
 
-    ISO15_ERROR_HANDLING_CARD_RESPONSE(d, resp.length)
+    if(ret != 0) return ret;
 
     PrintAndLogEx(INFO, "");
     PrintAndLogEx(INFO, _CYAN_(" EAS"));
@@ -830,8 +812,9 @@ static int NxpCheckSig(uint8_t *uid) {
     }
 
     uint8_t *d = resp.data.asBytes;
+    int8_t ret = iso15_error_handling_card_response(d, resp.length);
 
-    ISO15_ERROR_HANDLING_CARD_RESPONSE(d, resp.length)
+    if(ret != 0) return ret;
 
     uint8_t signature[32] = {0x00};
     memcpy(signature, d + 1, sizeof(signature));
@@ -882,8 +865,9 @@ static int NxpSysInfo(uint8_t *uid) {
     }
 
     uint8_t *d = resp.data.asBytes;
+    int8_t ret = iso15_error_handling_card_response(d, resp.length);
 
-    ISO15_ERROR_HANDLING_CARD_RESPONSE(d, resp.length)
+    if(ret != 0) return ret;
 
     bool support_signature = (d[5] & 0x01);
     bool support_easmode = (d[4] & 0x04);
@@ -1061,8 +1045,9 @@ static int CmdHF15Info(const char *Cmd) {
     }
 
     uint8_t *d = resp.data.asBytes;
+    int8_t ret = iso15_error_handling_card_response(d, resp.length);
 
-    ISO15_ERROR_HANDLING_CARD_RESPONSE(d, resp.length)
+    if(ret != 0) return ret;
 
     memcpy(uid, d + 2, sizeof(uid));
 
@@ -1771,8 +1756,9 @@ static int CmdHF15WriteDsfid(const char *Cmd) {
     ISO15_ERROR_HANDLING_RESPONSE
 
     uint8_t *d = resp.data.asBytes;
+    int8_t ret = iso15_error_handling_card_response(d, resp.length);
 
-    ISO15_ERROR_HANDLING_CARD_RESPONSE(d, resp.length)
+    if(ret != 0) return ret;
 
     PrintAndLogEx(NORMAL, "");
     PrintAndLogEx(SUCCESS, "Wrote DSFID 0x%02X ( " _GREEN_("ok") " )", dsfid);
@@ -2277,8 +2263,9 @@ static int CmdHF15Readmulti(const char *Cmd) {
     ISO15_ERROR_HANDLING_RESPONSE
 
     uint8_t *d = resp.data.asBytes;
+    int8_t ret = iso15_error_handling_card_response(d, resp.length);
 
-    ISO15_ERROR_HANDLING_CARD_RESPONSE(d, resp.length)
+    if(ret != 0) return ret;
 
     // 1 byte cmd,  1 lock byte,  4 / 8 bytes block size,  2 crc
     if (resp.length > (1 + (blockcnt * (blocksize + 1)) + 2)) {
@@ -2427,8 +2414,9 @@ static int CmdHF15Readblock(const char *Cmd) {
     ISO15_ERROR_HANDLING_RESPONSE
 
     uint8_t *d = resp.data.asBytes;
+    int8_t ret = iso15_error_handling_card_response(d, resp.length);
 
-    ISO15_ERROR_HANDLING_CARD_RESPONSE(d, resp.length)
+    if(ret != 0) return ret;
 
     // print response
     char lck[16] = {0};
@@ -2520,8 +2508,9 @@ static int hf_15_write_blk(uint8_t *pm3flags, uint16_t flags, uint8_t *uid, bool
     ISO15_ERROR_HANDLING_RESPONSE
 
     uint8_t *d = resp.data.asBytes;
+    int8_t ret = iso15_error_handling_card_response(d, resp.length);
 
-    ISO15_ERROR_HANDLING_CARD_RESPONSE(d, resp.length)
+    if(ret != 0) return ret;
 
     return PM3_SUCCESS;
 }

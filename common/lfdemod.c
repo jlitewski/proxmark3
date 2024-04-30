@@ -44,7 +44,6 @@
 //-----------------------------------------------------------------------------
 
 #include "lfdemod.h"
-#include <string.h>  // for memset, memcmp and size_t
 #include <stdlib.h>  // qsort
 #include "parity.h"  // for parity test
 #include "pm3_cmd.h" // error codes

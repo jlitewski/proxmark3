@@ -114,6 +114,7 @@ static int derive_app_key(uint8_t *uid, uint8_t *app_key) {
     if (mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_DECRYPT, sizeof(input), iv, input, output)) {
         return PM3_ESOFT;
     }
+    
     mbedtls_aes_free(&aes);
     memcpy(app_key, output, sizeof(output));
     return PM3_SUCCESS;
@@ -134,9 +135,8 @@ static int diversify_mifare_key(uint8_t *uid, uint8_t *app_key) {
 
     uint8_t key[AES_KEY_LEN];
     memset(key, 0, sizeof(key));
-//    memcpy(key, ICT_DESFIRE_FILEKEY, AES_KEY_LEN);
+    //memcpy(key, ICT_DESFIRE_FILEKEY, AES_KEY_LEN);
 
-    uint8_t iv[16] = {0};
     mbedtls_aes_context aes;
     mbedtls_aes_init(&aes);
     if (mbedtls_aes_setkey_enc(&aes, key, 128)) {
@@ -144,6 +144,7 @@ static int diversify_mifare_key(uint8_t *uid, uint8_t *app_key) {
     }
 
     uint8_t output[8];
+    uint8_t iv[16] = {0};
     if (mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_DECRYPT, sizeof(input), iv, input, output)) {
         return PM3_ESOFT;
     }
@@ -186,7 +187,9 @@ static int derive_mifare_key(uint8_t *uid, const uint8_t *base_key, uint8_t *app
     }
 
     uint8_t diverse[MIFARE_KEY_SIZE];
-    diversify_mifare_key(uid, diverse);
+    int ret = diversify_mifare_key(uid, diverse);
+
+    if(ret != 0) return ret; // If the diversify function returns from an error, catch it and pass it up
 
     for (uint8_t i = 0; i < MIFARE_KEY_SIZE; i++) {
         app_key[i] = base_key[i] ^ diverse[i];
@@ -441,11 +444,12 @@ static int CmdHfIctReader(const char *Cmd) {
     PrintAndLogEx(INFO, "UID... %s", sprint_hex_inrow(card.uid, card.uidlen));
     // MFC actions
     uint8_t uid[4] = {0x04, 0x01, 0x02, 0x03};
-    uint8_t key[MIFARE_KEY_SIZE] = {0};
+    //uint8_t key[MIFARE_KEY_SIZE] = {0};
+    uint8_t *key = (uint8_t*)calloc(MIFARE_KEY_SIZE, sizeof(uint8_t));
     derive_mifare_key_a(card.uid, key);
     PrintAndLogEx(INFO, "Derived KEY A... %s", sprint_hex_inrow(key, MIFARE_KEY_SIZE));
 
-    memset(key, 0, sizeof(key));
+    memset(key, 0, MIFARE_KEY_SIZE);
     derive_mifare_key_b(card.uid, key);
     PrintAndLogEx(INFO, "Derived KEY B... %s", sprint_hex_inrow(key, MIFARE_KEY_SIZE));
 
@@ -471,6 +475,7 @@ static int CmdHfIctReader(const char *Cmd) {
     itc_decode_card_blob(mfcblob, ICT_CT_CLASSIC);
     itc_encode_card_blob(101, 1337, 26);
 
+    free(key);
     return PM3_SUCCESS;
 }
 

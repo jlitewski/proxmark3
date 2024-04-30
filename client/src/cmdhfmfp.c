@@ -1690,7 +1690,7 @@ static int CmdHFMFPChk(const char *Cmd) {
             memcpy(&data[14], card.ats, atslen);
         }
 
-        char *fptr = calloc(sizeof(char) * (strlen("hf-mfp-") + strlen("-key")) + card.uidlen * 2 + 1,  sizeof(uint8_t));
+        char *fptr = calloc(sizeof(char) * (strlen("hf-mfp-") + strlen("-key")) + card.uidlen * 2 + 1,  sizeof(char));
         strcpy(fptr, "hf-mfp-");
 
         FillFileNameByUID(fptr, card.uid, "-key", card.uidlen);
@@ -2077,7 +2077,7 @@ int CmdHFMFPNDEFRead(const char *Cmd) {
     res = NDEFDecodeAndPrint(data, datalen, verbose);
     if (res != PM3_SUCCESS) {
         PrintAndLogEx(INFO, "Trying to parse NDEF records w/o NDEF header");
-        res = NDEFRecordsDecodeAndPrint(data, datalen, verbose);
+        NDEFRecordsDecodeAndPrint(data, datalen, verbose);
     }
 
     // get total NDEF length before save. If fails, we save it all

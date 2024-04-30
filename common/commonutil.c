@@ -16,7 +16,6 @@
 // Utility functions used in many places, not specific to any piece of code.
 //-----------------------------------------------------------------------------
 #include "commonutil.h"
-#include <string.h>
 
 /* Similar to FpgaGatherVersion this formats stored version information
  * into a string representation. It takes a pointer to the struct version_information_t,

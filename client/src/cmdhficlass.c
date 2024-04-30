@@ -1343,7 +1343,7 @@ static int iclass_decode_credentials_new_pacs(uint8_t *d) {
 
     PrintAndLogEx(INFO, "%u , %u", offset, pad);
 
-    char *binstr = (char *)calloc((PICOPASS_BLOCK_SIZE * 8) + 1, sizeof(uint8_t));
+    char *binstr = (char *)calloc((PICOPASS_BLOCK_SIZE * 8) + 1, sizeof(char));
     if (binstr == NULL) {
         return PM3_EMALLOC;
     }
@@ -1612,7 +1612,7 @@ static int CmdHFiClassDecrypt(const char *Cmd) {
         }
 
         // use the first block (CSN) for filename
-        char *fptr = calloc(50, sizeof(uint8_t));
+        char *fptr = calloc(50, sizeof(char));
         if (fptr == false) {
             PrintAndLogEx(WARNING, "Failed to allocate memory");
             free(decrypted);

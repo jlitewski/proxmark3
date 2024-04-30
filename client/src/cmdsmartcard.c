@@ -387,7 +387,6 @@ static int smart_responseEx(uint8_t *out, int maxoutlen, bool verbose) {
                     if (verbose) {
                         PrintAndLogEx(ERR, "GetResponse ACK error. len 0x%x | data[0] %02X", len, out[0]);
                     }
-                    datalen = 0;
                     goto out;
                 }
 
@@ -743,7 +742,7 @@ static int CmdSmartInfo(const char *Cmd) {
     PrintAndLogEx(INFO, "--- " _CYAN_("Smartcard Information") " ---------");
     PrintAndLogEx(INFO, "ISO7816-3 ATR... %s", sprint_hex(card.atr, card.atr_len));
     // convert bytes to str.
-    char *hexstr = calloc((card.atr_len << 1) + 1, sizeof(uint8_t));
+    char *hexstr = calloc((card.atr_len << 1) + 1, sizeof(char));
     if (hexstr == NULL) {
         PrintAndLogEx(WARNING, "failed to allocate memory");
         return PM3_EMALLOC;
@@ -817,7 +816,7 @@ static int CmdSmartReader(const char *Cmd) {
     PrintAndLogEx(INFO, "ISO7816-3 ATR... %s", sprint_hex(card->atr, card->atr_len));
 
     // convert bytes to str.
-    char *hexstr = calloc((card->atr_len << 1) + 1, sizeof(uint8_t));
+    char *hexstr = calloc((card->atr_len << 1) + 1, sizeof(char));
     if (hexstr == NULL) {
         PrintAndLogEx(WARNING, "failed to allocate memory");
         return PM3_EMALLOC;
@@ -1082,9 +1081,6 @@ static int CmdSmartBruteforceSFI(const char *Cmd) {
 
         PrintAndLogEx(NORMAL, "+" NOLF);
 
-        if (caid)
-            free(caid);
-
         json_t *data, *jaid;
 
         data = json_array_get(root, i);
@@ -1108,14 +1104,16 @@ static int CmdSmartBruteforceSFI(const char *Cmd) {
             continue;
 
         size_t aidlen = strlen(aid);
-        caid = calloc(8 + 2 + aidlen + 1, sizeof(uint8_t));
+        caid = calloc(8 + 2 + aidlen + 1, sizeof(char));
         snprintf(caid, 8 + 2 + aidlen + 1, SELECT, aidlen >> 1, aid);
 
         int hexlen = 0;
         uint8_t cmddata[PM3_CMD_DATA_SIZE];
         int res = param_gethex_to_eol(caid, 0, cmddata, sizeof(cmddata), &hexlen);
-        if (res)
+        if (res) {
+            free(caid);
             continue;
+        }
 
         smart_card_raw_t *payload = calloc(1, sizeof(smart_card_raw_t) + hexlen);
         payload->flags = SC_RAW_T0;
@@ -1127,42 +1125,47 @@ static int CmdSmartBruteforceSFI(const char *Cmd) {
         free(payload);
 
         int len = smart_responseEx(buf, PM3_CMD_DATA_SIZE, false);
-        if (len < 3)
+        if (len < 3) {
+            free(caid);
             continue;
+        }
 
         json_t *jvendor, *jname;
         jvendor = json_object_get(data, "Vendor");
         if (json_is_string(jvendor) == false) {
             PrintAndLogEx(ERR, "Vendor data [%d] is not a string", i + 1);
+            free(caid);
             continue;
         }
 
         const char *vendor = json_string_value(jvendor);
-        if (!vendor)
+        if (!vendor) {
+            free(caid);
             continue;
+        }
 
         jname = json_object_get(data, "Name");
         if (json_is_string(jname) == false) {
             PrintAndLogEx(ERR, "Name data [%d] is not a string", i + 1);
+            free(caid);
             continue;
         }
+
         const char *name = json_string_value(jname);
-        if (!name)
+        if (!name) {
+            free(caid);
             continue;
+        }
 
         PrintAndLogEx(SUCCESS, "\nAID %s | %s | %s", aid, vendor, name);
 
         smart_brute_options(decode_tlv);
-
         smart_brute_prim();
-
         smart_brute_sfi(decode_tlv);
 
         PrintAndLogEx(SUCCESS, "\nSFI brute force done\n");
-    }
-
-    if (caid)
         free(caid);
+    }
 
     free(buf);
     json_decref(root);

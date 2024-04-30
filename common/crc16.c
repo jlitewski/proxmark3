@@ -17,7 +17,6 @@
 //-----------------------------------------------------------------------------
 #include "crc16.h"
 
-#include <string.h>
 #include "commonutil.h"
 
 static uint16_t crc_table[256];

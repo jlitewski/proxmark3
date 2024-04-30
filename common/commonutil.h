@@ -19,7 +19,7 @@
 #ifndef __COMMONUTIL_H
 #define __COMMONUTIL_H
 
-#include "common.h"
+#include "../include/common.h"
 
 // endian change for 16bit
 #ifdef __GNUC__

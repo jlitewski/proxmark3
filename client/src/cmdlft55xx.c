@@ -340,10 +340,10 @@ static void arg_add_t55xx_downloadlink(void *at[], uint8_t *idx, uint8_t show, u
     const size_t r_count = 56;
     const size_t r_len = r_count * sizeof(uint8_t);
 
-    char *r0 = (char *)calloc(r_count, sizeof(uint8_t));
-    char *r1 = (char *)calloc(r_count, sizeof(uint8_t));
-    char *r2 = (char *)calloc(r_count, sizeof(uint8_t));
-    char *r3 = (char *)calloc(r_count, sizeof(uint8_t));
+    char *r0 = (char *)calloc(r_count, sizeof(char));
+    char *r1 = (char *)calloc(r_count, sizeof(char));
+    char *r2 = (char *)calloc(r_count, sizeof(char));
+    char *r3 = (char *)calloc(r_count, sizeof(char));
 
     snprintf(r0, r_len, "downlink - fixed bit length %s", (dl_mode_def == 0) ? "(detected def)" : "");
     snprintf(r1, r_len, "downlink - long leading reference %s", (dl_mode_def == 1) ? "(detected def)" : "");
@@ -357,12 +357,15 @@ static void arg_add_t55xx_downloadlink(void *at[], uint8_t *idx, uint8_t show, u
     at[n++] = arg_lit0(NULL, "r3", r3);
 
     if (show == T55XX_DLMODE_ALL) {
-        char *r4 = (char *)calloc(r_count, sizeof(uint8_t));
+        char *r4 = (char *)calloc(r_count, sizeof(char));
         snprintf(r4, r_len, "try all downlink modes %s", (dl_mode_def == 4) ? "(def)" : "");
         at[n++] = arg_lit0(NULL, "all", r4);
+        free(r4);
     }
     at[n++] = arg_param_end;
     *idx = n;
+
+    free(r0); free(r1); free(r2); free(r3);
 }
 
 static int CmdT55xxCloneHelp(const char *Cmd) {
@@ -1685,7 +1688,7 @@ static bool testQ5(uint8_t mode, uint8_t *offset, int *fndBitRate, uint8_t clk) 
         uint8_t modread   = PackBits(si, 3, g_DemodBuffer);
         si += 3;
         uint8_t maxBlk    = PackBits(si, 3, g_DemodBuffer);
-        si += 3;
+        //si += 3;
         //uint8_t ST        = PackBits(si, 1, g_DemodBuffer); si += 1;
         if (maxBlk == 0) continue;
 
@@ -1741,7 +1744,7 @@ bool test(uint8_t mode, uint8_t *offset, int *fndBitRate, uint8_t clk, bool *Q5)
         uint8_t extend   = PackBits(si, 1, g_DemodBuffer);
         si += 1;     //bit 15 extended mode
         uint8_t modread  = PackBits(si, 5, g_DemodBuffer);
-        si += 5 + 2 + 1;
+        //si += 5 + 2 + 1;
         //uint8_t pskcr   = PackBits(si, 2, g_DemodBuffer); si += 2+1;  //could check psk cr
         //uint8_t nml01    = PackBits(si, 1, g_DemodBuffer); si += 1+5;   //bit 24, 30, 31 could be tested for 0 if not extended mode
         //uint8_t nml02    = PackBits(si, 2, g_DemodBuffer); si += 2;
@@ -3405,7 +3408,6 @@ static int CmdT55xxChkPwds(const char *Cmd) {
     uint8_t flags = downlink_mode << 3;
 
     if (from_flash) {
-        use_pwd_file = false; // turn of local password file since we are checking from flash.
         clearCommandBuffer();
         SendCommandNG(CMD_LF_T55XX_CHK_PWDS, &flags, sizeof(flags));
         PacketResponseNG resp;
@@ -3420,10 +3422,12 @@ static int CmdT55xxChkPwds(const char *Cmd) {
             }
         }
         PrintAndLogEx(NORMAL, "");
+
         struct p {
             bool found;
             uint32_t candidate;
         } PACKED;
+
         struct p *packet = (struct p *)resp.data.asBytes;
 
         if (packet->found) {
@@ -4512,7 +4516,7 @@ static int CmdT55xxSniff(const char *Cmd) {
                                 blockAddr |= 1;
                             }
                         }
-                        blockData = 0;
+                        //blockData = 0;
                         have_data = true;
                         modeText = "Default Read";
                     }

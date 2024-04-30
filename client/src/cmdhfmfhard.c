@@ -356,7 +356,7 @@ static void init_bitflip_bitarrays(void) {
 
             } else if (open_lz4compressed) {
 
-                char *compressed_data = calloc(filesize, sizeof(uint8_t));
+                char *compressed_data = calloc(filesize, sizeof(char));
                 if (compressed_data == NULL) {
                     PrintAndLogEx(ERR, "Out of memory error in init_bitflip_statelists(). Aborting...\n");
                     fclose(statesfile);
@@ -371,7 +371,7 @@ static void init_bitflip_bitarrays(void) {
                 }
                 fclose(statesfile);
 
-                char *uncompressed_data = calloc((sizeof(uint32_t) * (1 << 19)) + sizeof(uint32_t), sizeof(uint8_t));
+                char *uncompressed_data = calloc((sizeof(uint32_t) * (1 << 19)) + sizeof(uint32_t), sizeof(char));
                 if (uncompressed_data == NULL) {
                     PrintAndLogEx(ERR,   "Out of memory error in init_bitflip_statelists(). Aborting...\n");
                     free(compressed_data);

@@ -25,7 +25,6 @@
 #include "dbprint.h"
 #endif // AS_BOOTROM
 
-#include "string.h"
 #include "usb_cdc.h"
 
 /* here: use NCPS2 @ PA10: */

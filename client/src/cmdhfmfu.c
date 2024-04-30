@@ -611,8 +611,10 @@ static int ul_print_default(uint8_t *data, uint8_t *real_uid) {
     if (memcmp(uid, real_uid, 7) != 0) {
         mful_uid_layout = false;
     }
+
     PrintAndLogEx(SUCCESS, "       UID: " _GREEN_("%s"), sprint_hex(real_uid, 7));
     PrintAndLogEx(SUCCESS, "    UID[0]: %02X, %s",  real_uid[0], getTagInfo(real_uid[0]));
+
     if (real_uid[0] == 0x05 && ((real_uid[1] & 0xf0) >> 4) == 2) {   // is infineon and 66RxxP
         uint8_t chip = (data[8] & 0xC7); // 11000111  mask, bit 3,4,5 RFU
         switch (chip) {
@@ -1476,7 +1478,7 @@ static char *mfu_generate_filename(const char *prefix, const char *suffix) {
         return NULL;
     }
 
-    char *fptr = calloc(sizeof(char) * (strlen(prefix) + strlen(suffix)) + sizeof(card.uid) * 2 + 1,  sizeof(uint8_t));
+    char *fptr = calloc(sizeof(char) * (strlen(prefix) + strlen(suffix)) + sizeof(card.uid) * 2 + 1,  sizeof(char));
     strcpy(fptr, prefix);
     FillFileNameByUID(fptr, card.uid, suffix, card.uidlen);
     return fptr;
@@ -5242,7 +5244,6 @@ static int CmdHF14AAmiibo(const char *Cmd) {
         res = mfu_dump_tag(MAX_NTAG_215, (void **)&dump, &dlen);
         if (res != PM3_SUCCESS) {
             PrintAndLogEx(FAILED, "Failed to dump memory from tag");
-            free(dump);
             return res;
         }
         memcpy(original, dump, sizeof(original));

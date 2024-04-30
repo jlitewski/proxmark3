@@ -17,6 +17,7 @@
 //-----------------------------------------------------------------------------
 #include "cmdhfjooki.h"
 #include <ctype.h>
+#include <stdio.h>
 #include <string.h>       // memset
 #include "commonutil.h"   // ARRAYLEN
 #include "ui.h"           // PrintAndLog
@@ -275,7 +276,7 @@ static int jooki_selftest(void) {
 
         int status = NDEFRecordsDecodeAndPrint(ndefmsg, sizeof(ndefmsg), true);
         if (status != PM3_SUCCESS) {
-            status = NDEFDecodeAndPrint(ndefmsg, sizeof(ndefmsg), true);
+            NDEFDecodeAndPrint(ndefmsg, sizeof(ndefmsg), true);
         }
         PrintAndLogEx(INFO, "==================================================================");
     }

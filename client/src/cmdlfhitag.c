@@ -556,7 +556,7 @@ void hitag2_annotate_plain(char *exp, size_t size, const uint8_t *cmd, uint8_t c
         return;
     }
 
-    char *binstr = (char *)calloc((cmdsize * 8) + 1, sizeof(uint8_t));
+    char *binstr = (char *)calloc((cmdsize * 8) + 1, sizeof(char));
     if (binstr == NULL) {
         return;
     }
@@ -623,7 +623,7 @@ void annotateHitag2(char *exp, size_t size, const uint8_t *cmd, uint8_t cmdsize,
         return;
     }
 
-    char *binstr = (char *)calloc((cmdsize * 8) + 1, sizeof(uint8_t));
+    char *binstr = (char *)calloc((cmdsize * 8) + 1, sizeof(char));
     if (binstr == NULL) {
         return;
     }

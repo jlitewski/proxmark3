@@ -298,7 +298,7 @@ static void PacketResponseReceived(PacketResponseNG *packet) {
                 } PACKED;
                 struct d *data = (struct d *)&packet->data.asBytes;
                 len = packet->length - sizeof(data->flag);
-                flag = data->flag;
+                flag = data->flag; //TODO flag has a chance to be garbage here
                 memcpy(s, data->buf, len);
             } else {
                 len = MIN(packet->oldarg[0], PM3_CMD_DATA_SIZE);
@@ -452,7 +452,7 @@ __attribute__((force_align_arg_pointer))
                     __atomic_store_n(&comm_raw_pos, bufferPos + rxlen, __ATOMIC_SEQ_CST);
                 } else if (res != PM3_ENODATA) {
                     PrintAndLogEx(WARNING, "Error when reading raw data: %zu/%zu, %d", bufferPos, bufferLen, res);
-                    error = true;
+                    //error = true;
                     if (res == PM3_ENOTTY) {
                         commfailed = true;
                     }
@@ -594,7 +594,7 @@ __attribute__((force_align_arg_pointer))
             } else {
                 if (rxlen > 0) {
                     PrintAndLogEx(WARNING, "Received packet frame preamble too short: %d/%zu", rxlen, sizeof(PacketResponseNGPreamble));
-                    error = true;
+                    //error = true;
                 }
                 if (res == PM3_ENOTTY) {
                     commfailed = true;
@@ -740,7 +740,7 @@ bool OpenProxmarkSilent(pm3_device_t **dev, const char *port, uint32_t speed) {
 
         fflush(stdout);
         if (*dev == NULL) {
-            *dev = calloc(sizeof(pm3_device_t), sizeof(uint8_t));
+            *dev = calloc(1UL, sizeof(pm3_device_t));
         }
         (*dev)->g_conn = &g_conn; // TODO g_conn shouldn't be global
         return true;
@@ -798,7 +798,7 @@ bool OpenProxmark(pm3_device_t **dev, const char *port, bool wait_for_port, int 
 
         fflush(stdout);
         if (*dev == NULL) {
-            *dev = calloc(sizeof(pm3_device_t), sizeof(uint8_t));
+            *dev = calloc(1UL, sizeof(pm3_device_t));
         }
         (*dev)->g_conn = &g_conn; // TODO g_conn shouldn't be global
         return true;

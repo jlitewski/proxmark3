@@ -15,7 +15,6 @@
 //-----------------------------------------------------------------------------
 
 #include "bruteforce.h"
-#include <string.h>
 #include <stdio.h>
 
 uint8_t charset_digits[] = {

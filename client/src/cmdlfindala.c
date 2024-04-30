@@ -235,6 +235,11 @@ int demodIndalaEx(int clk, int invert, int maxErr, bool verbose) {
             ++cnt_zeros;
     }
 
+    // if there are no zeros in the Demod Buffer, assume it's wrong
+    if(cnt_zeros == 0) { // Fixes a rare, but possible, DIV0 issue
+        return PM3_ESOFT;
+    }
+
     // if more than 95% zeros in the demodbuffer then assume its wrong
     int32_t stats = (int32_t)((cnt_zeros * 100 / g_DemodBufferLen));
     if (stats > 95) {

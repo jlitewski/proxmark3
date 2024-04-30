@@ -16,7 +16,6 @@
 // Support functions for smart card
 //-----------------------------------------------------------------------------
 #include "cardhelper.h"
-#include <string.h>
 #include <stdio.h>
 #include "cmdparser.h"
 #include "cmdsmartcard.h"

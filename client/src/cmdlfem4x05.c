@@ -1460,7 +1460,6 @@ int CmdEM4x05Write(const char *Cmd) {
             PrintAndLogEx(INFO, "Writing address " _YELLOW_("%d") " data " _YELLOW_("%08X"), addr, data);
     }
 
-    res = PM3_SUCCESS;
     // set Protect Words
     if (protect_operation) {
         res = em4x05_protect(pwd, use_pwd, data);
@@ -2390,7 +2389,7 @@ int CmdEM4x05Sniff(const char *Cmd) {
     PrintAndLogEx(SUCCESS, "-------+-------------+----------+-----+------------------------------------------------------------");
 
     smartbuf bits = { 0 };
-    bits.ptr = calloc(EM4X05_BITS_BUFSIZE, sizeof(uint8_t));
+    bits.ptr = calloc(EM4X05_BITS_BUFSIZE, sizeof(char));
     bits.size = EM4X05_BITS_BUFSIZE;
     bits.idx = 0;
     size_t idx = 0;

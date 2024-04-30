@@ -20,7 +20,7 @@
 #define __CARDHELPER_H
 
 #include <ctype.h>
-#include "common.h"
+#include "../include/common.h"
 
 bool IsHIDSamPresent(bool verbose);
 bool IsCardHelperPresent(bool verbose);

@@ -541,12 +541,12 @@ static void topaz_print_control_TLVs(uint8_t *memory) {
             dynamic_lock_area_t *new;
 
             if (old == NULL) {
-                new = topaz_tag.dynamic_lock_areas = (dynamic_lock_area_t *) calloc(sizeof(dynamic_lock_area_t), sizeof(uint8_t));
+                new = topaz_tag.dynamic_lock_areas = (dynamic_lock_area_t *) calloc(1UL, sizeof(dynamic_lock_area_t));
             } else {
                 while (old->next != NULL) {
                     old = old->next;
                 }
-                new = old->next = (dynamic_lock_area_t *) calloc(sizeof(dynamic_lock_area_t), sizeof(uint8_t));
+                new = old->next = (dynamic_lock_area_t *) calloc(1UL, sizeof(dynamic_lock_area_t));
             }
             new->next = NULL;
 

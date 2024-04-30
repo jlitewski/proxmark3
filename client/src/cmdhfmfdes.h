@@ -18,7 +18,7 @@
 #ifndef __MFDESFIRE_H
 #define __MFDESFIRE_H
 
-#include "common.h"
+#include "../include/common.h"
 
 int CmdHFMFDes(const char *Cmd);
 

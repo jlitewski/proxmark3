@@ -31,7 +31,6 @@
 #endif
 
 #include "util_posix.h"
-#include <stdint.h>
 #include <time.h>
 
 
