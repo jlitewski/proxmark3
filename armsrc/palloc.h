@@ -45,9 +45,9 @@ void palloc_init(void);
 void *palloc(uint16_t numElement, uint16_t size);
 bool palloc_free(void *ptr);
 
-uint32_t palloc_get_free(void);
-uint32_t palloc_get_used(void);
-uint32_t palloc_get_fresh(void);
+uint8_t palloc_get_free(void);
+uint8_t palloc_get_used(void);
+uint8_t palloc_get_fresh(void);
 bool palloc_has_integrity(void);
 
 //==============

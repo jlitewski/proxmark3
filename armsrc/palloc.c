@@ -26,17 +26,22 @@
 #include "util.h" // nbytes
 #include "dbprint.h" // logging
 
+// Word size alignment (4 was the BigBuf default)
 #define ALIGN_BYTES (4)
 #define ALIGN_MASK  (0xFFFF + 1 - ALIGN_BYTES)
 
+#define MAX_BLOCK_SIZE 32000 // 32k should be more than enough
+#define BLOCK_SPLIT_THRESHOLD 16
+#define MAX_BLOCKS 32 // 32 blocks will give us an overall overhead of 768 bytes
+
 extern uint32_t _stack_start[], __bss_end__[];
 
-typedef struct pBlock pBlock;
-struct pBlock {
+typedef struct Block pBlock;
+
+struct Block {
     void *address; // The memory address this block points to
-    pBlock *prev;  // The previous block in the list, or NULL if none
     pBlock *next;  // The next block in the list, or NULL if there is none
-    uint16_t size; // A block shouldn't be over 32kb big
+    int16_t size;  // A block shouldn't be over 32kb big
 };
 
 typedef struct {
@@ -49,5 +54,65 @@ typedef struct {
 static pHeap *heap = NULL;
 
 void palloc_init(void) {
+    // Set up the heap
+    heap = (pHeap*)(_stack_start - __bss_end__);
+    heap->free = NULL;
+    heap->used = NULL;
+    heap->fresh = (pBlock*)(heap + 1);
+    heap->top = (size_t)(heap->fresh + MAX_BLOCKS);
 
+    // Set up the fresh blocks to use
+    pBlock *block = heap->fresh;
+    uint8_t i = (MAX_BLOCKS - 1);
+    while(i--) {
+        block->next = block + 1;
+        block++;
+    }
+
+    block->next = NULL;
+}
+
+/**
+ * @brief Returns the amount of blocks in a specific Block container
+ * 
+ * @param ptr The pointer of the Block container to count
+ * @return The amount of blocks in that container (`uint8_t`)
+ */
+static uint8_t count_blocks(pBlock *ptr) {
+    uint8_t count = 0;
+
+    while(ptr != NULL) {
+        count++;
+        ptr = ptr->next;
+    }
+
+    return count;
+}
+
+/**
+ * @brief Returns the amount of Blocks that are free to use
+ * (These blocks were previously used)
+ * 
+ * @return The number of free blocks in the Heap
+ */
+uint8_t palloc_get_free(void) {
+    return count_blocks(heap->free);
+}
+
+/**
+ * @brief Returns the amount of Blocks that are currently being used
+ * 
+ * @return The number of used Blocks in the Heap
+ */
+uint8_t palloc_get_used(void) {
+    return count_blocks(heap->used);
+}
+
+/**
+ * @brief Returns the number of Blocks that haven't been used before
+ * 
+ * @return The number of fresh Blocks in the Heap
+ */
+uint8_t palloc_get_fresh(void) {
+    return count_blocks(heap->fresh);
 }
