@@ -18,7 +18,7 @@
 // This is designed to be a replacement to the BigBuf implementation the
 // Iceman firmware uses
 //============================== Special Thanks ================================
-// thi-ng/tinyalloc - for the general idea of the blocks and heap used
+// thi-ng/tinyalloc - for the general idea of the blocks and the heap
 // rhempel/umm_malloc - for the best-fit algo
 //==============================================================================
 #include "palloc.h"
@@ -33,9 +33,21 @@ extern uint32_t _stack_start[], __bss_end__[];
 
 typedef struct pBlock pBlock;
 struct pBlock {
-    void *address;
-    pBlock *next;
-    size_t size;
+    void *address; // The memory address this block points to
+    pBlock *prev;  // The previous block in the list, or NULL if none
+    pBlock *next;  // The next block in the list, or NULL if there is none
+    uint16_t size; // A block shouldn't be over 32kb big
 };
 
+typedef struct {
+    pBlock *free;  // Free (Previously Used) Blocks List
+    pBlock *used;  // Used Blocks List
+    pBlock *fresh; // Fresh (Never Used) Blocks List
+    uint32_t top;  // Top free address
+} pHeap;
 
+static pHeap *heap = NULL;
+
+void palloc_init(void) {
+
+}

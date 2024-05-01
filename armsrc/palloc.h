@@ -26,7 +26,7 @@
 
 //-----------------------------------------------------------------------------
 // Palloc (Proxmark ALLOCator) provides bare metal access to the memory
-// provided by the Atmel SAM7S MCU.
+// provided by the Atmel SAM7S series MCU.
 //
 // It is up to the functions that request memory from palloc to gracefully
 // handle situations where we can't allocate memory. It is also up to the
@@ -83,7 +83,7 @@ buffer32u_t *palloc_buffer32(uint16_t size);
 typedef struct {
     int16_t max; // -1 is no data, max data size is ~2.3k bytes
     uint8_t bit; // 0 through 8
-    uint8_t *buffer;
+    uint8_t *data;
 } fpga_queue_t;
 
 fpga_queue_t *get_fpga_queue(void);
