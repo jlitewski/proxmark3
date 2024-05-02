@@ -42,13 +42,13 @@
 //====================
 
 void palloc_init(void);
-void *palloc(uint16_t numElement, uint16_t size);
+void *palloc(uint16_t numElement, const uint16_t size);
 void palloc_copy(void *ptr, const void *src, uint16_t len);
 bool palloc_free(void *ptr);
 
-uint8_t palloc_get_free(void);
-uint8_t palloc_get_used(void);
-uint8_t palloc_get_fresh(void);
+int8_t palloc_get_free(void);
+int8_t palloc_get_used(void);
+int8_t palloc_get_fresh(void);
 bool palloc_has_integrity(void);
 
 //==============
