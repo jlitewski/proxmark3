@@ -18,8 +18,7 @@
 // This is designed to be a replacement to the BigBuf implementation the
 // Iceman firmware uses
 //============================== Special Thanks ================================
-// thi-ng/tinyalloc - for the general idea of the blocks and the heap
-// rhempel/umm_malloc - for the best-fit algo
+// thi-ng/tinyalloc - for the initial chunk of code palloc used
 //==============================================================================
 #include "palloc.h"
 
@@ -53,6 +52,10 @@ typedef struct {
 
 static pHeap *heap = NULL;
 
+/**
+ * @brief Initialize the palloc heap and blocks. 
+ * This must be used before any other palloc function!
+ */
 void palloc_init(void) {
     // Set up the heap
     heap = (pHeap*)(_stack_start - __bss_end__);
@@ -70,6 +73,66 @@ void palloc_init(void) {
     }
 
     block->next = NULL;
+}
+
+/**
+ * @brief Copy `len` data from `src` to `ptr`
+ * 
+ * @param ptr The pointer to have the data copied to
+ * @param src The source of the data to copy
+ * @param len The amount of data (in bytes) to copy from the source to the pointer
+ */
+void palloc_copy(void *ptr, const void *src, uint16_t len) {
+    size_t *dst = (size_t*)ptr;
+    const size_t *data = (size_t*)src;
+
+    size_t endLen = len & 0x03;
+
+    while((len -= 4) > endLen) {
+        *dst++ = *data++;
+    }
+
+    uint8_t *dstByte =  (uint8_t*)dst;
+    uint8_t *dataByte = (uint8_t*)data;
+
+    while(endLen--) {
+        *dstByte++ = *dataByte++;
+    }
+}
+
+static void insert(pBlock *blk) {
+    pBlock *ptr = heap->free;
+    pBlock *prev = NULL;
+    
+}
+
+/**
+ * @brief Free the memory a pointer holds
+ * 
+ * @param ptr The pointer to free
+ * @return true If the memory at pointer was freed
+ * @return false otherwise
+ */
+bool palloc_free(void *ptr) {
+    pBlock *blk = heap->used;
+    pBlock *prev = NULL;
+
+    while(blk != NULL) {
+        if(ptr == blk->address) {
+            if(prev) {
+                prev->next = blk->next;
+            } else {
+                heap->used = blk->next;
+            }
+
+            return true;
+        }
+
+        prev = blk;
+        blk = blk->next;
+    }
+
+    return false;
 }
 
 /**
