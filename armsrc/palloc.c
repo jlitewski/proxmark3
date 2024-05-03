@@ -60,6 +60,20 @@ typedef struct {
     size_t top;    // Top free address
 } pHeap;
 
+/**
+ * @brief The FPGA Queue
+ * @note
+ * This is a buffer where we can queue things up to be sent through the FPGA, for
+ * any purpose (fake tag, as reader, whatever).
+ * @note 
+ * We go MSB first, since that is the order in which they go out on the wire. 
+ */
+static fpga_queue_t fpgaQueue = {
+    .max = -1,
+    .bit = 8,
+    .data = nullptr
+};
+
 // This will automagically calculate the overhead we have if we tweak the values we use
 #define OVERHEAD (MAX_BLOCKS * sizeof(pBlock))
 
@@ -170,10 +184,11 @@ static void compact_heap(void) {
 }
 
 /**
- * @brief 
+ * @brief Takes a usable block from the heap and allocates it for the data we need. This will split
+ * up blocks as well to keep things as compact as possible.
  * 
- * @param alloc 
- * @return pBlock* 
+ * @param alloc The amount of space we need to allocate, in bytes
+ * @return The pointer to the block of memory we allocated, or `nullptr` if we couldn't allocate the memory
  */
 static pBlock *allocate_block(size_t alloc) {
     pBlock *ptr = heap->free;
@@ -367,7 +382,7 @@ static int8_t count_blocks(pBlock *ptr) {
  * 
  * @return The number of free blocks in the Heap, or -1 if the heap hasn't been initialized
  */
-int8_t palloc_get_free(void) {
+int8_t palloc_free_blocks(void) {
     return count_blocks(heap->free);
 }
 
@@ -376,7 +391,7 @@ int8_t palloc_get_free(void) {
  * 
  * @return The number of used Blocks in the Heap, or -1 if the heap hasn't been initialized
  */
-int8_t palloc_get_used(void) {
+int8_t palloc_used_blocks(void) {
     return count_blocks(heap->used);
 }
 
@@ -385,7 +400,7 @@ int8_t palloc_get_used(void) {
  * 
  * @return The number of fresh Blocks in the Heap, or -1 if the heap hasn't been initialized
  */
-int8_t palloc_get_fresh(void) {
+int8_t palloc_fresh_blocks(void) {
     return count_blocks(heap->fresh);
 }
 
@@ -409,6 +424,16 @@ void palloc_compact_heap(void) {
 }
 
 /**
+ * @brief Checks the integrity of the heap
+ * 
+ * @return `true` if the heap is okay 
+ * @return `false` otherwise
+ */
+bool palloc_heap_integrity(void) {
+    return (MAX_BLOCKS == palloc_free_blocks() + palloc_fresh_blocks() + palloc_used_blocks());
+}
+
+/**
  * @brief Create a general purpose 8-bit buffer
  * 
  * @param numElement the amount of elements in this buffer
@@ -428,6 +453,7 @@ buffer8u_t palloc_buffer8(uint16_t numElement) {
 
     pBlock *blk = allocate_block(numElement);
     if(blk != nullptr) {
+        palloc_copy(blk->address, 0, blk->size); // Remove any garbage
         buffer.data = (uint8_t*)blk->address;
         buffer.size = blk->size;
     }
@@ -456,6 +482,7 @@ buffer16u_t palloc_buffer16(uint16_t numElement) {
 
     pBlock *blk = allocate_block(alloc);
     if(blk != nullptr) {
+        palloc_copy(blk->address, 0, blk->size); // Remove any garbage
         buffer.data = (uint16_t*)blk->address;
         buffer.size = blk->size;
     }
@@ -484,9 +511,71 @@ buffer32u_t palloc_buffer32(uint16_t numElement) {
 
     pBlock *blk = allocate_block(alloc);
     if(blk != nullptr) {
+        palloc_copy(blk->address, 0, blk->size); // Remove any garbage
         buffer.data = (uint32_t*)blk->address;
         buffer.size = blk->size;
     }
 
     return buffer;
+}
+
+/**
+ * @brief Get the fpga queue object
+ * 
+ * @return The FPGA queue, or `nullptr` if there was an issue allocating memory for it
+ */
+fpga_queue_t *get_fpga_queue(void) {
+    if(fpgaQueue.data == nullptr) { // If the queue hasn't been initialized yet, do so
+        pBlock *blk = allocate_block(QUEUE_BUFFER_SIZE);
+
+        if(blk != nullptr) { // If we did get data to initialize
+            palloc_copy(blk->address, 0, blk->size); // Remove any garbage
+            fpgaQueue.data = blk->address;
+        } else return nullptr;
+    }
+
+    return &fpgaQueue;
+}
+
+/**
+ * @brief Resets the FPGA queue back to default, but doesn't release the underlying buffer
+ */
+void reset_fpga_queue(void) {
+    if(fpgaQueue.data != nullptr) {
+        fpgaQueue.max = -1;
+        fpgaQueue.bit = 8;
+    }
+}
+
+/**
+ * @brief Resets the FPGA queue and releases the underlying buffer
+ */
+void free_fpga_queue(void) {
+    if(fpgaQueue.data != nullptr) {
+        reset_fpga_queue();
+        palloc_free(fpgaQueue.data);
+        fpgaQueue.data = nullptr;
+    }
+}
+
+void stuff_bit_in_queue(uint8_t bit) {
+    if(fpgaQueue.data != nullptr) {
+        if(fpgaQueue.max >= (QUEUE_BUFFER_SIZE - 1)) {
+            Dbprintf(_RED_("FPGA Queue Buffer Overflow!"));
+            return;
+        }
+
+        // Add another byte to the buffer if needed
+        if(fpgaQueue.bit >= 8) {
+            fpgaQueue.max++;
+            fpgaQueue.data[fpgaQueue.max] = 0;
+            fpgaQueue.bit = 0;
+        }
+
+        if(bit) fpgaQueue.data[fpgaQueue.max] |= (1 << (7 - fpgaQueue.bit));
+
+        if(fpgaQueue.max >= QUEUE_BUFFER_SIZE) return;
+
+        fpgaQueue.bit++;
+    }
 }

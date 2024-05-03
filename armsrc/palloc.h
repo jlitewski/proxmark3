@@ -46,12 +46,12 @@ void *palloc(uint16_t numElement, const uint16_t size);
 void palloc_copy(void *ptr, const void *src, uint16_t len);
 bool palloc_free(void *ptr);
 
-int8_t palloc_get_free(void);
-int8_t palloc_get_used(void);
-int8_t palloc_get_fresh(void);
+int8_t palloc_free_blocks(void);
+int8_t palloc_used_blocks(void);
+int8_t palloc_fresh_blocks(void);
 size_t palloc_space_left(void);
 void palloc_compact_heap(void);
-bool palloc_has_integrity(void);
+bool palloc_heap_integrity(void);
 
 //==============
 // Buffer Stuff
@@ -91,6 +91,7 @@ typedef struct {
 
 fpga_queue_t *get_fpga_queue(void);
 void reset_fpga_queue(void);
+void free_fpga_queue(void);
 void stuff_bit_in_queue(uint8_t bit);
 
 #endif //PALLOC_H__
