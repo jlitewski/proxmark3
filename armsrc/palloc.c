@@ -48,8 +48,8 @@ typedef struct Block pBlock;
 
 struct Block {
     void *address; // The memory address this block points to
-    pBlock *next;  // The next block in the list, or NULL if there is none
-    int16_t size;  // A block shouldn't be over 32kb big
+    pBlock *next;  // The next block in the list, or nullptr if there is none
+    int16_t size;  // The size of the data at `address`
 };
 
 typedef struct {
@@ -64,7 +64,7 @@ typedef struct {
 #define OVERHEAD (MAX_BLOCKS * sizeof(pBlock))
 
 static pHeap *heap = nullptr;
-static size_t space_free = 0;
+static size_t free_space = 0;
 
 /**
  * @brief Initialize the palloc heap and blocks. 
@@ -88,17 +88,147 @@ void palloc_init(void) {
     }
 
     // Calculate the amount of free space we have in the heap
-    space_free = (MEM_USABLE - OVERHEAD);
+    free_space = (MEM_USABLE - OVERHEAD);
 
     block->next = nullptr; // Set the last next block to nullptr to signal end of list
     heap->init = true; // Signal that we have initialized the heap
 }
 
+/**
+ * @brief Merge the blocks inbetween `from` and `to` together into the fresh list
+ * 
+ * @param from The block to strat from
+ * @param to The block to end at
+ */
+static void merge_blocks(pBlock *from, pBlock *to) {
+    pBlock *scan;
+
+    // Merge the Blocks together into the fresh list.
+    //
+    // Note, this doesn't reset the data that these blocks stored. We do that in `palloc()`, so
+    // we don't have to here
+    while(from != to) {
+        scan = from->next;
+        from->next = heap->fresh;
+        heap->fresh = from;
+        from->address = 0;
+        from->size = 0;
+        from = scan;
+    }
+}
+
+/**
+ * @brief Inserts a block into the heap, sorted by it's address
+ * 
+ * @param blk The block to insert
+ */
+static void insert_block(pBlock *blk) {
+    pBlock *ptr = heap->free;
+    pBlock *prev = nullptr;
+
+    while(ptr != nullptr) {
+        if((size_t)blk->address <= (size_t)ptr->address) break;
+
+        prev = ptr;
+        ptr = ptr->next;
+    }
+
+    if(prev != nullptr) prev->next = blk;
+    else heap->free = blk;
+
+    blk->next = ptr;
+}
+
+/**
+ * @brief Compress the blocks in the Heap to help deal with fragmentation
+ */
+static void compact_heap(void) {
+    pBlock *ptr = heap->free;
+    pBlock *prev, *scan;
+
+    while(ptr != nullptr) {
+        prev = ptr;
+        scan = ptr->next;
+
+        while(scan != nullptr && ((size_t)prev->address + prev->size == (size_t)scan->address)) {
+            prev = scan;
+            scan = scan->next;
+        }
+
+        if(prev != ptr) { // We can merge blocks together. This DOESN'T check against the 32kb max size we have
+            size_t newSize = ((size_t)prev->address - (size_t)ptr->address + prev->size);
+            ptr->size = newSize;
+            pBlock *next = prev->next;
+
+            merge_blocks(ptr->next, prev->next);
+
+            ptr->next = next;
+        }
+
+        ptr = ptr->next;
+    }
+}
+
+/**
+ * @brief 
+ * 
+ * @param alloc 
+ * @return pBlock* 
+ */
 static pBlock *allocate_block(size_t alloc) {
     pBlock *ptr = heap->free;
     pBlock *prev = nullptr;
     size_t top = heap->top;
 
+    // Try to get a free block
+    while(ptr != nullptr) {
+        const bool isTop = ((size_t)ptr->address + ptr->size >= top);
+
+        if(isTop || ptr->size >= alloc) {
+            if(prev != nullptr) prev->next = ptr->next;
+            else heap->free = ptr->next;
+
+            ptr->next = heap->used;
+            heap->used = ptr;
+
+            if(isTop) {
+                ptr->size = alloc;
+                heap->top = (size_t)ptr->address + alloc;
+            } else if(heap->fresh != nullptr) {
+                size_t excess = ptr->size - alloc;
+
+                if(excess >= BLOCK_SPLIT_THRESHOLD) { // Split the block
+                    ptr->size = alloc;
+                    pBlock *split = heap->fresh;
+                    heap->fresh = split->next;
+                    split->address = (void*)((size_t)ptr->address + alloc);
+                    split->size = excess;
+                    insert_block(split);
+                    compact_heap();
+                }
+            }
+
+            return ptr;
+        }
+        prev = ptr;
+        ptr = ptr->next;
+    }
+
+    // We didn't match any free blocks, try to get a fresh one
+    if(heap->fresh != nullptr) {
+        ptr = heap->fresh;
+        heap->fresh = ptr->next;
+        ptr->address = (void*)top;
+        ptr->next = heap->used;
+        ptr->size = alloc;
+        heap->used = ptr;
+        heap->top = top + alloc;
+
+        return ptr;
+    }
+
+    // We were unable to get a block
+    return nullptr;
     
 }
 
@@ -117,13 +247,17 @@ void *palloc(uint16_t numElement, const uint16_t size) {
     size_t orig = numElement;
     numElement *= size;
 
-    if((numElement - space_free) < 0) return nullptr; // We would overflow if we attempted to allocate this memory
+    if(numElement & ALIGN_MASK) { // Make sure we align our sizes
+        numElement = (numElement + ALIGN_BYTES - 1) & ~ALIGN_MASK;
+    }
+
+    if((numElement - free_space) < 0) return nullptr; // We would overflow if we attempted to allocate this memory
     else if(numElement / size == orig) { // Sanity check to make sure the math maths
         pBlock *blk = allocate_block(numElement);
 
         if(blk != nullptr) {
             palloc_copy(blk->address, 0, blk->size); // Zero the memory
-            space_free -= blk->size; // Remove the space we took up with this allocation
+            free_space -= blk->size; // Remove the space we took up with this allocation
             return blk->address;
         }
     }
@@ -144,6 +278,8 @@ void palloc_copy(void *ptr, const void *src, uint16_t len) {
 
     // Perform a memcpy (src pointer isn't null and is within the range of values we can access)
     if((src != nullptr) && (uintptr_t)src >= (MEM_SIZE - MEM_USABLE)) {
+        if((uintptr_t)src > MEM_SIZE) return; //We are outside the size of the memory we have, abort
+
         const size_t *data = (size_t*)src;
 
         size_t endLen = len & 0x03;
@@ -172,80 +308,6 @@ void palloc_copy(void *ptr, const void *src, uint16_t len) {
 }
 
 /**
- * @brief Inserts a block into the heap's free list, sorted by it's address
- * 
- * @param blk The block to insert
- */
-static void insert_free(pBlock *blk) {
-    pBlock *ptr = heap->free;
-    pBlock *prev = nullptr;
-
-    while(ptr != nullptr) {
-        if((size_t)blk->address <= (size_t)ptr->address) break;
-
-        prev = ptr;
-        ptr = ptr->next;
-    }
-
-    if(prev != nullptr) prev->next = blk;
-    else heap->free = blk;
-
-    blk->next = ptr;
-}
-
-/**
- * @brief Merge the blocks inbetween `from` and `to` together into the fresh list
- * 
- * @param from The block to strat from
- * @param to The block to end at
- */
-static void merge_blocks(pBlock *from, pBlock *to) {
-    pBlock *scan;
-
-    // Merge the Blocks together into the fresh list.
-    //
-    // Note, this doesn't reset the data that these blocks stored. We do that in `palloc()`, so
-    // we don't have to here
-    while(from != to) {
-        scan = from->next;
-        from->next = heap->fresh;
-        heap->fresh = from;
-        from->address = 0;
-        from->size = 0;
-        from = scan;
-    }
-}
-
-/**
- * @brief Compress the blocks in the Free list of the Heap to help deal with fragmentation
- */
-static void compact_free(void) {
-    pBlock *ptr = heap->free;
-    pBlock *prev, *scan;
-
-    while(ptr != nullptr) {
-        prev = ptr;
-        scan = ptr->next;
-
-        while(scan != nullptr && ((size_t)prev->address + prev->size == (size_t)scan->address)) {
-            prev = scan;
-            scan = scan->next;
-        }
-
-        if(prev != ptr) { // We can merge blocks together. This DOESN'T check against the 32kb max size we have
-            size_t newSize = ((size_t)prev->address - (size_t)ptr->address + prev->size);
-            ptr->size = newSize;
-            pBlock *next = prev->next;
-            merge_blocks(ptr->next, prev->next);
-
-            ptr->next = next;
-        }
-
-        ptr = ptr->next;
-    }
-}
-
-/**
  * @brief Free the memory a pointer holds
  * 
  * @param ptr The pointer to free
@@ -267,8 +329,9 @@ bool palloc_free(void *ptr) {
                 heap->used = blk->next;
             }
 
-            insert_free(blk); // Insert the block into the free list
-            compact_free();   // Compact our free space to keep fragmentation low
+            insert_block(blk); // Insert the block into the free list
+            compact_heap();   // Compact our free space to keep fragmentation low
+            free_space += blk->size; // Add the amount of space back into our counter
 
             return true;
         }
@@ -324,4 +387,106 @@ int8_t palloc_get_used(void) {
  */
 int8_t palloc_get_fresh(void) {
     return count_blocks(heap->fresh);
+}
+
+/**
+ * @brief Returns the amount of space we have left to allocate stuff with
+ * 
+ * @return The amount os space we have left, in bytes 
+ */
+size_t palloc_space_left(void) {
+    return free_space;
+}
+
+/**
+ * @brief Manually compact the heap. Palloc does a good job at doing this itself, but in some
+ * dire situations, it might be useful to manually do it.
+ */
+void palloc_compact_heap(void) {
+    if(((heap == NULL) || !(heap->init))) return; // Sanity checking
+
+    compact_heap();
+}
+
+/**
+ * @brief Create a general purpose 8-bit buffer
+ * 
+ * @param numElement the amount of elements in this buffer
+ * @return a buffer8u_t object, or an empty buffer if we couldn't allocate the space for it
+ */
+buffer8u_t palloc_buffer8(uint16_t numElement) {
+    buffer8u_t buffer = { .data = nullptr, .size = 0 }; // initialize a "empty" buffer
+
+    if(((heap == NULL) || !(heap->init)) || numElement > MAX_BLOCK_SIZE) return buffer; // Sanity checking
+
+    if(numElement & ALIGN_MASK) { // Make sure we align our sizes
+        numElement = (numElement + ALIGN_BYTES - 1) & ~ALIGN_MASK;
+    }
+
+    // We would overflow if we attempted to allocate this memory
+    if((numElement - free_space) < 0) return buffer;
+
+    pBlock *blk = allocate_block(numElement);
+    if(blk != nullptr) {
+        buffer.data = (uint8_t*)blk->address;
+        buffer.size = blk->size;
+    }
+
+    return buffer;
+}
+
+/**
+ * @brief Create a general purpose 16-bit buffer
+ * 
+ * @param numElement the amount of elements in this buffer
+ * @return a buffer16u_t object, or an empty buffer if we couldn't allocate the space for it
+ */
+buffer16u_t palloc_buffer16(uint16_t numElement) {
+    buffer16u_t buffer = { .data = nullptr, .size = 0 }; // initialize a "empty" buffer
+    size_t alloc = numElement * sizeof(uint16_t); // Adjust for the buffer type
+
+    if(((heap == NULL) || !(heap->init)) || alloc > MAX_BLOCK_SIZE) return buffer; // Sanity checking
+
+    if(alloc & ALIGN_MASK) { // Make sure we align our sizes
+        alloc = (alloc + ALIGN_BYTES - 1) & ~ALIGN_MASK;
+    }
+
+    // We would overflow if we attempted to allocate this memory
+    if((alloc - free_space) < 0) return buffer;
+
+    pBlock *blk = allocate_block(alloc);
+    if(blk != nullptr) {
+        buffer.data = (uint16_t*)blk->address;
+        buffer.size = blk->size;
+    }
+
+    return buffer;
+}
+
+/**
+ * @brief Create a general purpose 32-bit buffer
+ * 
+ * @param numElement the amount of elements in this buffer
+ * @return a buffer32u_t object, or an empty buffer if we couldn't allocate the space for it
+ */
+buffer32u_t palloc_buffer32(uint16_t numElement) {
+    buffer32u_t buffer = { .data = nullptr, .size = 0 }; // initialize a "empty" buffer
+    size_t alloc = numElement * sizeof(uint32_t); // Adjust for the buffer type
+
+    if(((heap == NULL) || !(heap->init)) || alloc > MAX_BLOCK_SIZE) return buffer; // Sanity checking
+
+    if(alloc & ALIGN_MASK) { // Make sure we align our sizes
+        alloc = (alloc + ALIGN_BYTES - 1) & ~ALIGN_MASK;
+    }
+
+    // We would overflow if we attempted to allocate this memory
+    if((alloc - free_space) < 0) return buffer;
+
+    pBlock *blk = allocate_block(alloc);
+    if(blk != nullptr) {
+        buffer.data = (uint32_t*)blk->address;
+        buffer.size = blk->size;
+    }
+
+    return buffer;
 }

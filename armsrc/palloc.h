@@ -49,6 +49,8 @@ bool palloc_free(void *ptr);
 int8_t palloc_get_free(void);
 int8_t palloc_get_used(void);
 int8_t palloc_get_fresh(void);
+size_t palloc_space_left(void);
+void palloc_compact_heap(void);
 bool palloc_has_integrity(void);
 
 //==============
@@ -57,22 +59,22 @@ bool palloc_has_integrity(void);
 
 typedef struct { // General purpose 8-bit buffer
     uint16_t size;
-    uint8_t *data;
+    uint8_t *data; // Pass this into `palloc_free()` to free the buffer
 } buffer8u_t;
 
 typedef struct { // General purpose 16-bit buffer
     uint16_t size;
-    uint16_t *data;
+    uint16_t *data; // Pass this into `palloc_free()` to free the buffer
 } buffer16u_t;
 
 typedef struct { // General purpose 32-bit buffer
     uint16_t size;
-    uint32_t *data;
+    uint32_t *data; // Pass this into `palloc_free()` to free the buffer
 } buffer32u_t;
 
-buffer8u_t *palloc_buffer8(uint16_t size);
-buffer16u_t *palloc_buffer16(uint16_t size);
-buffer32u_t *palloc_buffer32(uint16_t size);
+buffer8u_t  palloc_buffer8(uint16_t numElement);
+buffer16u_t palloc_buffer16(uint16_t numElement);
+buffer32u_t palloc_buffer32(uint16_t numElement);
 
 //==============
 // FPGA Stuff
