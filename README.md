@@ -1,19 +1,19 @@
-# Iceman Fork - Proxmark3
+# NXTGEN Fork - Proxmark3
 
-The Proxmark3 is the swiss-army tool of RFID, allowing for interactions with the vast majority of RFID tags on a global scale. Originally built by Jonathan Westhues, the device is now the goto tool for RFID Analysis for the enthusiast. Iceman repository is considered to be the pinnacle of features and functionality, enabling a huge range of extremely useful and convenient commands and LUA scripts to automate chip identification, penetration testing, and programming
+The Proxmark3 is the swiss-army tool of RFID, allowing for interactions with the vast majority of RFID tags on a global scale. Originally built by Jonathan Westhues, the device is now the goto tool for RFID Analysis for enthusiasts. Forked from the Iceman repository, the NXTGEN firmware is a passion project to try and push the Proxmark3 Easy and RDV4 to it's limits. 
 
 
 | Latest Release | Coverity | Contributors |
 |:--------------:|:--------:|:------------:|
-| [![Latest release](https://img.shields.io/github/v/release/rfidresearchgroup/proxmark3)](https://github.com/RfidResearchGroup/proxmark3/releases/latest) | [![Coverity Status](https://scan.coverity.com/projects/19334/badge.svg)](https://scan.coverity.com/projects/proxmark3-rrg-iceman-repo)| ![GitHub contributors](https://img.shields.io/github/contributors/rfidresearchgroup/proxmark3) |
+| [![Latest release](https://img.shields.io/github/v/release/rfidresearchgroup/proxmark3)](https://github.com/jlitewski/proxmark3/releases/latest) | [![Coverity Status](https://scan.coverity.com/projects/19334/badge.svg)](https://scan.coverity.com/projects/proxmark3-rrg-iceman-repo)| ![GitHub contributors](https://img.shields.io/github/contributors/jlitewski/proxmark3) |
 
 
 | Actions OSX CI |  Actions Ubuntu CI | Actions Windows CI |
 |:--------------:|:------------------:|:------------------:|
-| [![MacOS Build and Test](https://github.com/RfidResearchGroup/proxmark3/actions/workflows/macos.yml/badge.svg?branch=master)](https://github.com/RfidResearchGroup/proxmark3/actions/workflows/macos.yml) | [![Ubuntu Build and Test](https://github.com/RfidResearchGroup/proxmark3/actions/workflows/ubuntu.yml/badge.svg?branch=master)](https://github.com/RfidResearchGroup/proxmark3/actions/workflows/ubuntu.yml) | [![Windows Build and Test](https://github.com/RfidResearchGroup/proxmark3/actions/workflows/windows.yml/badge.svg?branch=master)](https://github.com/RfidResearchGroup/proxmark3/actions/workflows/windows.yml) |
+| [![MacOS Build and Test](https://github.com/jlitewski/proxmark3/actions/workflows/macos.yml/badge.svg?branch=proxmark3-nxtgen)](https://github.com/jlitewski/proxmark3/actions/workflows/macos.yml) | [![Ubuntu Build and Test](https://github.com/jlitewski/proxmark3/actions/workflows/ubuntu.yml/badge.svg?branch=proxmark3-nxtgen)](https://github.com/jlitewski/proxmark3/actions/workflows/ubuntu.yml) | [![Windows Build and Test](https://github.com/jlitewski/proxmark3/actions/workflows/windows.yml/badge.svg?branch=proxmark3-nxtgen)](https://github.com/jlitewski/proxmark3/actions/workflows/windows.yml) |
 
 # Table of Contents
-- [Iceman Fork - Proxmark3](#iceman-fork---proxmark3)
+- [NXTGEN Fork - Proxmark3](#NXTGEN-fork---proxmark3)
 - [Table of Contents](#table-of-contents)
 - [PROXMARK3 INSTALLATION AND OVERVIEW](#proxmark3-installation-and-overview)
   - [Notes / helpful documents](#notes--helpful-documents)
