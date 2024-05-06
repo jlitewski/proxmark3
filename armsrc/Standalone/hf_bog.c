@@ -96,7 +96,7 @@ static void RAMFUNC SniffAndStore(uint8_t param) {
         return;
     }
 
-    tUart14a *uart = GetUart14a();
+    uart_14a_t *uart = GetUart14a();
     tDemod14a *demod = GetDemod14a();
 
     // We won't start recording the frames that we acquire until we trigger;

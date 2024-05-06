@@ -26,8 +26,6 @@
 #include "dbprint.h" // logging
 #include "pm3_cmd.h" // return defines
 
-#define nullptr NULL // Helper define for null pointers
-
 // Word size alignment
 #define ALIGN_BYTES sizeof(uint32_t) // Word size of the Atmel SAM7S should be 4 bytes (32-bit)
 #define ALIGN_MASK (0xFFFF + 1 - ALIGN_BYTES)
@@ -40,7 +38,6 @@ extern uint32_t _stack_start[], __bss_end__[];
 #define MEM_USABLE ((size_t)_stack_start - (size_t)__bss_end__) // The memory (in bytes) we can use
 
 // Block configuration
-#define MAX_BLOCK_SIZE 32000 // 32k should be more than enough
 #define BLOCK_SPLIT_THRESHOLD 16
 #define MAX_BLOCKS 32 // 32 blocks should give us an overall overhead of 768 bytes
 

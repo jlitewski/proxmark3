@@ -89,7 +89,7 @@ void RAMFUNC SniffMifare(uint8_t param) {
         return;
     }
 
-    tUart14a *uart = GetUart14a();
+    uart_14a_t *uart = GetUart14a();
     tDemod14a *demod = GetDemod14a();
 
     MfSniffInit();

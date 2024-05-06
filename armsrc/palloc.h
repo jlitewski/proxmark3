@@ -34,8 +34,9 @@
 // Proxmark3 only has 64kb of memory, so every bit literally counts
 //-----------------------------------------------------------------------------
 
-#define MAX_FRAME_SIZE          256 // maximum allowed ISO14443 frame
-#define MAX_PARITY_SIZE         ((MAX_FRAME_SIZE + 7) / 8)
+#define MAX_FRAME_SIZE    256 // maximum allowed ISO14443 frame
+#define MAX_PARITY_SIZE   ((MAX_FRAME_SIZE + 7) / 8)
+#define MAX_BLOCK_SIZE    32000 // 32k should be more than enough
 
 //====================
 // General Functions
@@ -45,6 +46,7 @@ void palloc_init(void);
 void *palloc(uint16_t numElement, const uint16_t size);
 void palloc_copy(void *ptr, const void *src, uint16_t len);
 bool palloc_free(void *ptr);
+bool palloc_freeEX(void *ptr, bool verbose);
 
 int8_t palloc_free_blocks(void);
 int8_t palloc_used_blocks(void);

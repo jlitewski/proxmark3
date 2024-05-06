@@ -38,6 +38,8 @@
 #define PATHSEP "/"
 #endif
 
+#define nullptr NULL // Helper define for null pointers
+
 // PM3 share path relative to executable when installed
 #define PM3_SHARE_RELPATH    ".." PATHSEP "share" PATHSEP "proxmark3" PATHSEP
 
@@ -97,9 +99,7 @@ extern bool g_tearoff_enabled;
 # define ABS(a) ( ((a)<0) ? -(a) : (a) )
 #endif
 
-
-//#define RAMFUNC __attribute((long_call, section(".ramfunc")))
-#define RAMFUNC __attribute((long_call, section(".ramfunc"))) __attribute__((target("arm")))
+#define RAMFUNC __attribute__((long_call, section(".ramfunc"), target("arch=armv4t")))
 
 #ifndef ROTR
 # define ROTR(x,n) (((uintmax_t)(x) >> (n)) | ((uintmax_t)(x) << ((sizeof(x) * 8) - (n))))

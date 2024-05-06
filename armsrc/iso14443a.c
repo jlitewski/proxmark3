@@ -266,7 +266,7 @@ void GetParity(const uint8_t *pbtCmd, uint16_t len, uint8_t *par) {
 // Note 1: the bitstream may start at any time. We therefore need to sync.
 // Note 2: the interpretation of Sequence Y and Z depends on the preceding sequence.
 //-----------------------------------------------------------------------------
-static tUart14a Uart;
+static uart_14a_t Uart;
 
 // Lookup-Table to decide if 4 raw bits are a modulation.
 // We accept the following:
@@ -281,7 +281,7 @@ static const bool Mod_Miller_LUT[] = {
 #define IsMillerModulationNibble1(b) (Mod_Miller_LUT[(b & 0x000000F0) >> 4])
 #define IsMillerModulationNibble2(b) (Mod_Miller_LUT[(b & 0x0000000F)])
 
-tUart14a *GetUart14a(void) {
+uart_14a_t *GetUart14a(void) {
     return &Uart;
 }
 

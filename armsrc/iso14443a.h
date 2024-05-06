@@ -90,7 +90,7 @@ typedef struct {
     uint32_t startTime, endTime;
     uint8_t *output;
     uint8_t *parity;
-} tUart14a;
+} uart_14a_t;
 
 // indices into responses array:
 typedef enum {
@@ -131,7 +131,7 @@ void GetParity(const uint8_t *pbtCmd, uint16_t len, uint8_t *par);
 tDemod14a *GetDemod14a(void);
 void Demod14aReset(void);
 void Demod14aInit(uint8_t *data, uint8_t *par);
-tUart14a *GetUart14a(void);
+uart_14a_t *GetUart14a(void);
 void Uart14aReset(void);
 void Uart14aInit(uint8_t *data, uint8_t *par);
 RAMFUNC bool MillerDecoding(uint8_t bit, uint32_t non_real_time);

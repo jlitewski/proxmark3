@@ -138,7 +138,7 @@ typedef struct {
     int8_t forcerats;    // 0:auto 1:force executing RATS 2:force skipping RATS
 } PACKED hf14a_config;
 
-// Tracelog Header struct
+// Tracelog Header struct (deprecated)
 typedef struct {
     uint32_t timestamp;
     uint16_t duration;
@@ -149,7 +149,20 @@ typedef struct {
     // ceil(data_len/8) bytes of parity
 } PACKED tracelog_hdr_t;
 
+typedef struct {
+    uint8_t metadata;
+    uint8_t data;
+} PACKED tracer_trace_t;
+
+typedef struct {
+    uint32_t ts_start;
+    uint32_t ts_end;
+    uint16_t duration;
+    tracer_trace_t traces[];
+} PACKED tracer_hdr_t;
+
 #define TRACELOG_HDR_LEN        sizeof(tracelog_hdr_t)
+#define TRACER_HDR_LEN          sizeof(tracer_hdr_t)
 #define TRACELOG_PARITY_LEN(x)  (((x)->data_len - 1) / 8 + 1)
 
 // T55XX - Extended to support 1 of 4 timing
