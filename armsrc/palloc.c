@@ -268,7 +268,7 @@ void *palloc(uint16_t numElement, const uint16_t size) {
         pBlock *blk = allocate_block(numElement);
 
         if(blk != nullptr) {
-            palloc_copy(blk->address, 0, blk->size); // Zero the memory
+            palloc_set(blk->address, 0, blk->size); // Zero the memory
             free_space -= blk->size; // Remove the space we took up with this allocation
             return blk->address;
         }
@@ -278,44 +278,55 @@ void *palloc(uint16_t numElement, const uint16_t size) {
 }
 
 /**
- * @brief Copy `len` data from `src` to `ptr`. Functions like `memcpy` and `memset`
+ * @brief Copy `len` data from `src` to `ptr`. Functions like `memcpy`
  * 
  * @param ptr The pointer to have the data copied to
- * @param src The source of the data to copy, or a number to copy into the pointer
+ * @param src The source of the data to copy
  * @param len The amount of data (in bytes) to copy from the source to the pointer
  */
 void palloc_copy(void *ptr, const void *src, uint16_t len) {
     if(ptr == nullptr) return; // Can't put data into a null pointer
-    size_t *dst = (size_t*)ptr;
+    uint16_t *copyptr = (uint16_t*)ptr;
+    uint16_t *copysrc = (uint16_t*)src;
 
-    // Perform a memcpy (src pointer isn't null and is within the range of values we can access)
-    if((src != nullptr) && (uintptr_t)src >= (MEM_SIZE - MEM_USABLE)) {
-        if((uintptr_t)src > MEM_SIZE) return; //We are outside the size of the memory we have, abort
+     // Set as many full words as we can (the SAM7S512 has 16-bit word sizes in Thumb mode)
+    size_t full_words = (len / sizeof(uint16_t));
+    for(uint16_t i = 0; i < full_words; i++) {
+        copyptr[i] = copysrc[i];
+    }
 
-        const size_t *data = (size_t*)src;
+    // Copy any remaining bytes (if needed)
+    uint8_t remainder = (len % sizeof(uint16_t));
+    if(remainder >= 1) {
+        uint8_t *copyptr_byte = (uint8_t*)&copyptr[full_words];
+        uint8_t *copysrc_byte = (uint8_t*)&copysrc[full_words];
+        *copyptr_byte = *copysrc_byte;
+    }
+}
 
-        size_t endLen = len & 0x03;
+/**
+ * @brief Sets `len` data in `ptr` to `value`. This set data in 16-bit word sections, with any remainers
+ * set byte by byte as needed.
+ * 
+ * @param ptr The pointer to have the data set to
+ * @param value The value to set
+ * @param len The amount of data (in bytes) to set
+ */
+void palloc_set(void *ptr, const uint16_t value, uint16_t len) {
+    if(ptr == nullptr) return;
+    uint16_t *setptr = (uint16_t*)ptr;
 
-        while((len -= 4) > endLen) {
-            *dst++ = *data++;
-        }
+    // Set as many full words as we can (the SAM7S512 has 16-bit word sizes in Thumb mode)
+    size_t full_words = (len / sizeof(uint16_t));
+    for(uint16_t i = 0; i < full_words; i++) {
+        setptr[i] = value;
+    }
 
-        uint8_t *dstByte =  (uint8_t*)dst;
-        uint8_t *dataByte = (uint8_t*)data;
-
-        while(endLen--) {
-            *dstByte++ = *dataByte++;
-        }
-
-        return;
-    } else { // perform a memset (src pointer is either null (0) or not within the usable memory, treat is as a number)
-        size_t num = (size_t)src;
-
-        while(len--) {
-            *dst++ = num;
-        }
-
-        return;
+    // Copy any remaining bytes (if needed)
+    uint8_t remainder = (len % sizeof(uint16_t));
+    if(remainder >= 1) {
+        uint8_t *setbyte = (uint8_t*)&setptr[full_words];
+        *setbyte = (uint8_t)value;
     }
 }
 
@@ -327,6 +338,18 @@ void palloc_copy(void *ptr, const void *src, uint16_t len) {
  * @return false otherwise
  */
 bool palloc_free(void *ptr) {
+    return palloc_freeEX(ptr, false);
+}
+
+/**
+ * @brief Free the memory a pointer holds
+ * 
+ * @param ptr The pointer to free
+ * @param verbose Flag to print extended info and debug messages
+ * @return true If the memory at pointer was freed
+ * @return false otherwise
+ */
+bool palloc_freeEX(void *ptr, bool verbose) {
     if(((heap == NULL) || !(heap->init))) return false; // Can't free memory if we haven't initialized any
 
     pBlock *blk = heap->used;
@@ -450,7 +473,7 @@ buffer8u_t palloc_buffer8(uint16_t numElement) {
 
     pBlock *blk = allocate_block(numElement);
     if(blk != nullptr) {
-        palloc_copy(blk->address, 0, blk->size); // Remove any garbage
+        palloc_set(blk->address, 0, blk->size); // Remove any garbage
         buffer.data = (uint8_t*)blk->address;
         buffer.size = blk->size;
     }
@@ -479,7 +502,7 @@ buffer16u_t palloc_buffer16(uint16_t numElement) {
 
     pBlock *blk = allocate_block(alloc);
     if(blk != nullptr) {
-        palloc_copy(blk->address, 0, blk->size); // Remove any garbage
+        palloc_set(blk->address, 0, blk->size); // Remove any garbage
         buffer.data = (uint16_t*)blk->address;
         buffer.size = blk->size;
     }
@@ -508,7 +531,7 @@ buffer32u_t palloc_buffer32(uint16_t numElement) {
 
     pBlock *blk = allocate_block(alloc);
     if(blk != nullptr) {
-        palloc_copy(blk->address, 0, blk->size); // Remove any garbage
+        palloc_set(blk->address, 0, blk->size); // Remove any garbage
         buffer.data = (uint32_t*)blk->address;
         buffer.size = blk->size;
     }
@@ -526,7 +549,7 @@ fpga_queue_t *get_fpga_queue(void) {
         pBlock *blk = allocate_block(QUEUE_BUFFER_SIZE);
 
         if(blk != nullptr) { // If we did get data to initialize
-            palloc_copy(blk->address, 0, blk->size); // Remove any garbage
+            palloc_set(blk->address, 0, blk->size); // Remove any garbage
             fpgaQueue.data = blk->address;
         } else return nullptr;
     }

@@ -45,6 +45,7 @@
 void palloc_init(void);
 void *palloc(uint16_t numElement, const uint16_t size);
 void palloc_copy(void *ptr, const void *src, uint16_t len);
+void palloc_set(void *ptr, const uint16_t value, uint16_t len);
 bool palloc_free(void *ptr);
 bool palloc_freeEX(void *ptr, bool verbose);
 

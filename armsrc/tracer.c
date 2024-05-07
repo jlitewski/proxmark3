@@ -24,6 +24,7 @@
 #include "palloc.h"
 #include "pm3_cmd.h"
 #include "dbprint.h"
+#include "util.h"
 
 static uint16_t trace_len = 0;       // How long our current trace is
 static uint16_t free_space = 0;      // The amount of free space, in bytes
@@ -138,4 +139,110 @@ void release_trace(void) {
             Dbprintf(_RED_("Error releasing Tracer memory back to SRAM! Please unplug your Proxmark!"));
         }
     }
+}
+
+/**
+ * @brief Generic trace logger function. All protocols can use this to store traces. The traces produced
+ * can be fetched client side using the various commands to do so.
+ * 
+ * @param *trace The trace data
+ * @param len The length of the data
+ * @param ts_start When the trace was started
+ * @param ts_end then the trace ended
+ * @param *parity The parity bit data
+ * @param is_reader Flag set to indicate if this trace was produced by the reader or the tag
+ * @return `true` if the trace was successfully stored in memory,
+ * @return `false` if there was an issue doing so 
+ */
+bool RAMFUNC log_trace(const uint8_t *trace, uint16_t len, uint32_t ts_start, uint32_t ts_end, const uint8_t *parity, bool is_reader) {
+    if(!tracing || blk_addr == nullptr) return false;
+
+    tracelog_hdr_t *header = (tracelog_hdr_t*)(blk_addr + trace_len);
+    uint16_t num_parity = (len - 1) / 8 + 1; // number of valid paritybytes in *parity
+
+    // Check to make sure we won't overflow our block of memory
+    if(TRACELOG_HDR_LEN + len + num_parity >= get_max_trace_length() - trace_len) {
+        Dbprintf(_RED_("Cannot trace anymore! Memory almost full!"));
+        tracing = false;
+        return false;
+    }
+
+    uint32_t duration;
+    if (ts_end > ts_start) {
+        duration = ts_end - ts_start;
+    } else {
+        duration = (UINT32_MAX - ts_start) + ts_end;
+    }
+
+    if (duration > 0xFFFF) duration = 0xFFFF;
+
+    header->timestamp = ts_start;
+    header->duration = duration & 0xFFFF;
+    header->data_len = len;
+    header->isResponse = !is_reader;
+    trace_len += TRACELOG_HDR_LEN;
+
+    if(trace != nullptr && len > 0) {
+        palloc_copy(header->frame, trace, len);
+        trace_len += len;
+    }
+
+    // parity bytes
+    if (num_parity != 0) {
+        if (parity != NULL) {
+            palloc_copy((void*)(trace + trace_len), parity, num_parity);
+        } else {
+            palloc_set((void*)(trace + trace_len), 0x00, num_parity);
+        }
+        
+        trace_len += num_parity;
+    }
+
+    return true;
+}
+
+/**
+ * @brief Modified trace logging function for ISO15639 tags. This is needed because the times between
+ * `ts_start` and `ts_end` won't fit into a 16-bit number, so we have to scale it to do so.
+ * 
+ * @param *trace The trace data
+ * @param len The length of the data
+ * @param ts_start When the trace was started
+ * @param ts_end then the trace ended
+ * @param *parity The parity bit data
+ * @param is_reader Flag set to indicate if this trace was produced by the reader or the tag
+ * @return `true` if the trace was successfully stored in memory,
+ * @return `false` if there was an issue doing so 
+ */
+bool RAMFUNC log_trace_ISO15639(const uint8_t *trace, uint16_t len, uint32_t ts_start, uint32_t ts_end, const uint8_t *parity, bool is_reader) {
+    // Scale the duration to fit into a uint16_t
+    uint32_t duration = (ts_end - ts_start);
+    duration /= 32;
+    ts_end = ts_start + duration;
+
+    return log_trace(trace, len, ts_start, ts_end, parity, is_reader);
+}
+
+/**
+ * @brief Modified trace logging function for bitstreams. The partial byte size is stored in the first
+ * parity byte. (eg. `bitstream "1100 00100010"` would signal the partial byte is 4 bits)
+ * 
+ * @param *trace The trace bitstream data
+ * @param len The length of the bitstream data
+ * @param ts_start When the trace was started
+ * @param ts_end then the trace ended
+ * @param is_reader Flag set to indicate if this trace was produced by the reader or the tag
+ * @return `true` if the trace was successfully stored in memory,
+ * @return `false` if there was an issue doing so 
+ */
+bool RAMFUNC log_trace_from_stream(const uint8_t *trace, uint16_t len, uint32_t ts_start, uint32_t ts_end, bool is_reader) {
+    if(len == 0) return false;
+
+    uint8_t parity[(nbytes(len) - 1) / 8 + 1];
+    palloc_set(parity, 0, sizeof(parity));
+
+    // parity has amount of leftover bits
+    parity[0] = len % 8;
+
+    return log_trace(trace, nbytes(len), ts_start, ts_end, parity, is_reader);
 }
