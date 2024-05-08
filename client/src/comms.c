@@ -64,10 +64,10 @@ static pthread_cond_t txBufferSig = PTHREAD_COND_INITIALIZER;
 static PacketResponseNG rxBuffer[CMD_BUFFER_SIZE];
 
 // Points to the next empty position to write to
-static int cmd_head = 0;
+static uint16_t cmd_head = 0;
 
 // Points to the position of the last unread command
-static int cmd_tail = 0;
+static uint16_t cmd_tail = 0;
 
 // to lock rxBuffer operations from different threads
 static pthread_mutex_t rxBufferMutex = PTHREAD_MUTEX_INITIALIZER;

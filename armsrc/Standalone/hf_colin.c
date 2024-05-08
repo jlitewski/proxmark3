@@ -204,7 +204,7 @@ MFC1KSchema_t InfiHexact = {.name = "Infineon/Hexact",
               0x8829da9daf76, 0x8829da9daf76, 0x8829da9daf76, 0x8829da9daf76}};
 */
 
-static int colin_total_schemas = 0;
+static uint16_t colin_total_schemas = 0;
 
 static void add_schema(MFC1KSchema_t *p, MFC1KSchema_t a, int *schemas_counter) {
     if (*schemas_counter < MAX_SCHEMAS) {

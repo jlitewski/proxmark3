@@ -87,7 +87,7 @@ uint8_t g_trigger = 0;
 bool g_hf_field_active = false;
 extern uint32_t _stack_start[], _stack_end[];
 common_area_t g_common_area __attribute__((section(".commonarea")));
-static int button_status = BUTTON_NO_CLICK;
+static int8_t button_status = BUTTON_NO_CLICK;
 static bool allow_send_wtx = false;
 uint16_t g_tearoff_delay_us = 0;
 bool g_tearoff_enabled = false;
@@ -251,7 +251,7 @@ static uint32_t MeasureAntennaTuningLfData(void) {
 void print_stack_usage(void) {
     for (uint32_t *p = _stack_start; ; ++p) {
         if (*p != 0xdeadbeef) {
-            Dbprintf("  Max stack usage......... %d / %d bytes", (uint32_t)(_stack_end) - (uint32_t)(p), (uint32_t)_stack_end - (uint32_t)_stack_start);
+            Dbprintf("  Max stack usage......... %d / %d bytes", (size_t)(_stack_end) - (size_t)(p), (size_t)_stack_end - (size_t)_stack_start);
             break;
         }
     }

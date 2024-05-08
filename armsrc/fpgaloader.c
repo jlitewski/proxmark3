@@ -38,7 +38,7 @@ typedef struct {
 typedef lz4_stream_t *lz4_streamp_t;
 
 // remember which version of the bitstream we have already downloaded to the FPGA
-static int downloaded_bitstream = 0;
+static uint8_t downloaded_bitstream = 0;
 
 // this is where the bitstreams are located in memory:
 extern uint32_t _binary_obj_fpga_all_bit_z_start[], _binary_obj_fpga_all_bit_z_end[];
@@ -187,9 +187,9 @@ bool FpgaSetupSscDma(uint8_t *buf, uint16_t len) {
     if (buf == NULL) return false;
 
     FpgaDisableSscDma();
-    AT91C_BASE_PDC_SSC->PDC_RPR = (uint32_t) buf;  // transfer to this memory address
+    AT91C_BASE_PDC_SSC->PDC_RPR = (size_t)buf;  // transfer to this memory address
     AT91C_BASE_PDC_SSC->PDC_RCR = len;             // transfer this many bytes
-    AT91C_BASE_PDC_SSC->PDC_RNPR = (uint32_t) buf; // next transfer to same memory address
+    AT91C_BASE_PDC_SSC->PDC_RNPR = (size_t)buf; // next transfer to same memory address
     AT91C_BASE_PDC_SSC->PDC_RNCR = len;            // ... with same number of bytes
     FpgaEnableSscDma();
     return true;
@@ -475,7 +475,7 @@ static bool FpgaConfCurrentMode(int bitstream_version) {
 // Check which FPGA image is currently loaded (if any). If necessary
 // decompress and load the correct (HF or LF) image to the FPGA
 //----------------------------------------------------------------------------
-void FpgaDownloadAndGo(int bitstream_version) {
+void FpgaDownloadAndGo(uint8_t bitstream_version) {
 
     // check whether or not the bitstream is already loaded
     if (downloaded_bitstream == bitstream_version) {

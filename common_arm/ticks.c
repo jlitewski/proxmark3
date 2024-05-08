@@ -85,9 +85,11 @@ void SpinDelay(int ms) {
         if (g_dbglevel >= DBG_ERROR) Dbprintf(_RED_("Error, SpinDelay called with %i > 1390"), ms);
         ms = 1390;
     }
+    
     // convert to us and call microsecond delay function
     SpinDelayUs(ms * 1000);
 }
+
 //  -------------------------------------------------------------------------
 //  timer lib
 //  -------------------------------------------------------------------------
@@ -195,6 +197,7 @@ void StartCountSspClk(void) {
     // Therefore need to wait quite some time before we can use the counter.
     while (AT91C_BASE_TC2->TC_CV > 0);
 }
+
 void ResetSspClk(void) {
     //enable clock of timer and software trigger
     AT91C_BASE_TC0->TC_CCR = AT91C_TC_CLKEN | AT91C_TC_SWTRG;
