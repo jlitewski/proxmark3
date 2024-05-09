@@ -22,7 +22,13 @@
 #include "common.h"
 #include "palloc.h"
 
-#define CARD_MEMORY_SIZE 4096
+#define CARD_MEMORY_SIZE 4096 // 4Kb should be a good size
+
+//======================
+// LF Card Defines
+//======================
+
+#define LF_CLK_125KHZ 64
 
 void start_emulation(void);
 void stop_emulation(void);

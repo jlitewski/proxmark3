@@ -23,6 +23,8 @@
 #include "lfops.h"
 #include "lfsampling.h"
 #include "BigBuf.h"
+#include "palloc.h"
+#include "cardemu.h"
 #include "fpgaloader.h"
 #include "util.h"
 #include "dbprint.h"
@@ -241,7 +243,7 @@ static uint32_t IceHIDDemod(void) {
     uint32_t hi2 = 0, hi = 0, lo = 0;
 
     // large enough to catch 2 sequences of largest format
-//    size_t size = 50 * 128 * 2;  // 12800 bytes
+    //size_t size = 50 * 128 * 2;  // 12800 bytes
     size_t size = MIN(12800, BigBuf_max_traceLen());
     //uint8_t *dest = BigBuf_malloc(size);
     uint8_t *dest = BigBuf_get_addr();

@@ -263,7 +263,7 @@ void *palloc(uint16_t numElement, const uint16_t size) {
         numElement = (numElement + ALIGN_BYTES - 1) & ~ALIGN_MASK;
     }
 
-    if((numElement - free_space) < 0) return nullptr; // We would overflow if we attempted to allocate this memory
+    if((numElement > free_space)) return nullptr; // We would overflow if we attempted to allocate this memory
     else if(numElement / size == orig) { // Sanity check to make sure the math maths
         pBlock *blk = allocate_block(numElement);
 
@@ -469,7 +469,7 @@ buffer8u_t palloc_buffer8(uint16_t numElement) {
     }
 
     // We would overflow if we attempted to allocate this memory
-    if((numElement - free_space) < 0) return buffer;
+    if((numElement > free_space)) return buffer; // Return the "empty" buffer
 
     pBlock *blk = allocate_block(numElement);
     if(blk != nullptr) {
@@ -498,7 +498,7 @@ buffer16u_t palloc_buffer16(uint16_t numElement) {
     }
 
     // We would overflow if we attempted to allocate this memory
-    if((alloc - free_space) < 0) return buffer;
+    if((alloc > free_space)) return buffer; // Return the "empty" buffer
 
     pBlock *blk = allocate_block(alloc);
     if(blk != nullptr) {
@@ -527,7 +527,7 @@ buffer32u_t palloc_buffer32(uint16_t numElement) {
     }
 
     // We would overflow if we attempted to allocate this memory
-    if((alloc - free_space) < 0) return buffer;
+    if((alloc > free_space)) return buffer; // Return the "empty" buffer
 
     pBlock *blk = allocate_block(alloc);
     if(blk != nullptr) {

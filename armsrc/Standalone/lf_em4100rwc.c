@@ -34,7 +34,8 @@
 #include "dbprint.h"
 #include "ticks.h"
 #include "string.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "cardemu.h"
 #include "spiffs.h"
 #include "commonutil.h"
 
@@ -43,34 +44,27 @@
 #endif
 
 #define MAX_IND 16 // 4 LEDs - 2^4 combinations
-#define LF_CLOCK 64   // for 125kHz
 
-// em4100rwc_low & em4100rwc_high - array for storage IDs. Its length must be equal.
-// Predefined IDs must be stored in em4100rwc_low[].
-// In em4100rwc_high[] must be nulls
-static uint64_t em4100rwc_low[] = {0x565AF781C7, 0x540053E4E2, 0x1234567890, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-static uint32_t em4100rwc_high[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-static uint8_t em4100rwc_slots_count;
-static int em4100rwc_buflen;
+// predefined_ids & predefined_high - array for storage IDs. Its length must be equal.
+// Predefined IDs must be stored in predefined_ids[].
+// In predefined_high[] must be nulls
+static uint64_t predefined_ids[] = {0x565AF781C7, 0x540053E4E2, 0x1234567890, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static uint32_t predefined_high[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static uint8_t predefined_slots;
+
+static uint16_t buffer_len;
+static uint16_t *memory_addr = nullptr;
 
 void ModInfo(void) {
     DbpString("  LF EM4100 read/write/clone mode");
 }
 
-static uint64_t rev_quads(uint64_t bits) {
-    uint64_t result = 0;
-    for (int i = 0; i < 16; i++) {
-        result += ((bits >> (60 - 4 * i)) & 0xf) << (4 * i);
-    }
-    return result >> 24;
-}
-
 static void fill_buff(uint8_t bit) {
-    uint8_t *bba = BigBuf_get_addr();
-    memset(bba + em4100rwc_buflen, bit, LF_CLOCK / 2);
-    em4100rwc_buflen += (LF_CLOCK / 2);
-    memset(bba + em4100rwc_buflen, bit ^ 1, LF_CLOCK / 2);
-    em4100rwc_buflen += (LF_CLOCK / 2);
+    palloc_set((memory_addr + buffer_len), bit, LF_CLK_125KHZ / 2);
+    buffer_len += (LF_CLK_125KHZ / 2);
+
+    palloc_set((memory_addr + buffer_len), bit^1, LF_CLK_125KHZ / 2);
+    buffer_len += (LF_CLK_125KHZ / 2);
 }
 
 static void construct_EM410x_emul(uint64_t id) {
@@ -78,7 +72,7 @@ static void construct_EM410x_emul(uint64_t id) {
     int i, j;
     int binary[4] = {0, 0, 0, 0};
     int parity[4] = {0, 0, 0, 0};
-    em4100rwc_buflen = 0;
+    buffer_len = 0;
 
     for (i = 0; i < 9; i++)
         fill_buff(1);
@@ -103,10 +97,10 @@ static void construct_EM410x_emul(uint64_t id) {
 
 static void led_slot(int i) {
     LEDsoff();
-    if (em4100rwc_slots_count > 4) {
-        LED(i % MAX_IND, 0); //binary indication, usefully for em4100rwc_slots_count > 4
+    if (predefined_slots > 4) {
+        LED(i % MAX_IND, 0); //binary indication, usefully for predefined_slots > 4
     } else {
-        LED(1 << i, 0); //simple indication for em4100rwc_slots_count <=4
+        LED(1 << i, 0); //simple indication for predefined_slots <=4
     }
 }
 
@@ -139,6 +133,13 @@ static void SaveIDtoFlash(int addr, uint64_t id) {
 void RunMod(void) {
     StandAloneMode();
     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
+
+    memory_addr = palloc(1, (MAX_BLOCK_SIZE / 4)); //8k bytes should be enough?
+    if(memory_addr == nullptr) {
+        Dbprintf(_RED_("Unable to allocate memory for the EM4100 Emulator!"));
+        return;
+    }
+
     Dbprintf("[=] >>  LF EM4100 read/write/clone started  <<");
 
     int selected = 0;
@@ -147,7 +148,7 @@ void RunMod(void) {
     //      2 - simulate tag from selected slot
     //      3 - write to T5555 tag
     uint8_t state = 0;
-    em4100rwc_slots_count = ARRAYLEN(em4100rwc_low);
+    predefined_slots = ARRAYLEN(predefined_ids);
     led_slot(selected);
     for (;;) {
 
@@ -168,7 +169,7 @@ void RunMod(void) {
                     state = 2;
                 } else if (button_pressed == BUTTON_SINGLE_CLICK) {
                     // Click - switch to next slot
-                    selected = (selected + 1) % em4100rwc_slots_count;
+                    selected = (selected + 1) % predefined_slots;
                     led_slot(selected);
                 }
                 break;
@@ -181,10 +182,10 @@ void RunMod(void) {
                     state = 3;
                 } else if (button_pressed == BUTTON_SINGLE_CLICK) {
                     // Click - exit to select mode
-                    lf_em410x_watch(1, &em4100rwc_high[selected], &em4100rwc_low[selected], true);
+                    lf_em410x_watch(1, &predefined_high[selected], &predefined_ids[selected], true);
                     flash_leds(100, 5);
 #ifdef WITH_FLASH
-                    SaveIDtoFlash(selected, em4100rwc_low[selected]);
+                    SaveIDtoFlash(selected, predefined_ids[selected]);
 #endif
                     state = 0;
                 }
@@ -200,10 +201,10 @@ void RunMod(void) {
                     // Click - start simulating. Click again to exit from simulate mode
                     led_slot(selected);
 
-                    construct_EM410x_emul(rev_quads(em4100rwc_low[selected]));
+                    construct_EM410x_emul(rev_quads(predefined_ids[selected]));
                     flash_leds(100, 5);
 
-                    SimulateTagLowFrequency(em4100rwc_buflen, 0, true);
+                    SimulateTagLowFrequency(buffer_len, 0, true);
                     led_slot(selected);
                     state = 0; // Switch to select mode
                 }
@@ -218,9 +219,9 @@ void RunMod(void) {
                 } else if (button_pressed == BUTTON_SINGLE_CLICK) {
                     // Click - write ID to tag
                     copy_em410x_to_t55xx(0
-                                         , LF_CLOCK
-                                         , (uint32_t)(em4100rwc_low[selected] >> 32)
-                                         , (uint32_t)(em4100rwc_low[selected] & 0xffffffff)
+                                         , LF_CLK_125KHZ
+                                         , (uint32_t)(predefined_ids[selected] >> 32)
+                                         , (uint32_t)(predefined_ids[selected] & 0xffffffff)
                                          , false
                                          , true
                                         );

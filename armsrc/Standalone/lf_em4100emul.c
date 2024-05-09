@@ -14,9 +14,12 @@
 //
 // See LICENSE.txt for the text of the license.
 //-----------------------------------------------------------------------------
-// LF emul  -   Very simple mode. Simulate only predefined in low[] IDs
+// LF emul  -   Very simple mode. Simulate only predefined IDs
 //              Short click - select next slot and start simulation
 //-----------------------------------------------------------------------------
+
+// TODO Maybe move parts over to cardemu?
+
 #include "standalone.h"
 #include "proxmark3_arm.h"
 #include "appmain.h"
@@ -26,43 +29,35 @@
 #include "dbprint.h"
 #include "ticks.h"
 #include "string.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "cardemu.h"
 #include "commonutil.h"
 
 #define MAX_IND 16 // 4 LEDs - 2^4 combinations
-#define LF_CLOCK 64 // for 125kHz
 
-// Predefined IDs must be stored in em4100emul_low[].
-static uint64_t em4100emul_low[] = {0x565A1140BE, 0x365A398149, 0x5555555555, 0xFFFFFFFFFF};
-static uint8_t em4100emul_slots_count;
-static int em4100emul_buflen;
+// Predefined IDs must be stored in predefined_ids[].
+static uint64_t predefined_ids[] = {0x565A1140BE, 0x365A398149, 0x5555555555, 0xFFFFFFFFFF};
+static uint8_t predefined_slots;
+static uint16_t *memory_addr = nullptr;
+static uint16_t buffer_len = 0;
 
 void ModInfo(void) {
     DbpString("  LF EM4100 simulator standalone mode");
 }
 
-static uint64_t rev_quads(uint64_t bits) {
-    uint64_t result = 0;
-    for (int i = 0; i < 16; i++) {
-        result += ((bits >> (60 - 4 * i)) & 0xf) << (4 * i);
-    }
-    return result >> 24;
-}
-
 static void fill_buff(uint8_t bit) {
-    uint8_t *bba = BigBuf_get_addr();
-    memset(bba + em4100emul_buflen, bit, LF_CLOCK / 2);
-    em4100emul_buflen += (LF_CLOCK / 2);
-    memset(bba + em4100emul_buflen, bit ^ 1, LF_CLOCK / 2);
-    em4100emul_buflen += (LF_CLOCK / 2);
+    palloc_set((memory_addr + buffer_len), bit, LF_CLK_125KHZ / 2);
+    buffer_len += (LF_CLK_125KHZ / 2);
+
+    palloc_set((memory_addr + buffer_len), bit^1, LF_CLK_125KHZ / 2);
+    buffer_len += (LF_CLK_125KHZ / 2);
 }
 
 static void construct_EM410x_emul(uint64_t id) {
-
-    int i, j;
+    uint8_t i, j;
     int binary[4] = {0, 0, 0, 0};
     int parity[4] = {0, 0, 0, 0};
-    em4100emul_buflen = 0;
+    buffer_len = 0;
 
     for (i = 0; i < 9; i++)
         fill_buff(1);
@@ -85,22 +80,31 @@ static void construct_EM410x_emul(uint64_t id) {
     fill_buff(0);
 }
 
-static void LED_Slot(int i) {
+static void LED_Slot(uint8_t i) {
     LEDsoff();
-    if (em4100emul_slots_count > 4) {
-        LED(i % MAX_IND, 0); //binary indication for em4100emul_slots_count > 4
+
+    if (predefined_slots > 4) {
+        LED(i % MAX_IND, 0); //binary indication for predefined_slots > 4
     } else {
-        LED(1 << i, 0); //simple indication for em4100emul_slots_count <=4
+        LED(1 << i, 0); //simple indication for predefined_slots <=4
     }
 }
 
 void RunMod(void) {
     StandAloneMode();
     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
-    Dbprintf("[=] >>  LF EM4100 simulator started  <<");
 
-    int selected = 0; //selected slot after start
-    em4100emul_slots_count = ARRAYLEN(em4100emul_low);
+    memory_addr = palloc(1, (MAX_BLOCK_SIZE / 4)); //8k bytes should be enough?
+    if(memory_addr == nullptr) {
+        Dbprintf(_RED_("Unable to allocate memory for the EM4100 Emulator!"));
+        return;
+    }
+
+    Dbprintf("[=] >>  LF EM4100 emulator started  <<");
+
+    uint8_t selected = 0; //selected slot after start
+    predefined_slots = ARRAYLEN(predefined_ids);
+
     for (;;) {
         WDT_HIT();
         if (data_available()) break;
@@ -108,8 +112,15 @@ void RunMod(void) {
         SpinDelay(100);
         SpinUp(100);
         LED_Slot(selected);
-        construct_EM410x_emul(rev_quads(em4100emul_low[selected]));
-        SimulateTagLowFrequency(em4100emul_buflen, 0, true);
-        selected = (selected + 1) % em4100emul_slots_count;
+        construct_EM410x_emul(rev_quads(predefined_ids[selected]));
+        SimulateTagLowFrequency(buffer_len, 0, true);
+
+        selected = (selected + 1) % predefined_slots;
+    }
+
+    memory_addr = palloc(1, (MAX_BLOCK_SIZE / 4)); //8k bytes should be enough?
+    if(memory_addr == nullptr) {
+        Dbprintf(_RED_("Unable to allocate memory for the EM4100 Emulator!"));
+        return;
     }
 }

@@ -549,3 +549,13 @@ char c_isprint(unsigned char c) {
         return 1;
     return 0;
 }
+
+uint64_t rev_quads(uint64_t bits) {
+    uint64_t result = 0;
+
+    for (uint8_t i = 0; i < 16; i++) {
+        result += ((bits >> (60 - 4 * i)) & 0xf) << (4 * i);
+    }
+
+    return result >> 24;
+}
