@@ -21,9 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup_python@v5
+      - uses: actions/setup-python@v5
         with:
-          python_version: '3.12'
+          python-version: '3.12'
 
       - name: Set Git http.postBuffer to something high
         run: git config --global http.postBuffer 524288000
@@ -62,9 +62,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup_python@v5
+      - uses: actions/setup-python@v5
         with:
-          python_version: '3.12'
+          python-version: '3.12'
 
       - name: Set Git http.postBuffer to something high
         run: git config --global http.postBuffer 524288000
@@ -104,9 +104,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup_python@v5
+      - uses: actions/setup-python@v5
         with:
-          python_version: '3.12'
+          python-version: '3.12'
 
       - name: Set Git http.postBuffer to something high
         run: git config --global http.postBuffer 524288000
