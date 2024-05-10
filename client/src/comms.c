@@ -337,7 +337,7 @@ static void PacketResponseReceived(PacketResponseNG *packet) {
             break;
         }
         // iceman:  hw status - down the path on device, runs printusbspeed which starts sending a lot of
-        // CMD_DOWNLOAD_BIGBUF packages which is not dealt with. I wonder if simply ignoring them will
+        // CMD_DOWNLOAD_TRACE packages which is not dealt with. I wonder if simply ignoring them will
         // work. lets try it.
         default: {
             storeReply(packet);
@@ -1125,12 +1125,12 @@ bool GetFromDevice(DeviceMemType_t memtype, uint8_t *dest, uint32_t bytes, uint3
 
     switch (memtype) {
         case BIG_BUF: {
-            SendCommandMIX(CMD_DOWNLOAD_BIGBUF, start_index, bytes, 0, NULL, 0);
-            return dl_it(dest, bytes, response, ms_timeout, show_warning, CMD_DOWNLOADED_BIGBUF);
+            SendCommandMIX(CMD_DOWNLOAD_TRACE, start_index, bytes, 0, NULL, 0);
+            return dl_it(dest, bytes, response, ms_timeout, show_warning, CMD_DOWNLOADED_TRACE);
         }
         case BIG_BUF_EML: {
-            SendCommandMIX(CMD_DOWNLOAD_EML_BIGBUF, start_index, bytes, 0, NULL, 0);
-            return dl_it(dest, bytes, response, ms_timeout, show_warning, CMD_DOWNLOADED_EML_BIGBUF);
+            SendCommandMIX(CMD_DOWNLOAD_EMULATOR, start_index, bytes, 0, NULL, 0);
+            return dl_it(dest, bytes, response, ms_timeout, show_warning, CMD_DOWNLOADED_EMULATOR);
         }
         case SPIFFS: {
             SendCommandMIX(CMD_SPIFFS_DOWNLOAD, start_index, bytes, 0, data, datalen);

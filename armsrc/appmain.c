@@ -29,7 +29,9 @@
 #include "fpgaloader.h"
 #include "printf.h"
 #include "legicrf.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "iclass_cmd.h"
 #include "hfops.h"
 #include "iso14443a.h"
@@ -372,7 +374,7 @@ static void printConnSpeed(uint32_t wait) {
     DbpString(_CYAN_("Transfer Speed"));
     Dbprintf("  Sending packets to client...");
 
-    uint8_t *test_data = BigBuf_get_addr();
+    uint8_t *test_data = palloc(2, PM3_CMD_DATA_SIZE);
     uint32_t start_time = GetTickCount();
     uint32_t delta_time = 0;
     uint32_t bytes_transferred = 0;
@@ -380,7 +382,7 @@ static void printConnSpeed(uint32_t wait) {
     LED_B_ON();
 
     while (delta_time < wait) {
-        reply_ng(CMD_DOWNLOADED_BIGBUF, PM3_SUCCESS, test_data, PM3_CMD_DATA_SIZE);
+        reply_ng(CMD_DOWNLOADED_TRACE, PM3_SUCCESS, test_data, PM3_CMD_DATA_SIZE);
         bytes_transferred += PM3_CMD_DATA_SIZE;
         delta_time = GetTickCountDelta(start_time);
     }
@@ -391,13 +393,15 @@ static void printConnSpeed(uint32_t wait) {
     if (delta_time) {
         Dbprintf("  Transfer Speed PM3 -> Client... " _YELLOW_("%llu") " bytes/s", 1000 * (uint64_t)bytes_transferred / delta_time);
     }
+
+    palloc_free(test_data);
 }
 
 /**
   * Prints runtime information about the PM3.
 **/
 static void SendStatus(uint32_t wait) {
-    BigBuf_print_status();
+    palloc_status();
     Fpga_print_status();
 #ifdef WITH_FLASH
     Flashmem_print_status();
@@ -418,9 +422,9 @@ static void SendStatus(uint32_t wait) {
     print_stack_usage();
     print_debug_level();
 
-    tosend_t *ts = get_tosend();
-    Dbprintf("  ToSendMax............... %d", ts->max);
-    Dbprintf("  ToSend BUFFERSIZE....... %d", TOSEND_BUFFER_SIZE);
+    fpga_queue_t *fpga_queue = get_fpga_queue();
+    Dbprintf("  FPGA Queue Size.............. %d", fpga_queue->max);
+    Dbprintf("  FPGA Queue Max Size.......... %d", QUEUE_BUFFER_SIZE);
     while ((AT91C_BASE_PMC->PMC_MCFR & AT91C_CKGR_MAINRDY) == 0);       // Wait for MAINF value to become available...
     uint16_t mainf = AT91C_BASE_PMC->PMC_MCFR & AT91C_CKGR_MAINF;       // Get # main clocks within 16 slow clocks
     Dbprintf("  Slow clock.............. %d Hz", (16 * MAINCK) / mainf);
@@ -450,7 +454,7 @@ static void SendCapabilities(void) {
     capabilities.version = CAPABILITIES_VERSION;
     capabilities.via_fpc = g_reply_via_fpc;
     capabilities.via_usb = g_reply_via_usb;
-    capabilities.bigbuf_size = BigBuf_get_size();
+    capabilities.sram_size = palloc_sram_size();
     capabilities.baudrate = 0; // no real baudrate for USB-CDC
 #ifdef WITH_FPC_USART
     if (g_reply_via_fpc)
@@ -2276,9 +2280,11 @@ static void PacketReceived(PacketCommandNG *packet) {
             break;
         }
 #endif
-        case CMD_BUFF_CLEAR: {
-            BigBuf_Clear();
-            BigBuf_free();
+        case CMD_SRAM_CLEAR: {
+            // Palloc no longer requires a command to fully clear space, since it manages all of that
+            // itself.
+
+            // TODO Repurpose this command to something else 
             break;
         }
         case CMD_MEASURE_ANTENNA_TUNING: {
@@ -2356,11 +2362,17 @@ static void PacketReceived(PacketCommandNG *packet) {
             LED_D_OFF(); // LED D indicates field ON or OFF
             break;
         }
-        case CMD_DOWNLOAD_BIGBUF: {
-            LED_B_ON();
-            uint8_t *mem = BigBuf_get_addr();
+        case CMD_DOWNLOAD_TRACE: {
+            uint16_t *mem = get_current_trace();
+            if(mem == nullptr) {
+                Dbprintf("Unable to send Trace data to client! Current Trace is null!");
+                break;
+            }
+
             uint32_t startidx = packet->oldarg[0];
             uint32_t numofbytes = packet->oldarg[1];
+
+            LED_B_ON();
 
             // arg0 = startindex
             // arg1 = length bytes to transfer
@@ -2369,7 +2381,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             for (size_t i = 0; i < numofbytes; i += PM3_CMD_DATA_SIZE) {
                 size_t len = MIN((numofbytes - i), PM3_CMD_DATA_SIZE);
-                int result = reply_old(CMD_DOWNLOADED_BIGBUF, i, len, BigBuf_get_traceLen(), mem + startidx + i, len);
+                int result = reply_old(CMD_DOWNLOADED_TRACE, i, len, get_trace_length(), mem + startidx + i, len);
                 if (result != PM3_SUCCESS)
                     Dbprintf("transfer to client failed ::  | bytes between %d - %d (%d) | result: %d", i, i + len, len, result);
             }
@@ -2379,7 +2391,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             // arg1 = RFU
             // arg2 = tracelen?
             // asbytes = samplingconfig array
-            reply_mix(CMD_ACK, 1, 0, BigBuf_get_traceLen(), getSamplingConfig(), sizeof(sample_config));
+            reply_mix(CMD_ACK, 1, 0, get_trace_length(), getSamplingConfig(), sizeof(sample_config));
             LED_B_OFF();
             break;
         }
@@ -2419,9 +2431,9 @@ static void PacketReceived(PacketCommandNG *packet) {
             break;
         }
 #endif
-        case CMD_DOWNLOAD_EML_BIGBUF: {
+        case CMD_DOWNLOAD_EMULATOR: {
             LED_B_ON();
-            uint8_t *mem = BigBuf_get_EM_addr();
+            uint16_t *mem = get_emulator_address();
             uint32_t startidx = packet->oldarg[0];
             uint32_t numofbytes = packet->oldarg[1];
 
@@ -2431,7 +2443,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             for (size_t i = 0; i < numofbytes; i += PM3_CMD_DATA_SIZE) {
                 size_t len = MIN((numofbytes - i), PM3_CMD_DATA_SIZE);
-                int result = reply_old(CMD_DOWNLOADED_EML_BIGBUF, i, len, 0, mem + startidx + i, len);
+                int result = reply_old(CMD_DOWNLOADED_EMULATOR, i, len, 0, mem + startidx + i, len);
                 if (result != PM3_SUCCESS)
                     Dbprintf("transfer to client failed ::  | bytes between %d - %d (%d) | result: %d", i, i + len, len, result);
             }
@@ -2857,7 +2869,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             struct p *payload = (struct p *) packet->data.asBytes;
 
-            uint8_t *bb = BigBuf_get_EM_addr();
+            uint8_t *bb = get_emulator_address();
             if (payload->mlen == 0) {
                 bb[0] = payload->arg;
             } else {
@@ -2924,7 +2936,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 void  __attribute__((noreturn)) AppMain(void) {
 
     SpinDelay(100);
-    BigBuf_initialize();
+    palloc_init();
 
     // Add stack canary
     for (uint32_t *p = _stack_start; p + 0x200 < _stack_end ; ++p) {
@@ -2974,10 +2986,7 @@ void  __attribute__((noreturn)) AppMain(void) {
         FlashStop();
         usb_update_serial(flash_uniqueID);
     }
-#endif
-
-
-#ifdef WITH_FLASH
+    
     // If flash is not present, BUSY_TIMEOUT kicks in, let's do it after USB
     loadT55xxConfig();
 

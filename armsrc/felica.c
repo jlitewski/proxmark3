@@ -13,9 +13,12 @@
 //
 // See LICENSE.txt for the text of the license.
 //-----------------------------------------------------------------------------
+
 #include "felica.h"
+
 #include "proxmark3_arm.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "util.h"
 #include "protocols.h"
 #include "crc16.h"
@@ -29,18 +32,22 @@
 // minimum time between the start bits of consecutive transfers from reader to tag: 6800 carrier (13.56MHz) cycles
 #ifndef FELICA_REQUEST_GUARD_TIME
 //# define FELICA_REQUEST_GUARD_TIME (6800 / 16 + 1) // 426
-# define FELICA_REQUEST_GUARD_TIME ((512 + 0 * 256) * 64 / 16 + 1)
+#define FELICA_REQUEST_GUARD_TIME ((512 + 0 * 256) * 64 / 16 + 1)
 #endif
+
 // FRAME DELAY TIME 2672 carrier cycles
 #ifndef FELICA_FRAME_DELAY_TIME
-# define FELICA_FRAME_DELAY_TIME (2672/16 + 1) // 168
+#define FELICA_FRAME_DELAY_TIME (2672/16 + 1) // 168
 #endif
+
 #ifndef DELAY_AIR2ARM_AS_READER
 #define DELAY_AIR2ARM_AS_READER (3 + 16 + 8 + 8*16 + 4*16 - 8*16) // 91
 #endif
+
 #ifndef DELAY_ARM2AIR_AS_READER
 #define DELAY_ARM2AIR_AS_READER (4*16 + 8*16 + 8 + 8 + 1) // 209
 #endif
+
 #define AddCrc(data, len) compute_crc(CRC_FELICA, (data), (len), (data)+(len)+1, (data)+(len))
 
 static uint32_t felica_timeout;
@@ -63,11 +70,6 @@ static uint32_t iso18092_get_timeout(void) {
 #ifndef FELICA_MAX_FRAME_SIZE
 #define FELICA_MAX_FRAME_SIZE 260
 #endif
-
-
-
-
-
 
 //structure to hold outgoing NFC frame
 static uint8_t frameSpace[FELICA_MAX_FRAME_SIZE + 4];
@@ -107,6 +109,8 @@ static void FelicaFrameReset(void) {
     FelicaFrame.byte_offset = 0;
 }
 static void FelicaFrameinit(uint8_t *data) {
+    if(FelicaFrame.framebytes != nullptr) palloc_free(FelicaFrame.framebytes);
+
     FelicaFrame.framebytes = data;
     FelicaFrameReset();
 }
@@ -414,14 +418,13 @@ static void TransmitFor18092_AsReader(const uint8_t *frame, uint16_t len, const 
     /**/
 
     // log
-    LogTrace(
-        frame,
-        len,
-        (felica_lasttime_prox2air_start << 4) + DELAY_ARM2AIR_AS_READER,
+    start_tracing();
+    log_trace(
+        frame, len, (felica_lasttime_prox2air_start << 4) + DELAY_ARM2AIR_AS_READER,
         ((felica_lasttime_prox2air_start + felica_lasttime_prox2air_start) << 4) + DELAY_ARM2AIR_AS_READER,
-        NULL,
-        true
+        NULL, true
     );
+    stop_tracing();
 
     felica_nexttransfertime = MAX(felica_nexttransfertime, felica_lasttime_prox2air_start + FELICA_REQUEST_GUARD_TIME);
 }
@@ -444,7 +447,7 @@ bool WaitForFelicaReply(uint16_t maxbytes) {
     (void)b;
 
     uint32_t timeout = iso18092_get_timeout();
-
+    start_tracing();
     for (;;) {
 
         WDT_HIT();
@@ -461,20 +464,21 @@ bool WaitForFelicaReply(uint16_t maxbytes) {
                                               felica_nexttransfertime,
                                               (GetCountSspClk() & 0xfffffff8) - (DELAY_AIR2ARM_AS_READER + DELAY_ARM2AIR_AS_READER) / 16 + FELICA_FRAME_DELAY_TIME);
 
-                LogTrace(
-                    FelicaFrame.framebytes,
-                    FelicaFrame.len,
+                log_trace(
+                    FelicaFrame.framebytes, FelicaFrame.len,
                     ((GetCountSspClk() & 0xfffffff8) << 4) - DELAY_AIR2ARM_AS_READER - timeout,
                     ((GetCountSspClk() & 0xfffffff8) << 4) - DELAY_AIR2ARM_AS_READER,
-                    NULL,
-                    false
+                    NULL, false
                 );
+
+                stop_tracing();
                 return true;
 
             } else if (c++ > timeout && (FelicaFrame.state == STATE_UNSYNCD || FelicaFrame.state == STATE_TRYING_SYNC)) {
 
 //                if (g_dbglevel >= DBG_DEBUG) Dbprintf("Error: Timeout! STATE_UNSYNCD");
 
+                stop_tracing();
                 return false;
             }
         }
@@ -491,13 +495,10 @@ static void iso18092_setup(uint8_t fpga_minor_mode) {
 #else
     FpgaDownloadAndGo(FPGA_BITSTREAM_HF_FELICA);
 #endif
-    // allocate command receive buffer
-    BigBuf_free();
-    BigBuf_Clear_ext(false);
-
     // Initialize Demod and Uart structs
     // DemodInit(BigBuf_malloc(MAX_FRAME_SIZE));
-    FelicaFrameinit(BigBuf_calloc(FELICA_MAX_FRAME_SIZE));
+
+    FelicaFrameinit(palloc(1, FELICA_MAX_FRAME_SIZE));
 
     felica_nexttransfertime = 2 * DELAY_ARM2AIR_AS_READER;  // 418
     // iso18092_set_timeout(2120); // 106 * 20ms  maximum start-up time of card
@@ -549,10 +550,10 @@ void felica_sendraw(const PacketCommandNG *c) {
     felica_card_select_t card;
 
     if ((param & FELICA_CONNECT) == FELICA_CONNECT) {
-        clear_trace();
+        release_trace();
     }
 
-    set_tracing(true);
+    start_tracing();
     iso18092_setup(FPGA_HF_ISO18092_FLAG_READER | FPGA_HF_ISO18092_FLAG_NOMOD);
 
     if ((param & FELICA_CONNECT) == FELICA_CONNECT) {
@@ -574,7 +575,7 @@ void felica_sendraw(const PacketCommandNG *c) {
     if ((param & FELICA_RAW) == FELICA_RAW) {
 
         // 2 sync, 1 len, 2crc == 5
-        uint8_t *buf = BigBuf_calloc(len + 5);
+        uint8_t *buf = palloc(1, len + 5);
         // add sync bits
         buf[0] = 0xb2;
         buf[1] = 0x4d;
@@ -608,20 +609,23 @@ void felica_sendraw(const PacketCommandNG *c) {
         if (result) {
             Dbprintf("Reply to Client Error Code: %i", result);
         }
+
+        palloc_free(buf);
     }
 
     if ((param & FELICA_NO_DISCONNECT) == FELICA_NO_DISCONNECT) {
         return;
     }
 
+    stop_tracing();
     felica_reset_frame_mode();
     return;
 }
 
 void felica_sniff(uint32_t samplesToSkip, uint32_t triggersToSkip) {
 
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
     iso18092_setup(FPGA_HF_ISO18092_FLAG_NOMOD);
 
     LED_D_ON();
@@ -679,22 +683,21 @@ void felica_sniff(uint32_t samplesToSkip, uint32_t triggersToSkip) {
                     Dbprintf("Stop Sniffing - samples To skip reached!");
                     break;
                 }
-                LogTrace(FelicaFrame.framebytes,
-                         FelicaFrame.len,
+                log_trace(FelicaFrame.framebytes, FelicaFrame.len,
                          ((GetCountSspClk() & 0xfffffff8) << 4) - DELAY_AIR2ARM_AS_READER - timeout,
                          ((GetCountSspClk() & 0xfffffff8) << 4) - DELAY_AIR2ARM_AS_READER,
-                         NULL,
-                         isReaderFrame
+                         NULL, isReaderFrame
                         );
                 FelicaFrameReset();
             }
         }
     }
     switch_off();
+    stop_tracing();
     //reset framing
     AT91C_BASE_SSC->SSC_RFMR = SSC_FRAME_MODE_BITS_IN_WORD(8) | AT91C_SSC_MSBF | SSC_FRAME_MODE_WORDS_PER_TRANSFER(0);
 
-    Dbprintf("Felica sniffing done, tracelen: %i", BigBuf_get_traceLen());
+    Dbprintf("Felica sniffing done, tracelen: %i", get_trace_length());
     reply_ng(CMD_HF_FELICA_SNIFF, retval, NULL, 0);
     LED_D_OFF();
 }
@@ -739,6 +742,7 @@ void felica_sim_lite(const uint8_t *uid) {
 
     uint8_t flip = 0;
     uint16_t checker = 0;
+    start_tracing();
     for (;;) {
 
         WDT_HIT();
@@ -836,11 +840,12 @@ void felica_sim_lite(const uint8_t *uid) {
     }
 
     switch_off();
+    stop_tracing();
 
     // reset framing
     AT91C_BASE_SSC->SSC_RFMR = SSC_FRAME_MODE_BITS_IN_WORD(8) | AT91C_SSC_MSBF | SSC_FRAME_MODE_WORDS_PER_TRANSFER(0);
 
-    Dbprintf("FeliCa Lite-S emulator stopped. Trace length: %d ", BigBuf_get_traceLen());
+    Dbprintf("FeliCa Lite-S emulator stopped. Trace length: %d ", get_trace_length());
     reply_ng(CMD_HF_FELICALITE_SIMULATE, retval, NULL, 0);
 }
 
@@ -857,7 +862,8 @@ void felica_dump_lite_s(void) {
     uint8_t blknum;
     bool isOK = false;
     uint16_t cnt = 0, cntfails = 0;
-    uint8_t *dest = BigBuf_get_addr();
+    start_tracing();
+    uint16_t *dest = get_current_trace();
 
     while ((BUTTON_PRESS() == false) && (data_available() == false)) {
         WDT_HIT();
@@ -913,12 +919,10 @@ void felica_dump_lite_s(void) {
         }
     }
     switch_off();
+    stop_tracing();
 
     // Resetting Frame mode (First set in fpgaloader.c)
     AT91C_BASE_SSC->SSC_RFMR = SSC_FRAME_MODE_BITS_IN_WORD(8) | AT91C_SSC_MSBF | SSC_FRAME_MODE_WORDS_PER_TRANSFER(0);
 
-    // setting tracelen - important!  it was set by buffer overflow before
-    // iceman:  is this still needed?!?
-    set_tracelen(cnt);
     reply_mix(CMD_ACK, isOK, cnt, 0, 0, 0);
 }

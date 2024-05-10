@@ -415,7 +415,7 @@ int ASKDemod_ext(int clk, int invert, int maxErr, size_t maxlen, bool amplify, b
     uint8_t askamp = 0;
 
     if (maxlen == 0)
-        maxlen = g_pm3_capabilities.bigbuf_size;
+        maxlen = g_pm3_capabilities.sram_size;
 
     uint8_t *bits = calloc(MAX_GRAPH_TRACE_LEN, sizeof(uint8_t));
     if (bits == NULL) {
@@ -1015,7 +1015,7 @@ static int CmdBuffClear(const char *Cmd) {
     CLIExecWithReturn(ctx, Cmd, argtable, true);
     CLIParserFree(ctx);
     clearCommandBuffer();
-    SendCommandNG(CMD_BUFF_CLEAR, NULL, 0);
+    SendCommandNG(CMD_SRAM_CLEAR, NULL, 0);
     ClearGraph(true);
     // iceman:  should clear all other new buffers getting introduced
     return PM3_SUCCESS;
@@ -1752,17 +1752,17 @@ static int CmdHexsamples(const char *Cmd) {
     CLIParserFree(ctx);
 
     // sanity checks
-    if (requested > g_pm3_capabilities.bigbuf_size) {
-        requested = g_pm3_capabilities.bigbuf_size;
+    if (requested > g_pm3_capabilities.sram_size) {
+        requested = g_pm3_capabilities.sram_size;
         PrintAndLogEx(INFO, "n is larger than big buffer size, will use %u", requested);
     }
 
-    uint8_t got[g_pm3_capabilities.bigbuf_size];
+    uint8_t got[g_pm3_capabilities.sram_size];
     if (offset + requested > sizeof(got)) {
         PrintAndLogEx(NORMAL, "Tried to read past end of buffer, <bytes %u> + <offset %u> > %d"
                       , requested
                       , offset
-                      , g_pm3_capabilities.bigbuf_size
+                      , g_pm3_capabilities.sram_size
                      );
         return PM3_EINVARG;
     }
@@ -1852,13 +1852,13 @@ int getSamplesEx(uint32_t start, uint32_t end, bool verbose, bool ignore_lf_conf
     // we don't have to worry about remaining trash
     // in the last byte in case the bits-per-sample
     // does not line up on byte boundaries
-    uint8_t got[g_pm3_capabilities.bigbuf_size - 1];
+    uint8_t got[g_pm3_capabilities.sram_size - 1];
     memset(got, 0x00, sizeof(got));
 
     uint32_t n = end - start;
 
-    if (n == 0 || n > g_pm3_capabilities.bigbuf_size - 1) {
-        n = g_pm3_capabilities.bigbuf_size - 1;
+    if (n == 0 || n > g_pm3_capabilities.sram_size - 1) {
+        n = g_pm3_capabilities.sram_size - 1;
     }
 
     if (verbose) {

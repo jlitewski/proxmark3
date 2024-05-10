@@ -187,7 +187,7 @@ typedef struct {
 typedef struct {
     uint8_t version;
     uint32_t baudrate;
-    uint32_t bigbuf_size;
+    uint32_t sram_size;
     bool via_fpc                       : 1;
     bool via_usb                       : 1;
     // rdv4
@@ -417,15 +417,15 @@ typedef struct {
 #define CMD_DEBUG_PRINT_BYTES                                             0x0102
 #define CMD_LCD_RESET                                                     0x0103
 #define CMD_LCD                                                           0x0104
-#define CMD_BUFF_CLEAR                                                    0x0105
+#define CMD_SRAM_CLEAR                                                    0x0105 // depreciated
 #define CMD_READ_MEM                                                      0x0106 // legacy
 #define CMD_READ_MEM_DOWNLOAD                                             0x010A
 #define CMD_READ_MEM_DOWNLOADED                                           0x010B
 #define CMD_VERSION                                                       0x0107
 #define CMD_STATUS                                                        0x0108
 #define CMD_PING                                                          0x0109
-#define CMD_DOWNLOAD_EML_BIGBUF                                           0x0110
-#define CMD_DOWNLOADED_EML_BIGBUF                                         0x0111
+#define CMD_DOWNLOAD_EMULATOR                                             0x0110
+#define CMD_DOWNLOADED_EMULATOR                                           0x0111
 #define CMD_CAPABILITIES                                                  0x0112
 #define CMD_QUIT_SESSION                                                  0x0113
 #define CMD_SET_DBGMODE                                                   0x0114
@@ -503,8 +503,8 @@ typedef struct {
 #define CMD_LF_TI_WRITE                                                   0x0203
 #define CMD_LF_ACQ_RAW_ADC                                                0x0205
 #define CMD_LF_MOD_THEN_ACQ_RAW_ADC                                       0x0206
-#define CMD_DOWNLOAD_BIGBUF                                               0x0207
-#define CMD_DOWNLOADED_BIGBUF                                             0x0208
+#define CMD_DOWNLOAD_TRACE                                                0x0207
+#define CMD_DOWNLOADED_TRACE                                              0x0208
 #define CMD_LF_UPLOAD_SIM_SAMPLES                                         0x0209
 #define CMD_LF_SIMULATE                                                   0x020A
 #define CMD_LF_HID_WATCH                                                  0x020B

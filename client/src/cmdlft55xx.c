@@ -3176,7 +3176,7 @@ static int CmdResetRead(const char *Cmd) {
 
     if (resp.status == PM3_SUCCESS) {
 
-        uint16_t gotsize = g_pm3_capabilities.bigbuf_size - 1;
+        uint16_t gotsize = g_pm3_capabilities.sram_size - 1;
         uint8_t *got = calloc(gotsize, sizeof(uint8_t));
         if (got == NULL) {
             PrintAndLogEx(WARNING, "failed to allocate memory");

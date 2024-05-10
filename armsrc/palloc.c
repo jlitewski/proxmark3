@@ -453,6 +453,24 @@ bool palloc_heap_integrity(void) {
     return (MAX_BLOCKS == palloc_free_blocks() + palloc_fresh_blocks() + palloc_used_blocks());
 }
 
+void palloc_status(void) {
+    Dbprintf("--- " _CYAN_("Memory") " -----------------");
+    Dbprintf(" - Usuable:................ "_CYAN_("%d"), MEM_USABLE);
+    Dbprintf(" - Free:................... "_CYAN_("%d"), palloc_space_left());
+    Dbprintf(" - Heap Status:............ %s",
+        (palloc_heap_integrity() ? _GREEN_("OK") : _RED_("INTEGRITY ISSUES"))
+    );
+
+    Dbprintf("--- " _CYAN_("Blocks") " -----------------");
+    Dbprintf(" - Fresh:.................. "_CYAN_("%d"), palloc_fresh_blocks());
+    Dbprintf(" - Used:................... "_CYAN_("%d"), palloc_used_blocks());
+    Dbprintf(" - Free:................... "_CYAN_("%d"), palloc_free_blocks());
+}
+
+uint32_t palloc_sram_size() {
+    return MEM_USABLE;
+}
+
 /**
  * @brief Create a general purpose 8-bit buffer
  * 
