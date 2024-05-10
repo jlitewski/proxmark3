@@ -13,12 +13,12 @@ name: "CodeQL"
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, proxmark-nxtgen ]
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [ master ]
+    branches: [ master, proxmark-nxtgen ]
   schedule:
-    - cron: '30 15 * * 4'
+    - cron: '00 03 * * *'
 
 jobs:
   analyze:

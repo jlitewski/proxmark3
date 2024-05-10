@@ -43,7 +43,7 @@ jobs:
         continue-on-error: true
 
       - name: Install Python dependencies
-        run: pip install -r tools/requirements.txt
+        run: python3 -m pip install -r tools/requirements.txt
 
       - name: make clean
         run: make clean
@@ -84,7 +84,7 @@ jobs:
         continue-on-error: true
 
       - name: Install Python dependencies
-        run: pip install -r tools/requirements.txt
+        run: python3 -m pip install -r tools/requirements.txt
 
       - name: make clean
         run: make clean
@@ -126,7 +126,7 @@ jobs:
         continue-on-error: true
 
       - name: Install Python dependencies
-        run: pip install -r tools/requirements.txt
+        run: python3 -m pip install -r tools/requirements.txt
 
       - name: Prepare Build Folders
         run: |
