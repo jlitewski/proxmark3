@@ -835,7 +835,7 @@ typedef struct {
 #define PM3_ESOFT             -10
 // Flash error                          client/pm3: error in RDV4 Flash operation
 #define PM3_EFLASH            -11
-// Memory allocation error              client:     error in memory allocation (maybe also for pm3 BigBuff?)
+// Memory allocation error              client/pm3: error in memory allocation
 #define PM3_EMALLOC           -12
 // File error                           client:     error related to file access on host
 #define PM3_EFILE             -13
