@@ -17,7 +17,7 @@
 #include "usb_cdc.h"
 #include "usart.h"
 #include "crc16.h"
-#include "BigBuf.h"
+#include "palloc.h"
 
 // Flags to tell where to add CRC on sent replies
 bool g_reply_with_crc_on_usb = false;
@@ -91,7 +91,7 @@ static int reply_ng_internal(uint16_t cmd, int16_t status, const uint8_t *data, 
 
     // Add the (optional) content to the frame, with a maximum size of PM3_CMD_DATA_SIZE
     if (data && len) {
-        memcpy(txBufferNG.data, data, len);
+        palloc_copy(txBufferNG.data, data, len);
     }
 
     PacketResponseNGPostamble *tx_post = (PacketResponseNGPostamble *)((uint8_t *)&txBufferNG + sizeof(PacketResponseNGPreamble) + len);
@@ -147,9 +147,9 @@ int reply_mix(uint64_t cmd, uint64_t arg0, uint64_t arg1, uint64_t arg2, const v
         status = PM3_EOVFLOW;
     }
     uint8_t cmddata[PM3_CMD_DATA_SIZE];
-    memcpy(cmddata, arg, sizeof(arg));
+    palloc_copy(cmddata, arg, sizeof(arg));
     if (len && data) {
-        memcpy(cmddata + sizeof(arg), data, (int)len);
+        palloc_copy(cmddata + sizeof(arg), data, (int)len);
     }
 
     return reply_ng_internal((cmd & 0xFFFF), status, cmddata, len + sizeof(arg), false);
@@ -186,7 +186,7 @@ static int receive_ng_internal(PacketCommandNG *rx, uint32_t read_ng(uint8_t *da
         }
 
         if (rx->ng) {
-            memcpy(rx->data.asBytes, rx_raw.data, length);
+            palloc_copy(rx->data.asBytes, rx_raw.data, length);
             rx->length = length;
         } else {
             uint64_t arg[3] = {0};
@@ -194,11 +194,11 @@ static int receive_ng_internal(PacketCommandNG *rx, uint32_t read_ng(uint8_t *da
                 return PM3_EIO;
             }
 
-            memcpy(arg, rx_raw.data, sizeof(arg));
+            palloc_copy(arg, rx_raw.data, sizeof(arg));
             rx->oldarg[0] = arg[0];
             rx->oldarg[1] = arg[1];
             rx->oldarg[2] = arg[2];
-            memcpy(rx->data.asBytes, rx_raw.data + sizeof(arg), length - sizeof(arg));
+            palloc_copy(rx->data.asBytes, rx_raw.data + sizeof(arg), length - sizeof(arg));
             rx->length = length - sizeof(arg);
         }
 
@@ -223,7 +223,7 @@ static int receive_ng_internal(PacketCommandNG *rx, uint32_t read_ng(uint8_t *da
 
     } else {                               // Old style command
         PacketCommandOLD rx_old;
-        memcpy(&rx_old, &rx_raw.pre, sizeof(PacketCommandNGPreamble));
+        palloc_copy(&rx_old, &rx_raw.pre, sizeof(PacketCommandNGPreamble));
         bytes = read_ng(((uint8_t *)&rx_old) + sizeof(PacketCommandNGPreamble), sizeof(PacketCommandOLD) - sizeof(PacketCommandNGPreamble));
         if (bytes != sizeof(PacketCommandOLD) - sizeof(PacketCommandNGPreamble)) {
             return PM3_EIO;
@@ -239,7 +239,7 @@ static int receive_ng_internal(PacketCommandNG *rx, uint32_t read_ng(uint8_t *da
         rx->oldarg[1] = rx_old.arg[1];
         rx->oldarg[2] = rx_old.arg[2];
         rx->length = PM3_CMD_DATA_SIZE;
-        memcpy(&rx->data, &rx_old.d.asBytes, rx->length);
+        palloc_copy(&rx->data, &rx_old.d.asBytes, rx->length);
     }
     return PM3_SUCCESS;
 }

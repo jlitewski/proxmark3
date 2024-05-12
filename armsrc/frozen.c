@@ -25,9 +25,11 @@
 #include "nprintf.h"
 #include "commonutil.h"
 
-#include "BigBuf.h"
-#define malloc(X) BigBuf_malloc(X)
-#define free(X)
+#include "palloc.h"
+#define malloc(X)       palloc(1, X)
+#define free(X)         palloc_free(X)
+#define memcpy(X, Y, Z) palloc_copy(X, Y, Z)
+#define memset(X, Y, Z) palloc_set(X, Y, Z)
 
 #if !defined(WEAK)
 #if (defined(__GNUC__) || defined(__TI_COMPILER_VERSION__)) && !defined(_WIN32)

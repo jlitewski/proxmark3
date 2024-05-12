@@ -13,14 +13,13 @@
 //
 // See LICENSE.txt for the text of the license.
 //-----------------------------------------------------------------------------
-
-#define DBG  if (g_dbglevel >= DBG_EXTENDED)
-
 #include "hitag2.h"
+
 #include "hitag2_crypto.h"
 #include "proxmark3_arm.h"
 #include "cmd.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "fpgaloader.h"
 #include "ticks.h"
 #include "dbprint.h"
@@ -31,10 +30,13 @@
 #include "commonutil.h"
 #include "appmain.h"
 
+// TODO: Move these to a common file for all arm sources
 #define test_bit(data, i)  (*(data + (i/8)) >> (7-(i % 8))) & 1
 #define set_bit(data, i)   *(data + (i/8)) |= (1 << (7-(i % 8)))
 #define clear_bit(data, i) *(data + (i/8)) &= ~(1 << (7-(i % 8)))
 #define flip_bit(data, i)  *(data + (i/8)) ^= (1 << (7-(i % 8)))
+
+#define DBG  if (g_dbglevel >= DBG_EXTENDED)
 
 // Successful crypto auth
 static bool bCrypto;
@@ -79,7 +81,9 @@ static enum {
     WRITE_STATE_PROG
 } writestate;
 
-// ToDo: define a meaningful maximum size for auth_table. The bigger this is, the lower will be the available memory for traces.
+// TODO: Why do we have so many global variables?!? Refactor this to reduce what we can
+
+// TODO: define a meaningful maximum size for auth_table. The bigger this is, the lower will be the available memory for traces.
 // Historically it used to be FREE_BUFFER_SIZE, which was 2744.
 #define AUTH_TABLE_LENGTH 2744
 static uint8_t *auth_table;
@@ -197,7 +201,7 @@ static void hitag2_handle_reader_command(uint8_t *rx, const size_t rxlen, uint8_
     uint8_t rx_air[HITAG_FRAME_LEN];
 
     // Copy the (original) received frame how it is send over the air
-    memcpy(rx_air, rx, nbytes(rxlen));
+    palloc_copy(rx_air, rx, nbytes(rxlen));
 
     if (tag.crypto_active) {
         ht2_hitag2_cipher_transcrypt(&(tag.cs), rx, rxlen / 8, rxlen % 8);
@@ -216,7 +220,7 @@ static void hitag2_handle_reader_command(uint8_t *rx, const size_t rxlen, uint8_
                 return;
             }
             *txlen = 32;
-            memcpy(tx, tag.sectors[0], 4);
+            palloc_copy(tx, tag.sectors[0], 4);
             tag.crypto_active = 0;
         }
         break;
@@ -234,7 +238,7 @@ static void hitag2_handle_reader_command(uint8_t *rx, const size_t rxlen, uint8_
             switch (rx[0] & 0xC6) {
                 // Read command: 11xx x00y
                 case 0xC0: {
-                    memcpy(tx, tag.sectors[sector], 4);
+                    palloc_copy(tx, tag.sectors[sector], 4);
                     *txlen = 32;
                     break;
                 }
@@ -249,7 +253,7 @@ static void hitag2_handle_reader_command(uint8_t *rx, const size_t rxlen, uint8_
                 // Write command: 10xx x01y
                 case 0x82: {
                     // Prepare write, acknowledge by repeating command
-                    memcpy(tx, rx, nbytes(rxlen));
+                    palloc_copy(tx, rx, nbytes(rxlen));
                     *txlen = rxlen;
                     tag.active_sector = sector;
                     tag.state = TAG_STATE_WRITING;
@@ -268,7 +272,7 @@ static void hitag2_handle_reader_command(uint8_t *rx, const size_t rxlen, uint8_
         case 32: {
             if (tag.state == TAG_STATE_WRITING) {
                 // These are the sector contents to be written. We don't have to do anything else.
-                memcpy(tag.sectors[tag.active_sector], rx, nbytes(rxlen));
+                palloc_copy(tag.sectors[tag.active_sector], rx, nbytes(rxlen));
                 tag.state = TAG_STATE_RESET;
                 return;
             } else {
@@ -278,7 +282,7 @@ static void hitag2_handle_reader_command(uint8_t *rx, const size_t rxlen, uint8_
                     return;
                 }
                 *txlen = 32;
-                memcpy(tx, tag.sectors[3], 4);
+                palloc_copy(tx, tag.sectors[3], 4);
             }
         }
         break;
@@ -287,7 +291,7 @@ static void hitag2_handle_reader_command(uint8_t *rx, const size_t rxlen, uint8_
         case 64: {
             // Store the authentication attempt
             if (auth_table_len < (AUTH_TABLE_LENGTH - 8)) {
-                memcpy(auth_table + auth_table_len, rx, 8);
+                palloc_copy(auth_table + auth_table_len, rx, 8);
                 auth_table_len += 8;
             }
 
@@ -304,7 +308,7 @@ static void hitag2_handle_reader_command(uint8_t *rx, const size_t rxlen, uint8_
             tag.crypto_active = 1;
 
             // Use the tag password as response
-            memcpy(tx, tag.sectors[3], 4);
+            palloc_copy(tx, tag.sectors[3], 4);
             *txlen = 32;
         }
         break;
@@ -431,14 +435,14 @@ void fix_ac_decoding(uint8_t *input, size_t len) {
     // Reader routine tries to decode AC data after Manchester decoding
     // AC has double the bitrate, extract data from bit-pairs
     uint8_t temp[len / 16];
-    memset(temp, 0, sizeof(temp));
+    palloc_set(temp, 0, sizeof(temp));
 
     for (size_t i = 1; i < len; i += 2) {
         if (test_bit(input, i) && test_bit(input, (i + 1))) {
             set_bit(temp, (i / 2));
         }
     }
-    memcpy(input, temp, sizeof(temp));
+    palloc_copy(input, temp, sizeof(temp));
 }
 */
 
@@ -481,7 +485,7 @@ static bool hitag_plain(uint8_t *rx, const size_t rxlen, uint8_t *tx, size_t *tx
                 *txlen = 45;
                 bCollision = false;
             } else {
-                memcpy(tag.sectors[blocknr], rx, 4);
+                palloc_copy(tag.sectors[blocknr], rx, 4);
                 blocknr++;
                 if (!hitag_s) {
                     if (blocknr > 1 && blocknr < 31) {
@@ -547,7 +551,7 @@ static bool hitag1_authenticate(uint8_t *rx, const size_t rxlen, uint8_t *tx, si
                 nonce[0] = byte_value;
                 byte_value++;
                 /*set_bit(nonce,flipped_bit);*/
-                memcpy(tx, nonce, 4);
+                palloc_copy(tx, nonce, 4);
                 *txlen = 32;
                 // will receive 32 bit encrypted Logdata
             } else if (bCrypto) {
@@ -591,12 +595,12 @@ static bool hitag1_authenticate(uint8_t *rx, const size_t rxlen, uint8_t *tx, si
             } else if (bAuthenticating) {
                 // received 32-bit logdata 0
                 // TODO decrypt logdata 0, verify against logdata_0
-                memcpy(tag.sectors[0], rx, 4);
-                memcpy(tag.sectors[1], tx, 4);
+                palloc_copy(tag.sectors[0], rx, 4);
+                palloc_copy(tag.sectors[1], tx, 4);
                 Dbprintf("%02x%02x%02x%02x %02x%02x%02x%02x", rx[0], rx[1], rx[2], rx[3], tx[0], tx[1], tx[2], tx[3]);
                 // TODO replace with secret data stream
                 // TODO encrypt logdata_1
-                memcpy(tx, logdata_1, 4);
+                palloc_copy(tx, logdata_1, 4);
                 *txlen = 32;
                 bAuthenticating = false;
                 bCrypto = true;
@@ -604,7 +608,7 @@ static bool hitag1_authenticate(uint8_t *rx, const size_t rxlen, uint8_t *tx, si
             } else if (bCrypto) {
                 // received 32-bit encrypted page
                 // TODO decrypt rx
-                memcpy(tag.sectors[blocknr], rx, 4);
+                palloc_copy(tag.sectors[blocknr], rx, 4);
                 blocknr++;
                 if (blocknr > 63) {
                     DbpString("Read successful!");
@@ -659,8 +663,8 @@ static bool hitag2_write_page(uint8_t *rx, const size_t rxlen, uint8_t *tx, size
                     && (rx[1] == (((blocknr & 0x3) ^ 0x3) << 6))) {
 
                 *txlen = 32;
-                memset(tx, 0, HITAG_FRAME_LEN);
-                memcpy(tx, writedata, 4);
+                palloc_set(tx, 0, HITAG_FRAME_LEN);
+                palloc_copy(tx, writedata, 4);
                 writestate = WRITE_STATE_PROG;
             } else {
                 Dbprintf("hitag2_write_page: Page number was not received correctly: rxlen %d rx %02x%02x%02x%02x"
@@ -712,7 +716,7 @@ static bool hitag2_password(uint8_t *rx, const size_t rxlen, uint8_t *tx, size_t
                     return false;
                 }
                 *txlen = 5;
-                memcpy(tx, "\xC0", nbytes(*txlen));
+                palloc_copy(tx, "\xC0", nbytes(*txlen));
             }
             break;
 
@@ -722,7 +726,7 @@ static bool hitag2_password(uint8_t *rx, const size_t rxlen, uint8_t *tx, size_t
                 if (bPwd == false) {
                     bPwd = true;
                     bAuthenticating = true;
-                    memcpy(tx, password, 4);
+                    palloc_copy(tx, password, 4);
                     *txlen = 32;
                 } else {
                     // stage 2, got config byte+password TAG, discard as will read later
@@ -737,7 +741,7 @@ static bool hitag2_password(uint8_t *rx, const size_t rxlen, uint8_t *tx, size_t
                     }
                     // stage 2+, got data block
                     else {
-                        memcpy(tag.sectors[blocknr], rx, 4);
+                        palloc_copy(tag.sectors[blocknr], rx, 4);
                         blocknr++;
                     }
 
@@ -796,7 +800,7 @@ static bool hitag2_crypto(uint8_t *rx, const size_t rxlen, uint8_t *tx, size_t *
                         // Failed reading a block, could be (read/write) locked, skip block and re-authenticate
                         if (blocknr == 1) {
                             // Write the low part of the key in memory
-                            memcpy(tag.sectors[1], key + 2, 4);
+                            palloc_copy(tag.sectors[1], key + 2, 4);
                         } else if (blocknr == 2) {
                             // Write the high part of the key in memory
                             tag.sectors[2][0] = 0x00;
@@ -805,14 +809,14 @@ static bool hitag2_crypto(uint8_t *rx, const size_t rxlen, uint8_t *tx, size_t *
                             tag.sectors[2][3] = key[1];
                         } else {
                             // Just put zero's in the memory (of the unreadable block)
-                            memset(tag.sectors[blocknr], 0x00, 4);
+                            palloc_set(tag.sectors[blocknr], 0x00, 4);
                         }
                         blocknr++;
                         bCrypto = false;
                     }
                 } else {
                     *txlen = 5;
-                    memcpy(tx, "\xc0", nbytes(*txlen));
+                    palloc_copy(tx, "\xc0", nbytes(*txlen));
                 }
                 break;
             }
@@ -836,9 +840,9 @@ static bool hitag2_crypto(uint8_t *rx, const size_t rxlen, uint8_t *tx, size_t *
                     cipher_state = ht2_hitag2_init(REV64(ui64key), REV32(ui32uid), 0);
 
                     // PRN  00 00 00 00
-                    memset(tx, 0x00, 4);
+                    palloc_set(tx, 0x00, 4);
                     // Secret data FF FF FF FF
-                    memset(tx + 4, 0xff, 4);
+                    palloc_set(tx + 4, 0xff, 4);
                     ht2_hitag2_cipher_transcrypt(&cipher_state, tx + 4, 4, 0);
                     *txlen = 64;
                     bCrypto = true;
@@ -860,7 +864,7 @@ static bool hitag2_crypto(uint8_t *rx, const size_t rxlen, uint8_t *tx, size_t *
                     } else { // stage 2+, got data block
 
                         // Store the received block
-                        memcpy(tag.sectors[blocknr], rx, 4);
+                        palloc_copy(tag.sectors[blocknr], rx, 4);
                         blocknr++;
                     }
 
@@ -913,7 +917,7 @@ static bool hitag2_authenticate(uint8_t *rx, const size_t rxlen, uint8_t *tx, si
 
                 DBG DbpString("Authenticating - send 0xC0");
                 *txlen = 5;
-                memcpy(tx, "\xC0", nbytes(*txlen));
+                palloc_copy(tx, "\xC0", nbytes(*txlen));
             }
             break;
         }
@@ -921,7 +925,7 @@ static bool hitag2_authenticate(uint8_t *rx, const size_t rxlen, uint8_t *tx, si
             // Received UID or crypto tag answer
             if (bCrypto == false) {
                 *txlen = 64;
-                memcpy(tx, NrAr, sizeof(NrAr));
+                palloc_copy(tx, NrAr, sizeof(NrAr));
                 bCrypto = true;
                 bAuthenticating = true;
                 DBG DbpString("Authenticating sending NrAr");
@@ -943,7 +947,7 @@ static bool hitag2_authenticate(uint8_t *rx, const size_t rxlen, uint8_t *tx, si
                 } else { // stage 2+, got data block
 
                     // Store the received block
-                    memcpy(tag.sectors[blocknr], rx, 4);
+                    palloc_copy(tag.sectors[blocknr], rx, 4);
                     blocknr++;
                 }
 
@@ -984,7 +988,7 @@ static bool hitag2_test_auth_attempts(uint8_t *rx, const size_t rxlen, uint8_t *
                 Dbprintf("auth: %02x%02x%02x%02x%02x%02x%02x%02x Failed, removed entry!", NrAr[0], NrAr[1], NrAr[2], NrAr[3], NrAr[4], NrAr[5], NrAr[6], NrAr[7]);
 
                 // Removing failed entry from authentications table
-                memcpy(auth_table + auth_table_pos, auth_table + auth_table_pos + 8, 8);
+                palloc_copy(auth_table + auth_table_pos, auth_table + auth_table_pos + 8, 8);
                 auth_table_len -= 8;
 
                 // Return if we reached the end of the authentications table
@@ -994,10 +998,10 @@ static bool hitag2_test_auth_attempts(uint8_t *rx, const size_t rxlen, uint8_t *
                 }
 
                 // Copy the next authentication attempt in row (at the same position, b/c we removed last failed entry)
-                memcpy(NrAr, auth_table + auth_table_pos, 8);
+                palloc_copy(NrAr, auth_table + auth_table_pos, 8);
             }
             *txlen = 5;
-            memcpy(tx, "\xc0", nbytes(*txlen));
+            palloc_copy(tx, "\xc0", nbytes(*txlen));
         }
         break;
 
@@ -1005,7 +1009,7 @@ static bool hitag2_test_auth_attempts(uint8_t *rx, const size_t rxlen, uint8_t *
         case 32: {
             if (bCrypto == false) {
                 *txlen = 64;
-                memcpy(tx, NrAr, 8);
+                palloc_copy(tx, NrAr, 8);
                 bCrypto = true;
             } else {
                 Dbprintf("auth: %02x%02x%02x%02x%02x%02x%02x%02x ( " _GREEN_("ok") " )", NrAr[0], NrAr[1], NrAr[2], NrAr[3], NrAr[4], NrAr[5], NrAr[6], NrAr[7]);
@@ -1014,7 +1018,7 @@ static bool hitag2_test_auth_attempts(uint8_t *rx, const size_t rxlen, uint8_t *
                     return false;
                 }
                 auth_table_pos += 8;
-                memcpy(NrAr, auth_table + auth_table_pos, 8);
+                palloc_copy(NrAr, auth_table + auth_table_pos, 8);
             }
         }
         break;
@@ -1034,10 +1038,8 @@ void hitag_sniff(void) {
 
     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
 
-    BigBuf_free();
-    BigBuf_Clear_ext(false);
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
 
     // Set up eavesdropping mode, frequency divisor which will drive the FPGA
     // and analog mux selection.
@@ -1059,10 +1061,8 @@ void SniffHitag2(bool ledcontrol) {
 
     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
 
-    BigBuf_free();
-    BigBuf_Clear_ext(false);
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
 
     /*
         lf_init(false, false, ledcontrol);
@@ -1081,7 +1081,7 @@ void SniffHitag2(bool ledcontrol) {
 
             size_t periods = 0;
             uint16_t rxlen = 0;
-            memset(rx, 0x00, sizeof(rx));
+            palloc_set(rx, 0x00, sizeof(rx));
 
             // Use the current modulation state as starting point
             uint8_t mod_state = lf_get_reader_modulation();
@@ -1246,7 +1246,7 @@ void SniffHitag2(bool ledcontrol) {
     auth_table_len = 0;
     auth_table_pos = 0;
 
-    auth_table = (uint8_t *)BigBuf_calloc(AUTH_TABLE_LENGTH);
+    auth_table = palloc(1, AUTH_TABLE_LENGTH);
 
     while (BUTTON_PRESS() == false) {
 
@@ -1357,13 +1357,13 @@ void SniffHitag2(bool ledcontrol) {
         if (rxlen) {
 
             frame_count++;
-            LogTraceBits(rx, rxlen, response, 0, reader_frame);
+            log_trace_from_stream(rx, rxlen, response, 0, reader_frame);
 
             // Check if we recognize a valid authentication attempt
             if (rxlen == 64) {
                 // Store the authentication attempt
                 if (auth_table_len < (AUTH_TABLE_LENGTH - 8)) {
-                    memcpy(auth_table + auth_table_len, rx, 8);
+                    palloc_copy(auth_table + auth_table_len, rx, 8);
                     auth_table_len += 8;
                 }
             }
@@ -1409,17 +1409,14 @@ void SniffHitag2(bool ledcontrol) {
     Dbprintf("Auth attempts... %d", (auth_table_len / 8));
 
     switch_off();
-    BigBuf_free();
+    palloc_free(auth_table);
 }
 
 
 // Hitag2 simulation
 void SimulateHitag2(bool ledcontrol) {
-
-    BigBuf_free();
-    BigBuf_Clear_ext(false);
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
 
     // empties bigbuff etc
     lf_init(false, true, ledcontrol);
@@ -1431,11 +1428,11 @@ void SimulateHitag2(bool ledcontrol) {
     auth_table_len = 0;
     auth_table_pos = 0;
 //    auth_table = BigBuf_malloc(AUTH_TABLE_LENGTH);
-//    memset(auth_table, 0x00, AUTH_TABLE_LENGTH);
+//    palloc_set(auth_table, 0x00, AUTH_TABLE_LENGTH);
 
     // Reset the received frame, frame count and timing info
-//    memset(rx, 0x00, sizeof(rx));
-//    memset(tx, 0x00, sizeof(tx));
+//    palloc_set(rx, 0x00, sizeof(rx));
+//    palloc_set(tx, 0x00, sizeof(tx));
 
     DbpString("Starting Hitag2 simulation");
 
@@ -1601,7 +1598,7 @@ void SimulateHitag2(bool ledcontrol) {
         // Check if frame was captured
         if (rxlen > 4) {
 
-            LogTraceBits(rx, rxlen, response, response, true);
+            log_trace_from_stream(rx, rxlen, response, response, true);
 
             // Process the incoming frame (rx) and prepare the outgoing frame (tx)
             hitag2_handle_reader_command(rx, rxlen, tx, &txlen);
@@ -1620,11 +1617,11 @@ void SimulateHitag2(bool ledcontrol) {
                 lf_manchester_send_bytes(tx, txlen, ledcontrol);
 
                 // Store the frame in the trace
-                LogTraceBits(tx, txlen, 0, 0, false);
+                log_trace_from_stream(tx, txlen, 0, 0, false);
             }
 
             // Reset the received frame and response timing info
-            memset(rx, 0x00, sizeof(rx));
+            palloc_set(rx, 0x00, sizeof(rx));
             response = 0;
 
             if (ledcontrol) LED_B_OFF();
@@ -1632,10 +1629,6 @@ void SimulateHitag2(bool ledcontrol) {
     }
 
     lf_finalize(ledcontrol);
-
-    // release allocated memory from BigBuff.
-    BigBuf_free();
-
     DbpString("Sim stopped");
 
 //    reply_ng(CMD_LF_HITAG_SIMULATE, (checked == -1) ? PM3_EOPABORTED : PM3_SUCCESS, (uint8_t *)tag.sectors, tag_size);
@@ -1666,29 +1659,29 @@ void ReaderHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
     bCrypto = false;
 
     // Clean up trace and prepare it for storing frames
-    set_tracing(true);
-    clear_trace();
+    release_trace();
+    start_tracing();
 
     // Check configuration
     switch (payload->cmd) {
         case RHT1F_PLAIN: {
             DBG Dbprintf("Read public blocks in plain mode");
             // this part will be unreadable
-            memset(tag.sectors + 2, 0x0, 30);
+            palloc_set(tag.sectors + 2, 0x0, 30);
             blocknr = 0;
             break;
         }
         case RHT1F_AUTHENTICATE: {
             DBG Dbprintf("Read all blocks in authed mode");
 
-            memcpy(nonce, payload->nonce, 4);
-            memcpy(key, payload->key, 4);
-            memcpy(logdata_0, payload->logdata_0, 4);
-            memcpy(logdata_1, payload->logdata_1, 4);
+            palloc_copy(nonce, payload->nonce, 4);
+            palloc_copy(key, payload->key, 4);
+            palloc_copy(logdata_0, payload->logdata_0, 4);
+            palloc_copy(logdata_1, payload->logdata_1, 4);
 
             // TEST
-            memset(nonce, 0x0, 4);
-            memset(logdata_1, 0x00, 4);
+            palloc_set(nonce, 0x0, 4);
+            palloc_set(logdata_1, 0x00, 4);
 
             byte_value = 0;
             key_no = payload->key_no;
@@ -1707,9 +1700,9 @@ void ReaderHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
         case RHT2F_PASSWORD: {
             DBG Dbprintf("List identifier in password mode");
             if (memcmp(payload->pwd, "\x00\x00\x00\x00", 4) == 0) {
-                memcpy(password, tag.sectors[1], sizeof(password));
+                palloc_copy(password, tag.sectors[1], sizeof(password));
             } else {
-                memcpy(password, payload->pwd, sizeof(password));
+                palloc_copy(password, payload->pwd, sizeof(password));
             }
             blocknr = 0;
             bPwd = false;
@@ -1718,7 +1711,7 @@ void ReaderHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
         }
         case RHT2F_AUTHENTICATE: {
             DBG DbpString("Authenticating using NrAr pair:");
-            memcpy(NrAr, payload->NrAr, 8);
+            palloc_copy(NrAr, payload->NrAr, 8);
             DBG Dbhexdump(8, NrAr, false);
             // We can't read block 0, 1, 2..
             blocknr = 3;
@@ -1729,11 +1722,11 @@ void ReaderHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
         }
         case RHT2F_CRYPTO: {
             DBG DbpString("Authenticating using key:");
-            memcpy(key, payload->key, 6);  //HACK; 4 or 6??  I read both in the code.
+            palloc_copy(key, payload->key, 6);  //HACK; 4 or 6??  I read both in the code.
             DBG Dbhexdump(6, key, false);
             DBG DbpString("Nonce:");
             DBG Dbhexdump(4, nonce, false);
-            memcpy(nonce, payload->data, 4);
+            palloc_copy(nonce, payload->data, 4);
             blocknr = 0;
             bCrypto = false;
             bAuthenticating = false;
@@ -1742,13 +1735,13 @@ void ReaderHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
         case RHT2F_TEST_AUTH_ATTEMPTS: {
             DBG Dbprintf("Testing " _YELLOW_("%d") " authentication attempts", (auth_table_len / 8));
             auth_table_pos = 0;
-            memcpy(NrAr, auth_table, 8);
+            palloc_copy(NrAr, auth_table, 8);
             bCrypto = false;
             break;
         }
         default: {
             DBG Dbprintf("Error, unknown function: " _RED_("%d"), payload->cmd);
-            set_tracing(false);
+            stop_tracing();
             reply_ng(CMD_LF_HITAG_READER, PM3_ESOFT, NULL, 0);
             return;
         }
@@ -1952,10 +1945,10 @@ void ReaderHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
         // Store the TX frame, we do this now at this point, to avoid delay in processing
         // and to be able to overwrite the first samples with the trace (since they currently
         // still use the same memory space)
-        LogTraceBits(tx, txlen, command_start, command_start + command_duration, true);
+        log_trace_from_stream(tx, txlen, command_start, command_start + command_duration, true);
 
         // Reset values for receiving frames
-        memset(rx, 0x00, sizeof(rx));
+        palloc_set(rx, 0x00, sizeof(rx));
         rxlen = 0;
 
         // If there is no response, just repeat the loop
@@ -2023,7 +2016,7 @@ void ReaderHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
         }
 
         // Check if frame was captured and store it
-        LogTraceBits(rx, rxlen, response_start, response_start + response_duration, false);
+        log_trace_from_stream(rx, rxlen, response_start, response_start + response_duration, false);
 
 // TODO when using cumulative time for command_start, pm3 doesn't reply anymore, e.g. on lf hitag reader --23 -k 4F4E4D494B52
 // Use delta time?
@@ -2034,9 +2027,6 @@ void ReaderHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
 
 out:
     lf_finalize(ledcontrol);
-
-    // release allocated memory from BigBuff.
-    BigBuf_free();
 
     if (checked == -1) {
         reply_ng(CMD_LF_HITAG_READER, PM3_ESOFT, NULL, 0);
@@ -2082,15 +2072,15 @@ void WriterHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
     blocknr = 0;
 
     // Clean up trace and prepare it for storing frames
-    set_tracing(true);
-    clear_trace();
+    release_trace();
+    start_tracing();
 
     // Check configuration
     switch (payload->cmd) {
         case WHT2F_CRYPTO: {
             DbpString("Authenticating using key:");
-            memcpy(key, payload->key, 6); //HACK; 4 or 6??  I read both in the code.
-            memcpy(writedata, payload->data, 4);
+            palloc_copy(key, payload->key, 6); //HACK; 4 or 6??  I read both in the code.
+            palloc_copy(writedata, payload->data, 4);
             Dbhexdump(6, key, false);
             blocknr = payload->page;
             bCrypto = false;
@@ -2100,11 +2090,11 @@ void WriterHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
         case WHT2F_PASSWORD: {
             DBG DbpString("Authenticating using password:");
             if (memcmp(payload->pwd, "\x00\x00\x00\x00", 4) == 0) {
-                memcpy(password, tag.sectors[1], sizeof(password));
+                palloc_copy(password, tag.sectors[1], sizeof(password));
             } else {
-                memcpy(password, payload->pwd, sizeof(password));
+                palloc_copy(password, payload->pwd, sizeof(password));
             }
-            memcpy(writedata, payload->data, 4);
+            palloc_copy(writedata, payload->data, 4);
             DBG Dbhexdump(4, password, false);
             blocknr = payload->page;
             bPwd = false;
@@ -2223,7 +2213,6 @@ void WriterHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
         if ((writestate == WRITE_STATE_PROG) && (tearoff_hook() == PM3_ETEAROFF)) {
             reply_ng(CMD_LF_HITAG2_WRITE, PM3_ETEAROFF, NULL, 0);
             lf_finalize(ledcontrol);
-            BigBuf_free();
             return;
         }
 
@@ -2313,10 +2302,10 @@ void WriterHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
         // Store the TX frame, we do this now at this point, to avoid delay in processing
         // and to be able to overwrite the first samples with the trace (since they currently
         // still use the same memory space)
-        LogTraceBits(tx, txlen, command_start, command_start + command_duration, true);
+        log_trace_from_stream(tx, txlen, command_start, command_start + command_duration, true);
 
         // Reset values for receiving frames
-        memset(rx, 0x00, sizeof(rx));
+        palloc_set(rx, 0x00, sizeof(rx));
         rxlen = 0;
 
         // If there is no response, just repeat the loop
@@ -2389,16 +2378,13 @@ void WriterHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
         }
 
         // Check if frame was captured and store it
-        LogTraceBits(rx, rxlen, response_start, response_start + response_duration, false);
+        log_trace_from_stream(rx, rxlen, response_start, response_start + response_duration, false);
         command_start = 0;
         nrzs = 0;
     }
 
 out:
     lf_finalize(ledcontrol);
-
-    // release allocated memory from BigBuff.
-    BigBuf_free();
 
     if (checked == -1) {
         reply_ng(CMD_LF_HITAG2_WRITE, PM3_ESOFT, NULL, 0);
@@ -2595,7 +2581,7 @@ int ht2_read_uid(uint8_t *uid, bool ledcontrol, bool send_answer, bool keep_fiel
 
     // keep field up indicates there are more traffic to be done.
     if (keep_field_up == false) {
-        clear_trace();
+        release_trace();
     }
 
     // hitag2 state machine?
@@ -2615,6 +2601,8 @@ int ht2_read_uid(uint8_t *uid, bool ledcontrol, bool send_answer, bool keep_fiel
 
     int res = PM3_EFAILED;
     bool turn_on = true;
+
+    start_tracing();
 
     while (attempt_count && BUTTON_PRESS() == false) {
 
@@ -2645,7 +2633,7 @@ int ht2_read_uid(uint8_t *uid, bool ledcontrol, bool send_answer, bool keep_fiel
         // Store the transmit frame ( TX ), we do this now at this point, to avoid delay in processing
         // and to be able to overwrite the first samples with the trace (since they currently
         // still use the same memory space)
-        LogTraceBits(tx, txlen, command_start, command_start + command_duration, true);
+        log_trace_from_stream(tx, txlen, command_start, command_start + command_duration, true);
 
         // decode raw samples from Manchester Encoded to bits
         manrawdecode(nrz_samples, &nrzs, true, 0);
@@ -2656,16 +2644,16 @@ int ht2_read_uid(uint8_t *uid, bool ledcontrol, bool send_answer, bool keep_fiel
         }
 
         // log Receive data
-        LogTraceBits(rx, rxlen, response_start, response_start + response_duration, false);
+        log_trace_from_stream(rx, rxlen, response_start, response_start + response_duration, false);
 
         if (rxlen != 32)  {
             continue;
         }
 
         // Store received UID
-        memcpy(tag.sectors[0], rx, 4);
+        palloc_copy(tag.sectors[0], rx, 4);
         if (uid) {
-            memcpy(uid, rx, 4);
+            palloc_copy(uid, rx, 4);
         }
         res = PM3_SUCCESS;
         break;
@@ -2673,7 +2661,6 @@ int ht2_read_uid(uint8_t *uid, bool ledcontrol, bool send_answer, bool keep_fiel
 
     if (keep_field_up == false) {
         lf_finalize(false);
-        BigBuf_free_keep_EM();
     }
 
     if (send_answer) {

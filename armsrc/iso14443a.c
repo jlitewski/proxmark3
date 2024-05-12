@@ -1922,7 +1922,6 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *data, uint8_
 
     switch_off();
 
-    stop_tracing();
     palloc_free(dynamic_response_buffer);
     palloc_free(dynamic_modulation_buffer);
 

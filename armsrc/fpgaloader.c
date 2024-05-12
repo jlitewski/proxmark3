@@ -21,7 +21,9 @@
 
 #include "proxmark3_arm.h"
 #include "appmain.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "ticks.h"
 #include "dbprint.h"
 #include "util.h"
@@ -496,14 +498,14 @@ void FpgaDownloadAndGo(uint8_t bitstream_version) {
 
     bool verbose = (g_dbglevel > 3);
 
-    // make sure that we have enough memory to decompress
-    BigBuf_free();
-    BigBuf_Clear_ext(verbose);
+    // XXX Clear as much memory as we can, since this is a VERY memory intensive task
+    release_emuator();
+    release_trace();
 
     lz4_stream_t compressed_fpga_stream;
     LZ4_streamDecode_t lz4StreamDecode_body = {{ 0 }};
     compressed_fpga_stream.lz4StreamDecode = &lz4StreamDecode_body;
-    uint8_t *output_buffer = BigBuf_malloc(FPGA_RING_BUFFER_BYTES);
+    uint8_t *output_buffer = palloc(1, FPGA_RING_BUFFER_BYTES); // XXX This might be an issue...
 
     if (!reset_fpga_stream(bitstream_version, &compressed_fpga_stream, output_buffer))
         return;
@@ -524,8 +526,7 @@ void FpgaDownloadAndGo(uint8_t bitstream_version) {
     FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 
     // free eventually allocated BigBuf memory
-    BigBuf_free();
-    BigBuf_Clear_ext(false);
+    palloc_free(output_buffer);
 }
 
 //-----------------------------------------------------------------------------
@@ -609,10 +610,10 @@ int FpgaGetCurrent(void) {
     return downloaded_bitstream;
 }
 
-// Turns off the antenna,
-// log message
-// if HF,  Disable SSC DMA
-// turn off trace and leds off.
+/**
+ * @brief Turns off the antenna, stops tracing, and turns off the LEDs.
+ * If needed, it'll also disable the SSC DMA and optionally log a message
+ */
 void switch_off(void) {
     if (g_dbglevel > 3) {
         Dbprintf("switch_off");
@@ -623,6 +624,6 @@ void switch_off(void) {
         FpgaDisableSscDma();
     }
 
-    set_tracing(false);
+    stop_tracing();
     LEDsoff();
 }

@@ -24,7 +24,8 @@
 #include "lfdemod.h"
 #include "commonutil.h"
 #include "em4x50.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "cardemu.h"
 #include "spiffs.h"
 #include "appmain.h" // tear
 #include "bruteforce.h"
@@ -191,7 +192,7 @@ static bool get_signalproperties(void) {
     uint8_t sample_max_mean = 0;
     uint8_t sample_max[no_periods];
     uint32_t sample_max_sum = 0;
-    memset(sample_max, 0x00, sizeof(sample_max));
+    palloc_set(sample_max, 0x00, sizeof(sample_max));
 
     // wait until signal/noise > 1 (max. 32 periods)
     for (int i = 0; i < EM4X50_T_TAG_WAITING_FOR_SIGNAL; i++) {
@@ -1814,11 +1815,11 @@ void em4x50_sim(const uint32_t *password, bool ledcontrol) {
 
     int command = PM3_ENODATA;
 
-    uint8_t *em4x50_mem = BigBuf_get_EM_addr();
+    uint16_t *em4x50_mem = get_emulator_address();
     uint32_t tag[EM4X50_NO_WORDS] = {0x0};
 
     for (int i = 0; i < EM4X50_NO_WORDS; i++)
-        tag[i] = bytes_to_num(em4x50_mem + (i * 4), 4);
+        tag[i] = bytes_to_num((size_t*)(em4x50_mem + (i * 4)), 4);
 
     // via eload uploaded dump usually does not contain a password
     if (tag[EM4X50_DEVICE_PASSWORD] == 0) {
@@ -1856,7 +1857,7 @@ void em4x50_sim(const uint32_t *password, bool ledcontrol) {
         }
     }
 
-    BigBuf_free();
+    release_emuator();
     lf_finalize(ledcontrol);
     reply_ng(CMD_LF_EM4X50_SIM, command, NULL, 0);
 }
