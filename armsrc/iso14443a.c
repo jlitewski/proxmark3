@@ -268,7 +268,7 @@ void GetParity(const uint8_t *pbtCmd, uint16_t len, uint8_t *par) {
 // Note 1: the bitstream may start at any time. We therefore need to sync.
 // Note 2: the interpretation of Sequence Y and Z depends on the preceding sequence.
 //-----------------------------------------------------------------------------
-static uart_14a_t Uart;
+static uart_14a_t s_uart;
 
 // Lookup-Table to decide if 4 raw bits are a modulation.
 // We accept the following:
@@ -284,35 +284,35 @@ static const bool Mod_Miller_LUT[] = {
 #define IsMillerModulationNibble2(b) (Mod_Miller_LUT[(b & 0x0000000F)])
 
 uart_14a_t *GetUart14a(void) {
-    return &Uart;
+    return &s_uart;
 }
 
 void Uart14aReset(void) {
-    Uart.state = STATE_14A_UNSYNCD;
-    Uart.bitCount = 0;
-    Uart.len = 0;                       // number of decoded data bytes
-    Uart.parityLen = 0;                 // number of decoded parity bytes
-    Uart.shiftReg = 0;                  // shiftreg to hold decoded data bits
-    Uart.parityBits = 0;                // holds 8 parity bits
-    Uart.startTime = 0;
-    Uart.endTime = 0;
-    Uart.fourBits = 0x00000000;         // clear the buffer for 4 Bits
-    Uart.posCnt = 0;
-    Uart.syncBit = 9999;
+    s_uart.state = STATE_14A_UNSYNCD;
+    s_uart.bitCount = 0;
+    s_uart.len = 0;                       // number of decoded data bytes
+    s_uart.parityLen = 0;                 // number of decoded parity bytes
+    s_uart.shiftReg = 0;                  // shiftreg to hold decoded data bits
+    s_uart.parityBits = 0;                // holds 8 parity bits
+    s_uart.startTime = 0;
+    s_uart.endTime = 0;
+    s_uart.fourBits = 0x00000000;         // clear the buffer for 4 Bits
+    s_uart.posCnt = 0;
+    s_uart.syncBit = 9999;
 }
 
 void Uart14aInit(uint8_t *data, uint8_t *par) {
-    Uart.output = data;
-    Uart.parity = par;
+    s_uart.output = data;
+    s_uart.parity = par;
     Uart14aReset();
 }
 
 // use parameter non_real_time to provide a timestamp. Set to 0 if the decoder should measure real time
 RAMFUNC bool MillerDecoding(uint8_t bit, uint32_t non_real_time) {
-    Uart.fourBits = (Uart.fourBits << 8) | bit;
+    s_uart.fourBits = (s_uart.fourBits << 8) | bit;
 
-    if (Uart.state == STATE_14A_UNSYNCD) {                                           // not yet synced
-        Uart.syncBit = 9999;                                                 // not set
+    if (s_uart.state == STATE_14A_UNSYNCD) {                                           // not yet synced
+        s_uart.syncBit = 9999;                                                 // not set
 
         // 00x11111 2|3 ticks pause followed by 6|5 ticks unmodulated         Sequence Z (a "0" or "start of communication")
         // 11111111 8 ticks unmodulation                                      Sequence Y (a "0" or "end of communication" or "no information")
@@ -324,102 +324,102 @@ RAMFUNC bool MillerDecoding(uint8_t bit, uint32_t non_real_time) {
         // (12 '1's followed by 2 '0's, eventually followed by another '0', followed by 5 '1's)
 #define ISO14443A_STARTBIT_MASK       0x07FFEF80                            // mask is    00000111 11111111 11101111 10000000
 #define ISO14443A_STARTBIT_PATTERN    0x07FF8F80                            // pattern is 00000111 11111111 10001111 10000000
-        if ((Uart.fourBits & (ISO14443A_STARTBIT_MASK >> 0)) == ISO14443A_STARTBIT_PATTERN >> 0) Uart.syncBit = 7;
-        else if ((Uart.fourBits & (ISO14443A_STARTBIT_MASK >> 1)) == ISO14443A_STARTBIT_PATTERN >> 1) Uart.syncBit = 6;
-        else if ((Uart.fourBits & (ISO14443A_STARTBIT_MASK >> 2)) == ISO14443A_STARTBIT_PATTERN >> 2) Uart.syncBit = 5;
-        else if ((Uart.fourBits & (ISO14443A_STARTBIT_MASK >> 3)) == ISO14443A_STARTBIT_PATTERN >> 3) Uart.syncBit = 4;
-        else if ((Uart.fourBits & (ISO14443A_STARTBIT_MASK >> 4)) == ISO14443A_STARTBIT_PATTERN >> 4) Uart.syncBit = 3;
-        else if ((Uart.fourBits & (ISO14443A_STARTBIT_MASK >> 5)) == ISO14443A_STARTBIT_PATTERN >> 5) Uart.syncBit = 2;
-        else if ((Uart.fourBits & (ISO14443A_STARTBIT_MASK >> 6)) == ISO14443A_STARTBIT_PATTERN >> 6) Uart.syncBit = 1;
-        else if ((Uart.fourBits & (ISO14443A_STARTBIT_MASK >> 7)) == ISO14443A_STARTBIT_PATTERN >> 7) Uart.syncBit = 0;
+        if ((s_uart.fourBits & (ISO14443A_STARTBIT_MASK >> 0)) == ISO14443A_STARTBIT_PATTERN >> 0) s_uart.syncBit = 7;
+        else if ((s_uart.fourBits & (ISO14443A_STARTBIT_MASK >> 1)) == ISO14443A_STARTBIT_PATTERN >> 1) s_uart.syncBit = 6;
+        else if ((s_uart.fourBits & (ISO14443A_STARTBIT_MASK >> 2)) == ISO14443A_STARTBIT_PATTERN >> 2) s_uart.syncBit = 5;
+        else if ((s_uart.fourBits & (ISO14443A_STARTBIT_MASK >> 3)) == ISO14443A_STARTBIT_PATTERN >> 3) s_uart.syncBit = 4;
+        else if ((s_uart.fourBits & (ISO14443A_STARTBIT_MASK >> 4)) == ISO14443A_STARTBIT_PATTERN >> 4) s_uart.syncBit = 3;
+        else if ((s_uart.fourBits & (ISO14443A_STARTBIT_MASK >> 5)) == ISO14443A_STARTBIT_PATTERN >> 5) s_uart.syncBit = 2;
+        else if ((s_uart.fourBits & (ISO14443A_STARTBIT_MASK >> 6)) == ISO14443A_STARTBIT_PATTERN >> 6) s_uart.syncBit = 1;
+        else if ((s_uart.fourBits & (ISO14443A_STARTBIT_MASK >> 7)) == ISO14443A_STARTBIT_PATTERN >> 7) s_uart.syncBit = 0;
 
-        if (Uart.syncBit != 9999) {                                              // found a sync bit
-            Uart.startTime = non_real_time ? non_real_time : (GetCountSspClk() & 0xfffffff8);
-            Uart.startTime -= Uart.syncBit;
-            Uart.endTime = Uart.startTime;
-            Uart.state = STATE_14A_START_OF_COMMUNICATION;
+        if (s_uart.syncBit != 9999) {                                              // found a sync bit
+            s_uart.startTime = non_real_time ? non_real_time : (GetCountSspClk() & 0xfffffff8);
+            s_uart.startTime -= s_uart.syncBit;
+            s_uart.endTime = s_uart.startTime;
+            s_uart.state = STATE_14A_START_OF_COMMUNICATION;
         }
     } else {
 
-        if (IsMillerModulationNibble1(Uart.fourBits >> Uart.syncBit)) {
-            if (IsMillerModulationNibble2(Uart.fourBits >> Uart.syncBit)) {      // Modulation in both halves - error
+        if (IsMillerModulationNibble1(s_uart.fourBits >> s_uart.syncBit)) {
+            if (IsMillerModulationNibble2(s_uart.fourBits >> s_uart.syncBit)) {      // Modulation in both halves - error
                 Uart14aReset();
             } else {                                                             // Modulation in first half = Sequence Z = logic "0"
-                if (Uart.state == STATE_14A_MILLER_X) {                              // error - must not follow after X
+                if (s_uart.state == STATE_14A_MILLER_X) {                              // error - must not follow after X
                     Uart14aReset();
                 } else {
-                    Uart.bitCount++;
-                    Uart.shiftReg = (Uart.shiftReg >> 1);                        // add a 0 to the shiftreg
-                    Uart.state = STATE_14A_MILLER_Z;
-                    Uart.endTime = Uart.startTime + 8 * (9 * Uart.len + Uart.bitCount + 1) - 6;
-                    if (Uart.bitCount >= 9) {                                    // if we decoded a full byte (including parity)
-                        Uart.output[Uart.len++] = (Uart.shiftReg & 0xff);
-                        Uart.parityBits <<= 1;                                   // make room for the parity bit
-                        Uart.parityBits |= ((Uart.shiftReg >> 8) & 0x01);        // store parity bit
-                        Uart.bitCount = 0;
-                        Uart.shiftReg = 0;
-                        if ((Uart.len & 0x0007) == 0) {                          // every 8 data bytes
-                            Uart.parity[Uart.parityLen++] = Uart.parityBits;     // store 8 parity bits
-                            Uart.parityBits = 0;
+                    s_uart.bitCount++;
+                    s_uart.shiftReg = (s_uart.shiftReg >> 1);                        // add a 0 to the shiftreg
+                    s_uart.state = STATE_14A_MILLER_Z;
+                    s_uart.endTime = s_uart.startTime + 8 * (9 * s_uart.len + s_uart.bitCount + 1) - 6;
+                    if (s_uart.bitCount >= 9) {                                    // if we decoded a full byte (including parity)
+                        s_uart.output[s_uart.len++] = (s_uart.shiftReg & 0xff);
+                        s_uart.parityBits <<= 1;                                   // make room for the parity bit
+                        s_uart.parityBits |= ((s_uart.shiftReg >> 8) & 0x01);        // store parity bit
+                        s_uart.bitCount = 0;
+                        s_uart.shiftReg = 0;
+                        if ((s_uart.len & 0x0007) == 0) {                          // every 8 data bytes
+                            s_uart.parity[s_uart.parityLen++] = s_uart.parityBits;     // store 8 parity bits
+                            s_uart.parityBits = 0;
                         }
                     }
                 }
             }
         } else {
-            if (IsMillerModulationNibble2(Uart.fourBits >> Uart.syncBit)) {      // Modulation second half = Sequence X = logic "1"
-                Uart.bitCount++;
-                Uart.shiftReg = (Uart.shiftReg >> 1) | 0x100;                    // add a 1 to the shiftreg
-                Uart.state = STATE_14A_MILLER_X;
-                Uart.endTime = Uart.startTime + 8 * (9 * Uart.len + Uart.bitCount + 1) - 2;
-                if (Uart.bitCount >= 9) {                                        // if we decoded a full byte (including parity)
-                    Uart.output[Uart.len++] = (Uart.shiftReg & 0xff);
-                    Uart.parityBits <<= 1;                                       // make room for the new parity bit
-                    Uart.parityBits |= ((Uart.shiftReg >> 8) & 0x01);            // store parity bit
-                    Uart.bitCount = 0;
-                    Uart.shiftReg = 0;
-                    if ((Uart.len & 0x0007) == 0) {                              // every 8 data bytes
-                        Uart.parity[Uart.parityLen++] = Uart.parityBits;         // store 8 parity bits
-                        Uart.parityBits = 0;
+            if (IsMillerModulationNibble2(s_uart.fourBits >> s_uart.syncBit)) {      // Modulation second half = Sequence X = logic "1"
+                s_uart.bitCount++;
+                s_uart.shiftReg = (s_uart.shiftReg >> 1) | 0x100;                    // add a 1 to the shiftreg
+                s_uart.state = STATE_14A_MILLER_X;
+                s_uart.endTime = s_uart.startTime + 8 * (9 * s_uart.len + s_uart.bitCount + 1) - 2;
+                if (s_uart.bitCount >= 9) {                                        // if we decoded a full byte (including parity)
+                    s_uart.output[s_uart.len++] = (s_uart.shiftReg & 0xff);
+                    s_uart.parityBits <<= 1;                                       // make room for the new parity bit
+                    s_uart.parityBits |= ((s_uart.shiftReg >> 8) & 0x01);            // store parity bit
+                    s_uart.bitCount = 0;
+                    s_uart.shiftReg = 0;
+                    if ((s_uart.len & 0x0007) == 0) {                              // every 8 data bytes
+                        s_uart.parity[s_uart.parityLen++] = s_uart.parityBits;         // store 8 parity bits
+                        s_uart.parityBits = 0;
                     }
                 }
             } else {                                                             // no modulation in both halves - Sequence Y
-                if (Uart.state == STATE_14A_MILLER_Z || Uart.state == STATE_14A_MILLER_Y) {    // Y after logic "0" - End of Communication
-                    Uart.state = STATE_14A_UNSYNCD;
-                    Uart.bitCount--;                                             // last "0" was part of EOC sequence
-                    Uart.shiftReg <<= 1;                                         // drop it
-                    if (Uart.bitCount > 0) {                                     // if we decoded some bits
-                        Uart.shiftReg >>= (9 - Uart.bitCount);                   // right align them
-                        Uart.output[Uart.len++] = (Uart.shiftReg & 0xff);        // add last byte to the output
-                        Uart.parityBits <<= 1;                                   // add a (void) parity bit
-                        Uart.parityBits <<= (8 - (Uart.len & 0x0007));           // left align parity bits
-                        Uart.parity[Uart.parityLen++] = Uart.parityBits;         // and store it
+                if (s_uart.state == STATE_14A_MILLER_Z || s_uart.state == STATE_14A_MILLER_Y) {    // Y after logic "0" - End of Communication
+                    s_uart.state = STATE_14A_UNSYNCD;
+                    s_uart.bitCount--;                                             // last "0" was part of EOC sequence
+                    s_uart.shiftReg <<= 1;                                         // drop it
+                    if (s_uart.bitCount > 0) {                                     // if we decoded some bits
+                        s_uart.shiftReg >>= (9 - s_uart.bitCount);                   // right align them
+                        s_uart.output[s_uart.len++] = (s_uart.shiftReg & 0xff);        // add last byte to the output
+                        s_uart.parityBits <<= 1;                                   // add a (void) parity bit
+                        s_uart.parityBits <<= (8 - (s_uart.len & 0x0007));           // left align parity bits
+                        s_uart.parity[s_uart.parityLen++] = s_uart.parityBits;         // and store it
                         return true;
-                    } else if (Uart.len & 0x0007) {                              // there are some parity bits to store
-                        Uart.parityBits <<= (8 - (Uart.len & 0x0007));           // left align remaining parity bits
-                        Uart.parity[Uart.parityLen++] = Uart.parityBits;         // and store them
+                    } else if (s_uart.len & 0x0007) {                              // there are some parity bits to store
+                        s_uart.parityBits <<= (8 - (s_uart.len & 0x0007));           // left align remaining parity bits
+                        s_uart.parity[s_uart.parityLen++] = s_uart.parityBits;         // and store them
                     }
-                    if (Uart.len) {
+                    if (s_uart.len) {
                         return true;                                             // we are finished with decoding the raw data sequence
                     } else {
                         Uart14aReset();                                             // Nothing received - start over
                         return false;
                     }
                 }
-                if (Uart.state == STATE_14A_START_OF_COMMUNICATION) {                // error - must not follow directly after SOC
+                if (s_uart.state == STATE_14A_START_OF_COMMUNICATION) {                // error - must not follow directly after SOC
                     Uart14aReset();
                 } else {                                                         // a logic "0"
-                    Uart.bitCount++;
-                    Uart.shiftReg = (Uart.shiftReg >> 1);                        // add a 0 to the shiftreg
-                    Uart.state = STATE_14A_MILLER_Y;
-                    if (Uart.bitCount >= 9) {                                    // if we decoded a full byte (including parity)
-                        Uart.output[Uart.len++] = (Uart.shiftReg & 0xff);
-                        Uart.parityBits <<= 1;                                   // make room for the parity bit
-                        Uart.parityBits |= ((Uart.shiftReg >> 8) & 0x01);        // store parity bit
-                        Uart.bitCount = 0;
-                        Uart.shiftReg = 0;
-                        if ((Uart.len & 0x0007) == 0) {                          // every 8 data bytes
-                            Uart.parity[Uart.parityLen++] = Uart.parityBits;     // store 8 parity bits
-                            Uart.parityBits = 0;
+                    s_uart.bitCount++;
+                    s_uart.shiftReg = (s_uart.shiftReg >> 1);                        // add a 0 to the shiftreg
+                    s_uart.state = STATE_14A_MILLER_Y;
+                    if (s_uart.bitCount >= 9) {                                    // if we decoded a full byte (including parity)
+                        s_uart.output[s_uart.len++] = (s_uart.shiftReg & 0xff);
+                        s_uart.parityBits <<= 1;                                   // make room for the parity bit
+                        s_uart.parityBits |= ((s_uart.shiftReg >> 8) & 0x01);        // store parity bit
+                        s_uart.bitCount = 0;
+                        s_uart.shiftReg = 0;
+                        if ((s_uart.len & 0x0007) == 0) {                          // every 8 data bytes
+                            s_uart.parity[s_uart.parityLen++] = s_uart.parityBits;     // store 8 parity bits
+                            s_uart.parityBits = 0;
                         }
                     }
                 }
@@ -444,7 +444,7 @@ RAMFUNC bool MillerDecoding(uint8_t bit, uint32_t non_real_time) {
 // 8 ticks modulated:                                     A collision. Save the collision position and treat as Sequence D
 // Note 1: the bitstream may start at any time. We therefore need to sync.
 // Note 2: parameter offset is used to determine the position of the parity bits (required for the anticollision command only)
-static tDemod14a Demod;
+static demod_14a_t s_demod_14a;
 
 // Lookup-Table to decide if 4 raw bits are a modulation.
 // We accept three or four "1" in any position
@@ -456,111 +456,111 @@ static const bool Mod_Manchester_LUT[] = {
 #define IsManchesterModulationNibble1(b) (Mod_Manchester_LUT[(b & 0x00F0) >> 4])
 #define IsManchesterModulationNibble2(b) (Mod_Manchester_LUT[(b & 0x000F)])
 
-tDemod14a *GetDemod14a(void) {
-    return &Demod;
+demod_14a_t *GetDemod14a(void) {
+    return &s_demod_14a;
 }
 void Demod14aReset(void) {
-    Demod.state = DEMOD_14A_UNSYNCD;
-    Demod.len = 0;                       // number of decoded data bytes
-    Demod.parityLen = 0;
-    Demod.shiftReg = 0;                  // shiftreg to hold decoded data bits
-    Demod.parityBits = 0;                //
-    Demod.collisionPos = 0;              // Position of collision bit
-    Demod.twoBits = 0xFFFF;              // buffer for 2 Bits
-    Demod.highCnt = 0;
-    Demod.startTime = 0;
-    Demod.endTime = 0;
-    Demod.bitCount = 0;
-    Demod.syncBit = 0xFFFF;
-    Demod.samples = 0;
+    s_demod_14a.state = DEMOD_14A_UNSYNCD;
+    s_demod_14a.len = 0;                       // number of decoded data bytes
+    s_demod_14a.parityLen = 0;
+    s_demod_14a.shiftReg = 0;                  // shiftreg to hold decoded data bits
+    s_demod_14a.parityBits = 0;                //
+    s_demod_14a.collisionPos = 0;              // Position of collision bit
+    s_demod_14a.twoBits = 0xFFFF;              // buffer for 2 Bits
+    s_demod_14a.highCnt = 0;
+    s_demod_14a.startTime = 0;
+    s_demod_14a.endTime = 0;
+    s_demod_14a.bitCount = 0;
+    s_demod_14a.syncBit = 0xFFFF;
+    s_demod_14a.samples = 0;
 }
 
 void Demod14aInit(uint8_t *data, uint8_t *par) {
-    Demod.output = data;
-    Demod.parity = par;
+    s_demod_14a.output = data;
+    s_demod_14a.parity = par;
     Demod14aReset();
 }
 
 // use parameter non_real_time to provide a timestamp. Set to 0 if the decoder should measure real time
 RAMFUNC int ManchesterDecoding(uint8_t bit, uint16_t offset, uint32_t non_real_time) {
-    Demod.twoBits = (Demod.twoBits << 8) | bit;
+    s_demod_14a.twoBits = (s_demod_14a.twoBits << 8) | bit;
 
-    if (Demod.state == DEMOD_14A_UNSYNCD) {
+    if (s_demod_14a.state == DEMOD_14A_UNSYNCD) {
 
-        if (Demod.highCnt < 2) {                                            // wait for a stable unmodulated signal
-            if (Demod.twoBits == 0x0000) {
-                Demod.highCnt++;
+        if (s_demod_14a.highCnt < 2) {                                            // wait for a stable unmodulated signal
+            if (s_demod_14a.twoBits == 0x0000) {
+                s_demod_14a.highCnt++;
             } else {
-                Demod.highCnt = 0;
+                s_demod_14a.highCnt = 0;
             }
         } else {
-            Demod.syncBit = 0xFFFF;            // not set
-            if ((Demod.twoBits & 0x7700) == 0x7000) Demod.syncBit = 7;
-            else if ((Demod.twoBits & 0x3B80) == 0x3800) Demod.syncBit = 6;
-            else if ((Demod.twoBits & 0x1DC0) == 0x1C00) Demod.syncBit = 5;
-            else if ((Demod.twoBits & 0x0EE0) == 0x0E00) Demod.syncBit = 4;
-            else if ((Demod.twoBits & 0x0770) == 0x0700) Demod.syncBit = 3;
-            else if ((Demod.twoBits & 0x03B8) == 0x0380) Demod.syncBit = 2;
-            else if ((Demod.twoBits & 0x01DC) == 0x01C0) Demod.syncBit = 1;
-            else if ((Demod.twoBits & 0x00EE) == 0x00E0) Demod.syncBit = 0;
-            if (Demod.syncBit != 0xFFFF) {
-                Demod.startTime = non_real_time ? non_real_time : (GetCountSspClk() & 0xfffffff8);
-                Demod.startTime -= Demod.syncBit;
-                Demod.bitCount = offset;            // number of decoded data bits
-                Demod.state = DEMOD_14A_MANCHESTER_DATA;
+            s_demod_14a.syncBit = 0xFFFF;            // not set
+            if ((s_demod_14a.twoBits & 0x7700) == 0x7000) s_demod_14a.syncBit = 7;
+            else if ((s_demod_14a.twoBits & 0x3B80) == 0x3800) s_demod_14a.syncBit = 6;
+            else if ((s_demod_14a.twoBits & 0x1DC0) == 0x1C00) s_demod_14a.syncBit = 5;
+            else if ((s_demod_14a.twoBits & 0x0EE0) == 0x0E00) s_demod_14a.syncBit = 4;
+            else if ((s_demod_14a.twoBits & 0x0770) == 0x0700) s_demod_14a.syncBit = 3;
+            else if ((s_demod_14a.twoBits & 0x03B8) == 0x0380) s_demod_14a.syncBit = 2;
+            else if ((s_demod_14a.twoBits & 0x01DC) == 0x01C0) s_demod_14a.syncBit = 1;
+            else if ((s_demod_14a.twoBits & 0x00EE) == 0x00E0) s_demod_14a.syncBit = 0;
+            if (s_demod_14a.syncBit != 0xFFFF) {
+                s_demod_14a.startTime = non_real_time ? non_real_time : (GetCountSspClk() & 0xfffffff8);
+                s_demod_14a.startTime -= s_demod_14a.syncBit;
+                s_demod_14a.bitCount = offset;            // number of decoded data bits
+                s_demod_14a.state = DEMOD_14A_MANCHESTER_DATA;
             }
         }
     } else {
 
-        if (IsManchesterModulationNibble1(Demod.twoBits >> Demod.syncBit)) {      // modulation in first half
-            if (IsManchesterModulationNibble2(Demod.twoBits >> Demod.syncBit)) {  // ... and in second half = collision
-                if (!Demod.collisionPos) {
-                    Demod.collisionPos = (Demod.len << 3) + Demod.bitCount;
+        if (IsManchesterModulationNibble1(s_demod_14a.twoBits >> s_demod_14a.syncBit)) {      // modulation in first half
+            if (IsManchesterModulationNibble2(s_demod_14a.twoBits >> s_demod_14a.syncBit)) {  // ... and in second half = collision
+                if (!s_demod_14a.collisionPos) {
+                    s_demod_14a.collisionPos = (s_demod_14a.len << 3) + s_demod_14a.bitCount;
                 }
             }                                                           // modulation in first half only - Sequence D = 1
-            Demod.bitCount++;
-            Demod.shiftReg = (Demod.shiftReg >> 1) | 0x100;             // in both cases, add a 1 to the shiftreg
-            if (Demod.bitCount == 9) {                                  // if we decoded a full byte (including parity)
-                Demod.output[Demod.len++] = (Demod.shiftReg & 0xff);
-                Demod.parityBits <<= 1;                                 // make room for the parity bit
-                Demod.parityBits |= ((Demod.shiftReg >> 8) & 0x01);     // store parity bit
-                Demod.bitCount = 0;
-                Demod.shiftReg = 0;
-                if ((Demod.len & 0x0007) == 0) {                        // every 8 data bytes
-                    Demod.parity[Demod.parityLen++] = Demod.parityBits; // store 8 parity bits
-                    Demod.parityBits = 0;
+            s_demod_14a.bitCount++;
+            s_demod_14a.shiftReg = (s_demod_14a.shiftReg >> 1) | 0x100;             // in both cases, add a 1 to the shiftreg
+            if (s_demod_14a.bitCount == 9) {                                  // if we decoded a full byte (including parity)
+                s_demod_14a.output[s_demod_14a.len++] = (s_demod_14a.shiftReg & 0xff);
+                s_demod_14a.parityBits <<= 1;                                 // make room for the parity bit
+                s_demod_14a.parityBits |= ((s_demod_14a.shiftReg >> 8) & 0x01);     // store parity bit
+                s_demod_14a.bitCount = 0;
+                s_demod_14a.shiftReg = 0;
+                if ((s_demod_14a.len & 0x0007) == 0) {                        // every 8 data bytes
+                    s_demod_14a.parity[s_demod_14a.parityLen++] = s_demod_14a.parityBits; // store 8 parity bits
+                    s_demod_14a.parityBits = 0;
                 }
             }
-            Demod.endTime = Demod.startTime + 8 * (9 * Demod.len + Demod.bitCount + 1) - 4;
+            s_demod_14a.endTime = s_demod_14a.startTime + 8 * (9 * s_demod_14a.len + s_demod_14a.bitCount + 1) - 4;
         } else {                                                        // no modulation in first half
-            if (IsManchesterModulationNibble2(Demod.twoBits >> Demod.syncBit)) {    // and modulation in second half = Sequence E = 0
-                Demod.bitCount++;
-                Demod.shiftReg = (Demod.shiftReg >> 1);                 // add a 0 to the shiftreg
-                if (Demod.bitCount >= 9) {                              // if we decoded a full byte (including parity)
-                    Demod.output[Demod.len++] = (Demod.shiftReg & 0xff);
-                    Demod.parityBits <<= 1;                             // make room for the new parity bit
-                    Demod.parityBits |= ((Demod.shiftReg >> 8) & 0x01); // store parity bit
-                    Demod.bitCount = 0;
-                    Demod.shiftReg = 0;
-                    if ((Demod.len & 0x0007) == 0) {                    // every 8 data bytes
-                        Demod.parity[Demod.parityLen++] = Demod.parityBits;    // store 8 parity bits1
-                        Demod.parityBits = 0;
+            if (IsManchesterModulationNibble2(s_demod_14a.twoBits >> s_demod_14a.syncBit)) {    // and modulation in second half = Sequence E = 0
+                s_demod_14a.bitCount++;
+                s_demod_14a.shiftReg = (s_demod_14a.shiftReg >> 1);                 // add a 0 to the shiftreg
+                if (s_demod_14a.bitCount >= 9) {                              // if we decoded a full byte (including parity)
+                    s_demod_14a.output[s_demod_14a.len++] = (s_demod_14a.shiftReg & 0xff);
+                    s_demod_14a.parityBits <<= 1;                             // make room for the new parity bit
+                    s_demod_14a.parityBits |= ((s_demod_14a.shiftReg >> 8) & 0x01); // store parity bit
+                    s_demod_14a.bitCount = 0;
+                    s_demod_14a.shiftReg = 0;
+                    if ((s_demod_14a.len & 0x0007) == 0) {                    // every 8 data bytes
+                        s_demod_14a.parity[s_demod_14a.parityLen++] = s_demod_14a.parityBits;    // store 8 parity bits1
+                        s_demod_14a.parityBits = 0;
                     }
                 }
-                Demod.endTime = Demod.startTime + 8 * (9 * Demod.len + Demod.bitCount + 1);
+                s_demod_14a.endTime = s_demod_14a.startTime + 8 * (9 * s_demod_14a.len + s_demod_14a.bitCount + 1);
             } else {                                                    // no modulation in both halves - End of communication
-                if (Demod.bitCount > 0) {                               // there are some remaining data bits
-                    Demod.shiftReg >>= (9 - Demod.bitCount);            // right align the decoded bits
-                    Demod.output[Demod.len++] = Demod.shiftReg & 0xff;  // and add them to the output
-                    Demod.parityBits <<= 1;                             // add a (void) parity bit
-                    Demod.parityBits <<= (8 - (Demod.len & 0x0007));    // left align remaining parity bits
-                    Demod.parity[Demod.parityLen++] = Demod.parityBits; // and store them
+                if (s_demod_14a.bitCount > 0) {                               // there are some remaining data bits
+                    s_demod_14a.shiftReg >>= (9 - s_demod_14a.bitCount);            // right align the decoded bits
+                    s_demod_14a.output[s_demod_14a.len++] = s_demod_14a.shiftReg & 0xff;  // and add them to the output
+                    s_demod_14a.parityBits <<= 1;                             // add a (void) parity bit
+                    s_demod_14a.parityBits <<= (8 - (s_demod_14a.len & 0x0007));    // left align remaining parity bits
+                    s_demod_14a.parity[s_demod_14a.parityLen++] = s_demod_14a.parityBits; // and store them
                     return true;
-                } else if (Demod.len & 0x0007) {                        // there are some parity bits to store
-                    Demod.parityBits <<= (8 - (Demod.len & 0x0007));    // left align remaining parity bits
-                    Demod.parity[Demod.parityLen++] = Demod.parityBits; // and store them
+                } else if (s_demod_14a.len & 0x0007) {                        // there are some parity bits to store
+                    s_demod_14a.parityBits <<= (8 - (s_demod_14a.len & 0x0007));    // left align remaining parity bits
+                    s_demod_14a.parity[s_demod_14a.parityLen++] = s_demod_14a.parityBits; // and store them
                 }
-                if (Demod.len) {
+                if (s_demod_14a.len) {
                     return true;                                        // we are finished with decoding the raw data sequence
                 } else {                                                // nothing received. Start over
                     Demod14aReset();
@@ -574,67 +574,67 @@ RAMFUNC int ManchesterDecoding(uint8_t bit, uint16_t offset, uint32_t non_real_t
 
 // Thinfilm, Kovio mangles ISO14443A in the way that they don't use start bit nor parity bits.
 static RAMFUNC int ManchesterDecoding_Thinfilm(uint8_t bit) {
-    Demod.twoBits = (Demod.twoBits << 8) | bit;
+    s_demod_14a.twoBits = (s_demod_14a.twoBits << 8) | bit;
 
-    if (Demod.state == DEMOD_14A_UNSYNCD) {
+    if (s_demod_14a.state == DEMOD_14A_UNSYNCD) {
 
-        if (Demod.highCnt < 2) {                                            // wait for a stable unmodulated signal
-            if (Demod.twoBits == 0x0000) {
-                Demod.highCnt++;
+        if (s_demod_14a.highCnt < 2) {                                            // wait for a stable unmodulated signal
+            if (s_demod_14a.twoBits == 0x0000) {
+                s_demod_14a.highCnt++;
             } else {
-                Demod.highCnt = 0;
+                s_demod_14a.highCnt = 0;
             }
         } else {
-            Demod.syncBit = 0xFFFF;            // not set
-            if ((Demod.twoBits & 0x7700) == 0x7000) Demod.syncBit = 7;
-            else if ((Demod.twoBits & 0x3B80) == 0x3800) Demod.syncBit = 6;
-            else if ((Demod.twoBits & 0x1DC0) == 0x1C00) Demod.syncBit = 5;
-            else if ((Demod.twoBits & 0x0EE0) == 0x0E00) Demod.syncBit = 4;
-            else if ((Demod.twoBits & 0x0770) == 0x0700) Demod.syncBit = 3;
-            else if ((Demod.twoBits & 0x03B8) == 0x0380) Demod.syncBit = 2;
-            else if ((Demod.twoBits & 0x01DC) == 0x01C0) Demod.syncBit = 1;
-            else if ((Demod.twoBits & 0x00EE) == 0x00E0) Demod.syncBit = 0;
-            if (Demod.syncBit != 0xFFFF) {
-                Demod.startTime = (GetCountSspClk() & 0xfffffff8);
-                Demod.startTime -= Demod.syncBit;
-                Demod.bitCount = 1;            // number of decoded data bits
-                Demod.shiftReg = 1;
-                Demod.state = DEMOD_14A_MANCHESTER_DATA;
+            s_demod_14a.syncBit = 0xFFFF;            // not set
+            if ((s_demod_14a.twoBits & 0x7700) == 0x7000) s_demod_14a.syncBit = 7;
+            else if ((s_demod_14a.twoBits & 0x3B80) == 0x3800) s_demod_14a.syncBit = 6;
+            else if ((s_demod_14a.twoBits & 0x1DC0) == 0x1C00) s_demod_14a.syncBit = 5;
+            else if ((s_demod_14a.twoBits & 0x0EE0) == 0x0E00) s_demod_14a.syncBit = 4;
+            else if ((s_demod_14a.twoBits & 0x0770) == 0x0700) s_demod_14a.syncBit = 3;
+            else if ((s_demod_14a.twoBits & 0x03B8) == 0x0380) s_demod_14a.syncBit = 2;
+            else if ((s_demod_14a.twoBits & 0x01DC) == 0x01C0) s_demod_14a.syncBit = 1;
+            else if ((s_demod_14a.twoBits & 0x00EE) == 0x00E0) s_demod_14a.syncBit = 0;
+            if (s_demod_14a.syncBit != 0xFFFF) {
+                s_demod_14a.startTime = (GetCountSspClk() & 0xfffffff8);
+                s_demod_14a.startTime -= s_demod_14a.syncBit;
+                s_demod_14a.bitCount = 1;            // number of decoded data bits
+                s_demod_14a.shiftReg = 1;
+                s_demod_14a.state = DEMOD_14A_MANCHESTER_DATA;
             }
         }
     } else {
 
-        if (IsManchesterModulationNibble1(Demod.twoBits >> Demod.syncBit)) {      // modulation in first half
-            if (IsManchesterModulationNibble2(Demod.twoBits >> Demod.syncBit)) {  // ... and in second half = collision
-                if (!Demod.collisionPos) {
-                    Demod.collisionPos = (Demod.len << 3) + Demod.bitCount;
+        if (IsManchesterModulationNibble1(s_demod_14a.twoBits >> s_demod_14a.syncBit)) {      // modulation in first half
+            if (IsManchesterModulationNibble2(s_demod_14a.twoBits >> s_demod_14a.syncBit)) {  // ... and in second half = collision
+                if (!s_demod_14a.collisionPos) {
+                    s_demod_14a.collisionPos = (s_demod_14a.len << 3) + s_demod_14a.bitCount;
                 }
             }                                                           // modulation in first half only - Sequence D = 1
-            Demod.bitCount++;
-            Demod.shiftReg = (Demod.shiftReg << 1) | 0x1;             // in both cases, add a 1 to the shiftreg
-            if (Demod.bitCount == 8) {                                  // if we decoded a full byte
-                Demod.output[Demod.len++] = (Demod.shiftReg & 0xff);
-                Demod.bitCount = 0;
-                Demod.shiftReg = 0;
+            s_demod_14a.bitCount++;
+            s_demod_14a.shiftReg = (s_demod_14a.shiftReg << 1) | 0x1;             // in both cases, add a 1 to the shiftreg
+            if (s_demod_14a.bitCount == 8) {                                  // if we decoded a full byte
+                s_demod_14a.output[s_demod_14a.len++] = (s_demod_14a.shiftReg & 0xff);
+                s_demod_14a.bitCount = 0;
+                s_demod_14a.shiftReg = 0;
             }
-            Demod.endTime = Demod.startTime + 8 * (8 * Demod.len + Demod.bitCount + 1) - 4;
+            s_demod_14a.endTime = s_demod_14a.startTime + 8 * (8 * s_demod_14a.len + s_demod_14a.bitCount + 1) - 4;
         } else {                                                        // no modulation in first half
-            if (IsManchesterModulationNibble2(Demod.twoBits >> Demod.syncBit)) {    // and modulation in second half = Sequence E = 0
-                Demod.bitCount++;
-                Demod.shiftReg = (Demod.shiftReg << 1);                 // add a 0 to the shiftreg
-                if (Demod.bitCount >= 8) {                              // if we decoded a full byte
-                    Demod.output[Demod.len++] = (Demod.shiftReg & 0xff);
-                    Demod.bitCount = 0;
-                    Demod.shiftReg = 0;
+            if (IsManchesterModulationNibble2(s_demod_14a.twoBits >> s_demod_14a.syncBit)) {    // and modulation in second half = Sequence E = 0
+                s_demod_14a.bitCount++;
+                s_demod_14a.shiftReg = (s_demod_14a.shiftReg << 1);                 // add a 0 to the shiftreg
+                if (s_demod_14a.bitCount >= 8) {                              // if we decoded a full byte
+                    s_demod_14a.output[s_demod_14a.len++] = (s_demod_14a.shiftReg & 0xff);
+                    s_demod_14a.bitCount = 0;
+                    s_demod_14a.shiftReg = 0;
                 }
-                Demod.endTime = Demod.startTime + 8 * (8 * Demod.len + Demod.bitCount + 1);
+                s_demod_14a.endTime = s_demod_14a.startTime + 8 * (8 * s_demod_14a.len + s_demod_14a.bitCount + 1);
             } else {                                                    // no modulation in both halves - End of communication
-                if (Demod.bitCount > 0) {                               // there are some remaining data bits
-                    Demod.shiftReg <<= (8 - Demod.bitCount);            // left align the decoded bits
-                    Demod.output[Demod.len++] = Demod.shiftReg & 0xff;  // and add them to the output
+                if (s_demod_14a.bitCount > 0) {                               // there are some remaining data bits
+                    s_demod_14a.shiftReg <<= (8 - s_demod_14a.bitCount);            // left align the decoded bits
+                    s_demod_14a.output[s_demod_14a.len++] = s_demod_14a.shiftReg & 0xff;  // and add them to the output
                     return true;
                 }
-                if (Demod.len) {
+                if (s_demod_14a.len) {
                     return true;                                        // we are finished with decoding the raw data sequence
                 } else {                                                // nothing received. Start over
                     Demod14aReset();
@@ -777,13 +777,13 @@ void RAMFUNC SniffIso14443a(uint8_t param) {
                     LED_C_ON();
 
                     // check - if there is a short 7bit request from reader
-                    if ((!triggered) && (param & 0x02) && (Uart.len == 1) && (Uart.bitCount == 7)) triggered = true;
+                    if ((!triggered) && (param & 0x02) && (s_uart.len == 1) && (s_uart.bitCount == 7)) triggered = true;
 
                     if (triggered) {
-                        if (!log_trace(receivedCmd, Uart.len,
-                                Uart.startTime * 16 - DELAY_READER_AIR2ARM_AS_SNIFFER,
-                                Uart.endTime * 16 - DELAY_READER_AIR2ARM_AS_SNIFFER,
-                                Uart.parity, true)) break;
+                        if (!log_trace(receivedCmd, s_uart.len,
+                                s_uart.startTime * 16 - DELAY_READER_AIR2ARM_AS_SNIFFER,
+                                s_uart.endTime * 16 - DELAY_READER_AIR2ARM_AS_SNIFFER,
+                                s_uart.parity, true)) break;
                     }
                     /* ready to receive another command. */
                     Uart14aReset();
@@ -792,7 +792,7 @@ void RAMFUNC SniffIso14443a(uint8_t param) {
                     Demod14aReset();
                     LED_B_OFF();
                 }
-                ReaderIsActive = (Uart.state != STATE_14A_UNSYNCD);
+                ReaderIsActive = (s_uart.state != STATE_14A_UNSYNCD);
             }
 
             // no need to try decoding tag data if the reader is sending - and we cannot afford the time
@@ -801,10 +801,10 @@ void RAMFUNC SniffIso14443a(uint8_t param) {
                 if (ManchesterDecoding(tagdata, 0, (rx_samples - 1) * 4)) {
                     LED_B_ON();
 
-                    if (!log_trace(receivedResp, Demod.len,
-                            Demod.startTime * 16 - DELAY_TAG_AIR2ARM_AS_SNIFFER,
-                            Demod.endTime * 16 - DELAY_TAG_AIR2ARM_AS_SNIFFER,
-                            Demod.parity, false)) break;
+                    if (!log_trace(receivedResp, s_demod_14a.len,
+                            s_demod_14a.startTime * 16 - DELAY_TAG_AIR2ARM_AS_SNIFFER,
+                            s_demod_14a.endTime * 16 - DELAY_TAG_AIR2ARM_AS_SNIFFER,
+                            s_demod_14a.parity, false)) break;
 
                     if ((!triggered) && (param & 0x01)) triggered = true;
 
@@ -815,7 +815,7 @@ void RAMFUNC SniffIso14443a(uint8_t param) {
                     //Uart14aInit(receivedCmd, receivedCmdPar);
                     LED_C_OFF();
                 }
-                TagIsActive = (Demod.state != DEMOD_14A_UNSYNCD);
+                TagIsActive = (s_demod_14a.state != DEMOD_14A_UNSYNCD);
             }
         }
 
@@ -996,7 +996,7 @@ bool GetIso14443aCommandFromReader(uint8_t *received, uint8_t *par, int *len) {
         if (AT91C_BASE_SSC->SSC_SR & (AT91C_SSC_RXRDY)) {
             b = (uint8_t)AT91C_BASE_SSC->SSC_RHR;
             if (MillerDecoding(b, 0)) {
-                *len = Uart.len;
+                *len = s_uart.len;
                 return true;
             }
         }
@@ -1513,7 +1513,7 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *data, uint8_
 
         } else if (order == ORDER_AUTH && len == 8) {
             // Received {nr] and {ar} (part of authentication)
-            log_trace(receivedCmd, Uart.len, Uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG, Uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG, Uart.parity, true);
+            log_trace(receivedCmd, s_uart.len, s_uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG, s_uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG, s_uart.parity, true);
             uint32_t nr = bytes_to_num(receivedCmd, 4);
             uint32_t ar = bytes_to_num(receivedCmd + 4, 4);
 
@@ -1731,7 +1731,7 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *data, uint8_
             }
             p_response = NULL;
         } else if (receivedCmd[0] == ISO14443A_CMD_HALT && len == 4) {    // Received a HALT
-            log_trace(receivedCmd, Uart.len, Uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG, Uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG, Uart.parity, true);
+            log_trace(receivedCmd, s_uart.len, s_uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG, s_uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG, s_uart.parity, true);
             p_response = NULL;
             order = ORDER_HALTED;
         } else if (receivedCmd[0] == MIFARE_ULEV1_VERSION && len == 3 && (tagType == 2 || tagType == 7)) {
@@ -1758,7 +1758,7 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *data, uint8_
                 p_response = &responses[RESP_INDEX_RATS];
             }
         } else if (receivedCmd[0] == MIFARE_ULC_AUTH_1) {  // ULC authentication, or Desfire Authentication
-            log_trace(receivedCmd, Uart.len, Uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG, Uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG, Uart.parity, true);
+            log_trace(receivedCmd, s_uart.len, s_uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG, s_uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG, s_uart.parity, true);
             p_response = NULL;
         } else if (receivedCmd[0] == MIFARE_ULEV1_AUTH && len == 7 && tagType == 7) { // NTAG / EV-1
             uint8_t pwd[4] = {0, 0, 0, 0};
@@ -1876,7 +1876,7 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *data, uint8_
 
                     default: {
                         // Never seen this command before
-                        log_trace(receivedCmd, Uart.len, Uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG, Uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG, Uart.parity, true);
+                        log_trace(receivedCmd, s_uart.len, s_uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG, s_uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG, s_uart.parity, true);
                         if (g_dbglevel >= DBG_DEBUG) {
                             Dbprintf("Received unknown command (len=%d):", len);
                             Dbhexdump(len, receivedCmd, false);
@@ -1901,7 +1901,7 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *data, uint8_
 
                 if (prepare_tag_modulation(&dynamic_response_info, DYNAMIC_MODULATION_BUFFER_SIZE) == false) {
                     if (g_dbglevel >= DBG_DEBUG) DbpString("Error preparing tag response");
-                    log_trace(receivedCmd, Uart.len, Uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG, Uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG, Uart.parity, true);
+                    log_trace(receivedCmd, s_uart.len, s_uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG, s_uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG, s_uart.parity, true);
                     break;
                 }
                 p_response = &dynamic_response_info;
@@ -2174,7 +2174,7 @@ int EmGetCmd(uint8_t *received, uint16_t *len, uint8_t *par) {
         if (AT91C_BASE_SSC->SSC_SR & (AT91C_SSC_RXRDY)) {
             b = (uint8_t)AT91C_BASE_SSC->SSC_RHR;
             if (MillerDecoding(b, 0)) {
-                *len = Uart.len;
+                *len = s_uart.len;
                 return 0;
             }
         }
@@ -2191,12 +2191,12 @@ int EmSendCmd14443aRaw(const uint8_t *resp, uint16_t respLen) {
     FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_ISO14443A | FPGA_HF_ISO14443A_TAGSIM_MOD);
 
     // Include correction bit if necessary
-    if (Uart.bitCount == 7) {
+    if (s_uart.bitCount == 7) {
         // Short tags (7 bits) don't have parity, determine the correct value from MSB
-        correction_needed = Uart.output[0] & 0x40;
+        correction_needed = s_uart.output[0] & 0x40;
     } else {
         // The parity bits are left-aligned
-        correction_needed = Uart.parity[(Uart.len - 1) / 8] & (0x80 >> ((Uart.len - 1) & 7));
+        correction_needed = s_uart.parity[(s_uart.len - 1) / 8] & (0x80 >> ((s_uart.len - 1) & 7));
     }
     // 1236, so correction bit needed
     i = (correction_needed) ? 0 : 1;
@@ -2245,11 +2245,11 @@ int EmSend4bit(uint8_t resp) {
     // do the tracing for the previous reader request and this tag answer:
     uint8_t par[1] = {0x00};
     GetParity(&resp, 1, par);
-    EmLogTrace(Uart.output,
-               Uart.len,
-               Uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG,
-               Uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG,
-               Uart.parity,
+    EmLogTrace(s_uart.output,
+               s_uart.len,
+               s_uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG,
+               s_uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG,
+               s_uart.parity,
                &resp,
                1,
                LastTimeProxToAirStart * 16 + DELAY_ARM2AIR_AS_TAG,
@@ -2266,11 +2266,11 @@ int EmSendCmdParEx(uint8_t *resp, uint16_t respLen, uint8_t *par, bool collision
     int res = EmSendCmd14443aRaw(queue->data, queue->max);
 
     // do the tracing for the previous reader request and this tag answer:
-    EmLogTrace(Uart.output,
-               Uart.len,
-               Uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG,
-               Uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG,
-               Uart.parity,
+    EmLogTrace(s_uart.output,
+               s_uart.len,
+               s_uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG,
+               s_uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG,
+               s_uart.parity,
                resp,
                respLen,
                LastTimeProxToAirStart * 16 + DELAY_ARM2AIR_AS_TAG,
@@ -2292,11 +2292,11 @@ int EmSendPrecompiledCmd(tag_response_info_t *p_response) {
     // do the tracing for the previous reader request and this tag answer:
     GetParity(p_response->response, p_response->response_n, parity_array);
 
-    EmLogTrace(Uart.output,
-               Uart.len,
-               Uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG,
-               Uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG,
-               Uart.parity,
+    EmLogTrace(s_uart.output,
+               s_uart.len,
+               s_uart.startTime * 16 - DELAY_AIR2ARM_AS_TAG,
+               s_uart.endTime * 16 - DELAY_AIR2ARM_AS_TAG,
+               s_uart.parity,
                p_response->response,
                p_response->response_n,
                LastTimeProxToAirStart * 16 + DELAY_ARM2AIR_AS_TAG,
@@ -2361,9 +2361,9 @@ bool GetIso14443aAnswerFromTag_Thinfilm(uint8_t *receivedResponse,  uint8_t *rec
         if (AT91C_BASE_SSC->SSC_SR & (AT91C_SSC_RXRDY)) {
             b = (uint8_t)AT91C_BASE_SSC->SSC_RHR;
             if (ManchesterDecoding_Thinfilm(b)) {
-                *received_len = Demod.len;
+                *received_len = s_demod_14a.len;
 
-                log_trace(receivedResponse, Demod.len, Demod.startTime * 16 - DELAY_AIR2ARM_AS_READER, Demod.endTime * 16 - DELAY_AIR2ARM_AS_READER, NULL, false);
+                log_trace(receivedResponse, s_demod_14a.len, s_demod_14a.startTime * 16 - DELAY_AIR2ARM_AS_READER, s_demod_14a.endTime * 16 - DELAY_AIR2ARM_AS_READER, NULL, false);
                 return true;
             }
         }
@@ -2372,9 +2372,9 @@ bool GetIso14443aAnswerFromTag_Thinfilm(uint8_t *receivedResponse,  uint8_t *rec
             break;
     }
 
-    *received_len = Demod.len;
+    *received_len = s_demod_14a.len;
 
-    log_trace(receivedResponse, Demod.len, Demod.startTime * 16 - DELAY_AIR2ARM_AS_READER, Demod.endTime * 16 - DELAY_AIR2ARM_AS_READER, NULL, false);
+    log_trace(receivedResponse, s_demod_14a.len, s_demod_14a.startTime * 16 - DELAY_AIR2ARM_AS_READER, s_demod_14a.endTime * 16 - DELAY_AIR2ARM_AS_READER, NULL, false);
     return false;
 }
 
@@ -2412,9 +2412,9 @@ static int GetIso14443aAnswerFromTag(uint8_t *receivedResponse, uint8_t *receive
         if (AT91C_BASE_SSC->SSC_SR & (AT91C_SSC_RXRDY)) {
             b = (uint8_t)AT91C_BASE_SSC->SSC_RHR;
             if (ManchesterDecoding(b, offset, 0)) {
-                NextTransferTime = MAX(NextTransferTime, Demod.endTime - (DELAY_AIR2ARM_AS_READER + DELAY_ARM2AIR_AS_READER) / 16 + FRAME_DELAY_TIME_PICC_TO_PCD);
+                NextTransferTime = MAX(NextTransferTime, s_demod_14a.endTime - (DELAY_AIR2ARM_AS_READER + DELAY_ARM2AIR_AS_READER) / 16 + FRAME_DELAY_TIME_PICC_TO_PCD);
                 return true;
-            } else if (c++ > timeout && Demod.state == DEMOD_14A_UNSYNCD) {
+            } else if (c++ > timeout && s_demod_14a.state == DEMOD_14A_UNSYNCD) {
                 return false;
             }
         }
@@ -2458,16 +2458,16 @@ static uint16_t ReaderReceiveOffset(uint8_t *receivedAnswer, uint16_t offset, ui
     if (GetIso14443aAnswerFromTag(receivedAnswer, par, offset) == false) {
         return 0;
     }
-    log_trace(receivedAnswer, Demod.len, Demod.startTime * 16 - DELAY_AIR2ARM_AS_READER, Demod.endTime * 16 - DELAY_AIR2ARM_AS_READER, par, false);
-    return Demod.len;
+    log_trace(receivedAnswer, s_demod_14a.len, s_demod_14a.startTime * 16 - DELAY_AIR2ARM_AS_READER, s_demod_14a.endTime * 16 - DELAY_AIR2ARM_AS_READER, par, false);
+    return s_demod_14a.len;
 }
 
 uint16_t ReaderReceive(uint8_t *receivedAnswer, uint8_t *par) {
     if (GetIso14443aAnswerFromTag(receivedAnswer, par, 0) == false) {
         return 0;
     }
-    log_trace(receivedAnswer, Demod.len, Demod.startTime * 16 - DELAY_AIR2ARM_AS_READER, Demod.endTime * 16 - DELAY_AIR2ARM_AS_READER, par, false);
-    return Demod.len;
+    log_trace(receivedAnswer, s_demod_14a.len, s_demod_14a.startTime * 16 - DELAY_AIR2ARM_AS_READER, s_demod_14a.endTime * 16 - DELAY_AIR2ARM_AS_READER, par, false);
+    return s_demod_14a.len;
 }
 
 
@@ -2578,7 +2578,7 @@ static void iso14a_set_ATS_times(const uint8_t *ats) {
             uint8_t sfgi = tb1 & 0x0f;                  // startup frame guard time integer (SFGI)
             if (sfgi != 0 && sfgi != 15) {
                 uint32_t sfgt = 256 * 16 * (1 << sfgi);  // startup frame guard time (SFGT) in 1/fc
-                NextTransferTime = MAX(NextTransferTime, Demod.endTime + (sfgt - DELAY_AIR2ARM_AS_READER - DELAY_ARM2AIR_AS_READER) / 16);
+                NextTransferTime = MAX(NextTransferTime, s_demod_14a.endTime + (sfgt - DELAY_AIR2ARM_AS_READER - DELAY_ARM2AIR_AS_READER) / 16);
             }
         }
     }
@@ -2731,16 +2731,16 @@ int iso14443a_select_cardEx(uint8_t *uid_ptr, iso14a_card_select_t *p_card, uint
                 return 0;
             }
 
-            if (Demod.collisionPos) {            // we had a collision and need to construct the UID bit by bit
+            if (s_demod_14a.collisionPos) {            // we had a collision and need to construct the UID bit by bit
                 palloc_set(uid_resp, 0, 5);
                 uint16_t uid_resp_bits = 0;
                 uint16_t collision_answer_offset = 0;
 
                 // anti-collision-loop:
-                while (Demod.collisionPos) {
-                    Dbprintf("Multiple tags detected. Collision after Bit %d", Demod.collisionPos);
+                while (s_demod_14a.collisionPos) {
+                    Dbprintf("Multiple tags detected. Collision after Bit %d", s_demod_14a.collisionPos);
 
-                    for (uint16_t i = collision_answer_offset; i < Demod.collisionPos; i++, uid_resp_bits++) {    // add valid UID bits before collision point
+                    for (uint16_t i = collision_answer_offset; i < s_demod_14a.collisionPos; i++, uid_resp_bits++) {    // add valid UID bits before collision point
                         uint16_t UIDbit = (resp[i / 8] >> (i % 8)) & 0x01;
                         uid_resp[uid_resp_bits / 8] |= UIDbit << (uid_resp_bits % 8);
                     }
@@ -2762,7 +2762,7 @@ int iso14443a_select_cardEx(uint8_t *uid_ptr, iso14a_card_select_t *p_card, uint
                 }
 
                 // finally, add the last bits and BCC of the UID
-                for (uint32_t i = collision_answer_offset; i < Demod.len * 8; i++, uid_resp_bits++) {
+                for (uint32_t i = collision_answer_offset; i < s_demod_14a.len * 8; i++, uid_resp_bits++) {
                     uint16_t UIDbit = (resp[i / 8] >> (i % 8)) & 0x01;
                     uid_resp[uid_resp_bits / 8] |= UIDbit << (uid_resp_bits % 8);
                 }

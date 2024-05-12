@@ -58,7 +58,7 @@ typedef struct {
     uint32_t startTime, endTime;
     uint8_t  *output;
     uint8_t  *parity;
-} tDemod14a;
+} demod_14a_t;
 /*
 typedef enum {
     MOD_NOMOD = 0,
@@ -128,7 +128,7 @@ uint32_t iso14a_get_timeout(void);
 
 void GetParity(const uint8_t *pbtCmd, uint16_t len, uint8_t *par);
 
-tDemod14a *GetDemod14a(void);
+demod_14a_t *GetDemod14a(void);
 void Demod14aReset(void);
 void Demod14aInit(uint8_t *data, uint8_t *par);
 uart_14a_t *GetUart14a(void);

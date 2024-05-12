@@ -22,7 +22,8 @@
 
 #include "proxmark3_arm.h"
 #include "cmd.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "fpgaloader.h"
 #include "ticks.h"
 #include "dbprint.h"
@@ -435,7 +436,7 @@ static void hitagS_handle_reader_command(uint8_t *rx, const size_t rxlen,
     unsigned char crc;
 
     // Copy the (original) received frame how it is send over the air
-    memcpy(rx_air, rx, nbytes(rxlen));
+    palloc_copy(rx_air, rx, nbytes(rxlen));
 
     // Reset the transmission frame length
     *txlen = 0;
@@ -730,15 +731,11 @@ void SimulateHitagSTag(bool tag_mem_supplied, const uint8_t *data, bool ledcontr
     size_t txlen = 0;
 
     // Reset the received frame, frame count and timing info
-    memset(rx, 0x00, sizeof(rx));
-
-    // free eventually allocated BigBuf memory
-    BigBuf_free();
-    BigBuf_Clear_ext(false);
+    palloc_set(rx, 0x00, sizeof(rx));
 
     // Clean up trace and prepare it for storing frames
-    set_tracing(true);
-    clear_trace();
+    release_trace();
+    start_tracing();
 
     DbpString("Starting HitagS simulation");
     if (ledcontrol) LED_D_ON();
@@ -756,7 +753,7 @@ void SimulateHitagSTag(bool tag_mem_supplied, const uint8_t *data, bool ledcontr
         }
 
         DbpString("Loading hitagS memory...");
-        memcpy((uint8_t *)tag.pages, data, 4 * 64);
+        palloc_copy((uint8_t *)tag.pages, data, 4 * 64);
     } else {
         // use the last read tag
     }
@@ -936,7 +933,7 @@ void SimulateHitagSTag(bool tag_mem_supplied, const uint8_t *data, bool ledcontr
 
         // Check if frame was captured
         if (rxlen > 0) {
-            LogTraceBits(rx, rxlen, response, response, true);
+            log_trace_from_stream(rx, rxlen, response, response, true);
 
             // Disable timer 1 with external trigger to avoid triggers during our own modulation
             AT91C_BASE_TC1->TC_CCR = AT91C_TC_CLKDIS;
@@ -955,14 +952,14 @@ void SimulateHitagSTag(bool tag_mem_supplied, const uint8_t *data, bool ledcontr
             if (txlen > 0) {
                 // Transmit the tag frame
                 hitag_send_frame(tx, txlen, ledcontrol);
-                LogTraceBits(tx, txlen, 0, 0, false);
+                log_trace_from_stream(tx, txlen, 0, 0, false);
             }
 
             // Enable and reset external trigger in timer for capturing future frames
             AT91C_BASE_TC1->TC_CCR = AT91C_TC_CLKEN | AT91C_TC_SWTRG;
 
             // Reset the received frame and response timing info
-            memset(rx, 0x00, sizeof(rx));
+            palloc_set(rx, 0x00, sizeof(rx));
             response = 0;
 
             if (ledcontrol) LED_B_OFF();
@@ -976,10 +973,9 @@ void SimulateHitagSTag(bool tag_mem_supplied, const uint8_t *data, bool ledcontr
 
     }
 
-    set_tracing(false);
+    stop_tracing();
     lf_finalize(ledcontrol);
     // release allocated memory from BigBuff.
-    BigBuf_free();
 
     DbpString("Sim Stopped");
 }
@@ -987,7 +983,7 @@ void SimulateHitagSTag(bool tag_mem_supplied, const uint8_t *data, bool ledcontr
 static void hitagS_receive_frame(uint8_t *rx, size_t sizeofrx, size_t *rxlen, uint32_t *resptime, bool ledcontrol) {
 
     // Reset values for receiving frames
-    memset(rx, 0x00, sizeofrx);
+    palloc_set(rx, 0x00, sizeofrx);
     *rxlen = 0;
 
     int lastbit = 1;
@@ -1091,7 +1087,7 @@ static void hitagS_receive_frame(uint8_t *rx, size_t sizeofrx, size_t *rxlen, ui
 
 static void sendReceiveHitagS(uint8_t *tx, size_t txlen, uint8_t *rx, size_t sizeofrx, size_t *prxbits, int t_wait, bool ledcontrol, bool ac_seq) {
 
-    LogTraceBits(tx, txlen, HITAG_T_WAIT_2, HITAG_T_WAIT_2, true);
+    log_trace_from_stream(tx, txlen, HITAG_T_WAIT_2, HITAG_T_WAIT_2, true);
 
     // Send and store the reader command
     // Disable timer 1 with external trigger to avoid triggers during our own modulation
@@ -1127,7 +1123,7 @@ static void sendReceiveHitagS(uint8_t *tx, size_t txlen, uint8_t *rx, size_t siz
         Dbprintf("htS: rxlen...... %zu", rxlen);
         Dbprintf("htS: sizeofrx... %zu", sizeofrx);
 
-        memset(rx, 0x00, sizeofrx);
+        palloc_set(rx, 0x00, sizeofrx);
 
         if (ac_seq) {
 
@@ -1168,7 +1164,7 @@ static void sendReceiveHitagS(uint8_t *tx, size_t txlen, uint8_t *rx, size_t siz
 
 
         }
-        LogTraceBits(rx, k, resptime, resptime, false);
+        log_trace_from_stream(rx, k, resptime, resptime, false);
     }
     *prxbits = k;
 }
@@ -1195,8 +1191,8 @@ static int selectHitagS(const lf_hitag_data_t *packet, uint8_t *tx, size_t sizeo
     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
 
     // Clean up trace and prepare it for storing frames
-    set_tracing(true);
-    clear_trace();
+    release_trace();
+    start_tracing();
 
     if (ledcontrol) LED_D_ON();
 
@@ -1403,7 +1399,7 @@ void ReadHitagS(const lf_hitag_data_t *payload, bool ledcontrol) {
     if (selectHitagS(payload, tx, ARRAYLEN(tx), rx, ARRAYLEN(rx), t_wait, ledcontrol) == -1) {
 
         hitagS_stop_clock();
-        set_tracing(false);
+        stop_tracing();
         lf_finalize(ledcontrol);
         reply_ng(CMD_LF_HITAGS_READ, PM3_ERFTRANS, NULL, 0);
         return;
@@ -1479,7 +1475,7 @@ void ReadHitagS(const lf_hitag_data_t *payload, bool ledcontrol) {
     }
 
     hitagS_stop_clock();
-    set_tracing(false);
+    stop_tracing();
     lf_finalize(ledcontrol);
     reply_ng(CMD_LF_HITAGS_READ, PM3_SUCCESS, (uint8_t *)tag.pages, sizeof(tag.pages));
 }
@@ -1556,7 +1552,7 @@ void WritePageHitagS(const lf_hitag_data_t *payload, bool ledcontrol) {
             break;
         default: {
             res = PM3_EINVARG;
-            return;
+            goto write_end;
         }
     }
 
@@ -1575,7 +1571,7 @@ void WritePageHitagS(const lf_hitag_data_t *payload, bool ledcontrol) {
 
 write_end:
     hitagS_stop_clock();
-    set_tracing(false);
+    stop_tracing();
     lf_finalize(ledcontrol);
     reply_ng(CMD_LF_HITAGS_WRITE, res, NULL, 0);
 }
@@ -1601,15 +1597,17 @@ void Hitag_check_challenges(const uint8_t *data, uint32_t datalen, bool ledcontr
     uint8_t tx[HITAG_FRAME_LEN];
     int t_wait = HITAG_T_WAIT_MAX;
 
+    start_tracing();
+
     while ((BUTTON_PRESS() == false) && (data_available() == false)) {
         // Watchdog hit
         WDT_HIT();
 
         lf_hitag_data_t payload;
-        memset(&payload, 0, sizeof(payload));
+        palloc_set(&payload, 0, sizeof(payload));
         payload.cmd = RHTSF_CHALLENGE;
 
-        memcpy(payload.NrAr, data + dataoffset, 8);
+        palloc_copy(payload.NrAr, data + dataoffset, 8);
 
         int res = selectHitagS(&payload, tx, ARRAYLEN(tx), rx, ARRAYLEN(rx), t_wait, ledcontrol);
         Dbprintf("Challenge %s: %02X %02X %02X %02X %02X %02X %02X %02X",
@@ -1639,7 +1637,7 @@ void Hitag_check_challenges(const uint8_t *data, uint32_t datalen, bool ledcontr
     }
 
     hitagS_stop_clock();
-    set_tracing(false);
+    stop_tracing();
     lf_finalize(ledcontrol);
     reply_ng(CMD_ACK, PM3_SUCCESS, NULL, 0);
     return;

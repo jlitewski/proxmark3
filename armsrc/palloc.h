@@ -63,6 +63,8 @@ uint32_t palloc_sram_size();
 // Buffer Stuff
 //==============
 
+#define DMA_BUFFER_SIZE 512
+
 typedef struct { // General purpose 8-bit buffer
     uint16_t size;
     uint8_t *data; // Pass this into `palloc_free()` to free the buffer

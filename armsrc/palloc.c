@@ -580,6 +580,7 @@ fpga_queue_t *get_fpga_queue(void) {
  */
 void reset_fpga_queue(void) {
     if(fpgaQueue.data != nullptr) {
+        palloc_set(fpgaQueue.data, 0, QUEUE_BUFFER_SIZE);
         fpgaQueue.max = -1;
         fpgaQueue.bit = 8;
     }

@@ -70,7 +70,9 @@
 #include "fpgaloader.h"
 #include "commonutil.h"
 #include "ticks.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "crc16.h"
 
 // Delays in SSP_CLK ticks.
@@ -141,46 +143,49 @@ static uint8_t encode15_lut[] = {
 
 void CodeIso15693AsReader(const uint8_t *cmd, int n) {
 
-    tosend_reset();
-    tosend_t *ts = get_tosend();
+    reset_fpga_queue();
+    fpga_queue_t *queue = get_fpga_queue();
 
     // SOF for 1of4
-    ts->buf[++ts->max] = 0x84; //10000100
+    queue->data[++queue->max] = 0x84; //10000100
 
     // data
     for (int i = 0; i < n; i++) {
 
         volatile uint8_t b = (cmd[i] >> 0) & 0x03;
-        ts->buf[++ts->max] = encode15_lut[b];
+        queue->data[++queue->max] = encode15_lut[b];
 
         b = (cmd[i] >> 2) & 0x03;
-        ts->buf[++ts->max] = encode15_lut[b];
+        queue->data[++queue->max] = encode15_lut[b];
 
         b = (cmd[i] >> 4) & 0x03;
-        ts->buf[++ts->max] = encode15_lut[b];
+        queue->data[++queue->max] = encode15_lut[b];
 
         b = (cmd[i] >> 6) & 0x03;
-        ts->buf[++ts->max] = encode15_lut[b];
+        queue->data[++queue->max] = encode15_lut[b];
     }
 
     // EOF
-    ts->buf[++ts->max] = 0x20; //0010 + 0000 padding
-    ts->max++;
+    queue->data[++queue->max] = 0x20; //0010 + 0000 padding
+    queue->max++;
 }
 
 // Encode EOF only
 static void CodeIso15693AsReaderEOF(void) {
-    tosend_reset();
-    tosend_t *ts = get_tosend();
-    ts->buf[++ts->max] = 0x20;
-    ts->max++;
+    reset_fpga_queue();
+    fpga_queue_t *queue = get_fpga_queue();
+    queue->data[++queue->max] = 0x20;
+    queue->max++;
 }
 
 
 static int get_uid_slix(uint32_t start_time, uint32_t *eof_time, uint8_t *uid) {
 
-    uint8_t *answer = BigBuf_malloc(ISO15693_MAX_RESPONSE_LENGTH);
-    memset(answer, 0x00, ISO15693_MAX_RESPONSE_LENGTH);
+    uint8_t *answer = palloc(1, ISO15693_MAX_RESPONSE_LENGTH);
+
+    if(answer == nullptr) {
+        return PM3_EMALLOC;
+    }
 
     start_time = *eof_time + DELAY_ISO15693_VICC_TO_VCD_READER;
 
@@ -190,6 +195,7 @@ static int get_uid_slix(uint32_t start_time, uint32_t *eof_time, uint8_t *uid) {
     SendDataTag(cmd, sizeof(cmd), false, true, answer, ISO15693_MAX_RESPONSE_LENGTH, start_time, ISO15693_READER_TIMEOUT, eof_time, &recvlen);
 
     if (recvlen != 12) {
+        palloc_free(answer);
         return PM3_ETIMEOUT;
     }
 
@@ -202,7 +208,7 @@ static int get_uid_slix(uint32_t start_time, uint32_t *eof_time, uint8_t *uid) {
     uid[6] = answer[8];
     uid[7] = answer[9];
 
-    BigBuf_free();
+    palloc_free(answer);
     return PM3_SUCCESS;
 }
 
@@ -212,28 +218,28 @@ static int get_uid_slix(uint32_t start_time, uint32_t *eof_time, uint8_t *uid) {
 // is designed for more robust communication over longer distances
 static void CodeIso15693AsReader256(const uint8_t *cmd, int n) {
 
-    tosend_reset();
-    tosend_t *ts = get_tosend();
+    reset_fpga_queue();
+    fpga_queue_t *queue = get_fpga_queue();
 
     // SOF for 1of256
-    ts->buf[++ts->max] = 0x81; //10000001
+    queue->data[++queue->max] = 0x81; //10000001
 
     // data
     for (int i = 0; i < n; i++) {
         for (int j = 0; j <= 255; j++) {
             if (cmd[i] == j) {
-                tosend_stuffbit(0);
-                tosend_stuffbit(1);
+                stuff_bit_in_queue(0);
+                stuff_bit_in_queue(1);
             } else {
-                tosend_stuffbit(0);
-                tosend_stuffbit(0);
+                stuff_bit_in_queue(0);
+                stuff_bit_in_queue(0);
             }
         }
     }
 
     // EOF
-    ts->buf[++ts->max] = 0x20; //0010 + 0000 padding
-    ts->max++;
+    queue->data[++queue->max] = 0x20; //0010 + 0000 padding
+    queue->max++;
 }
 
 static const uint8_t encode_4bits[16] = {
@@ -274,21 +280,21 @@ void CodeIso15693AsTag(const uint8_t *cmd, size_t len) {
      * A logic 0 is 10
      *
      * */
-    tosend_reset();
-    tosend_t *ts = get_tosend();
+    reset_fpga_queue();
+    fpga_queue_t *queue = get_fpga_queue();
 
     // SOF
-    ts->buf[++ts->max] = 0x1D;  // 00011101
+    queue->data[++queue->max] = 0x1D;  // 00011101
 
     // data
     for (size_t i = 0; i < len; i ++) {
-        ts->buf[++ts->max] = encode_4bits[cmd[i] & 0xF];
-        ts->buf[++ts->max] = encode_4bits[cmd[i] >> 4];
+        queue->data[++queue->max] = encode_4bits[cmd[i] & 0xF];
+        queue->data[++queue->max] = encode_4bits[cmd[i] >> 4];
     }
 
     // EOF
-    ts->buf[++ts->max] = 0xB8; // 10111000
-    ts->max++;
+    queue->data[++queue->max] = 0xB8; // 10111000
+    queue->max++;
 }
 
 // Transmit the command (to the tag) that was placed in cmd[].
@@ -689,7 +695,6 @@ static void DecodeTagInit(DecodeTag_t *tag, uint8_t *data, uint16_t max_len) {
 // Returns: true if we received a EOF
 //          false if we are still waiting for some more
 //=============================================================================
-//#define DEBUG 1
 #define FREQ_IS_484(f)    ((f & 1) == 1)   //(f >= 26 && f <= 30)
 #define FREQ_IS_424(f)    ((f & 2) == 2)   //(f >= 30 && f <= 34)
 #define FREQ_IS_0(f)      ((f & 3) == 0)   // (f <= 24 || f >= 36)
@@ -999,16 +1004,22 @@ int GetIso15693AnswerFromTag(uint8_t *response, uint16_t max_len, uint16_t timeo
     FpgaSetupSsc(FPGA_MAJOR_MODE_HF_READER);
 
     // The DMA buffer, used to stream samples from the FPGA
-    dmabuf16_t *dma = get_dma16();
+    buffer16u_t dma = palloc_buffer16(DMA_BUFFER_SIZE);
+
+    if(dma.data == nullptr) {
+        if (g_dbglevel > DBG_ERROR) Dbprintf("Memory Allocation failed. Exiting");
+        return PM3_EMALLOC;
+    }
 
     // Setup and start DMA.
-    if (FpgaSetupSscDma((uint8_t *) dma->buf, DMA_BUFFER_SIZE) == false) {
+    if (FpgaSetupSscDma((uint8_t *) dma.data, DMA_BUFFER_SIZE) == false) {
         if (g_dbglevel > DBG_ERROR) Dbprintf("FpgaSetupSscDma failed. Exiting");
+        palloc_free(dma.data);
         return PM3_EINIT;
     }
 
     uint32_t dma_start_time = 0;
-    uint16_t *upTo = dma->buf;
+    uint16_t *upTo = dma.data;
 
     for (;;) {
 
@@ -1024,20 +1035,20 @@ int GetIso15693AnswerFromTag(uint8_t *response, uint16_t max_len, uint16_t timeo
 
         volatile uint16_t tagdata = *upTo++;
 
-        if (upTo >= dma->buf + DMA_BUFFER_SIZE) {                // we have read all of the DMA buffer content.
-            upTo = dma->buf;                                     // start reading the circular buffer from the beginning
+        if (upTo >= dma.data + DMA_BUFFER_SIZE) {                // we have read all of the DMA buffer content.
+            upTo = dma.data;                                     // start reading the circular buffer from the beginning
 
             // DMA Counter Register had reached 0, already rotated.
             if (AT91C_BASE_SSC->SSC_SR & (AT91C_SSC_ENDRX)) {
 
                 // primary buffer was stopped
                 if (AT91C_BASE_PDC_SSC->PDC_RCR == false) {
-                    AT91C_BASE_PDC_SSC->PDC_RPR = (uint32_t) dma->buf;
+                    AT91C_BASE_PDC_SSC->PDC_RPR = (uint32_t) dma.data;
                     AT91C_BASE_PDC_SSC->PDC_RCR = DMA_BUFFER_SIZE;
                 }
                 // secondary buffer sets as primary, secondary buffer was stopped
                 if (AT91C_BASE_PDC_SSC->PDC_RNCR == false) {
-                    AT91C_BASE_PDC_SSC->PDC_RNPR = (uint32_t) dma->buf;
+                    AT91C_BASE_PDC_SSC->PDC_RNPR = (uint32_t) dma.data;
                     AT91C_BASE_PDC_SSC->PDC_RNCR = DMA_BUFFER_SIZE;
                 }
 
@@ -1099,6 +1110,8 @@ int GetIso15693AnswerFromTag(uint8_t *response, uint16_t max_len, uint16_t timeo
     FpgaDisableSscDma();
     FpgaDisableTracing();
 
+    palloc_free(dma.data);
+
     uint32_t sof_time = *eof_time - (32 * 16);  // time for SOF transfer
 
     if (fsk) {
@@ -1115,10 +1128,10 @@ int GetIso15693AnswerFromTag(uint8_t *response, uint16_t max_len, uint16_t timeo
     }
 
     if (fsk) {
-        LogTrace_ISO15693(dtf->output, dtf->len, (sof_time * 4), (*eof_time * 4), NULL, false);
+        log_trace_ISO15639(dtf->output, dtf->len, (sof_time * 4), (*eof_time * 4), NULL, false);
         *resp_len = dtf->len;
     } else {
-        LogTrace_ISO15693(dt->output, dt->len, (sof_time * 4), (*eof_time * 4), NULL, false);
+        log_trace_ISO15639(dt->output, dt->len, (sof_time * 4), (*eof_time * 4), NULL, false);
         *resp_len = dt->len;
     }
     return PM3_SUCCESS;
@@ -1481,7 +1494,13 @@ int GetIso15693CommandFromReader(uint8_t *received, size_t max_len, uint32_t *eo
     bool gotFrame = false;
 
     // the decoder data structure
-    DecodeReader_t *dr = (DecodeReader_t *)BigBuf_malloc(sizeof(DecodeReader_t));
+    DecodeReader_t *dr = palloc(1, sizeof(DecodeReader_t));
+
+    if(dr == nullptr) {
+        if (g_dbglevel > DBG_ERROR) Dbprintf("Memory Allocation failed. Exiting");
+        return PM3_EMALLOC;
+    }
+
     DecodeReaderInit(dr, received, max_len, 0, NULL);
 
     // wait for last transfer to complete
@@ -1496,12 +1515,19 @@ int GetIso15693CommandFromReader(uint8_t *received, size_t max_len, uint32_t *eo
     while (!(AT91C_BASE_SSC->SSC_SR & AT91C_SSC_RXRDY)) ;
 
     // Setup and start DMA.
-    dmabuf8_t *dma = get_dma8();
-    if (FpgaSetupSscDma(dma->buf, DMA_BUFFER_SIZE) == false) {
+    buffer8u_t dma = palloc_buffer8(DMA_BUFFER_SIZE);
+
+    if(dma.data == nullptr) {
+        if (g_dbglevel > DBG_ERROR) Dbprintf("Memory Allocation failed. Exiting");
+        palloc_free(dr);
+        return PM3_EMALLOC;
+    }
+
+    if (FpgaSetupSscDma(dma.data, DMA_BUFFER_SIZE) == false) {
         if (g_dbglevel > DBG_ERROR) Dbprintf("FpgaSetupSscDma failed. Exiting");
         return -4;
     }
-    uint8_t *upTo = dma->buf;
+    uint8_t *upTo = dma.data;
 
     uint32_t dma_start_time = GetCountSspClk() & 0xfffffff8;
 
@@ -1515,15 +1541,15 @@ int GetIso15693CommandFromReader(uint8_t *received, size_t max_len, uint32_t *eo
         }
 
         volatile uint8_t b = *upTo++;
-        if (upTo >= dma->buf + DMA_BUFFER_SIZE) {               // we have read all of the DMA buffer content.
-            upTo = dma->buf;                                    // start reading the circular buffer from the beginning
+        if (upTo >= dma.data + DMA_BUFFER_SIZE) {               // we have read all of the DMA buffer content.
+            upTo = dma.data;                                    // start reading the circular buffer from the beginning
             if (behindBy > (9 * DMA_BUFFER_SIZE / 10)) {
                 Dbprintf("About to blow circular buffer - aborted! behindBy %d", behindBy);
                 break;
             }
         }
         if (AT91C_BASE_SSC->SSC_SR & (AT91C_SSC_ENDRX)) {       // DMA Counter Register had reached 0, already rotated.
-            AT91C_BASE_PDC_SSC->PDC_RNPR = (uint32_t) dma->buf; // refresh the DMA Next Buffer and
+            AT91C_BASE_PDC_SSC->PDC_RNPR = (uint32_t) dma.data; // refresh the DMA Next Buffer and
             AT91C_BASE_PDC_SSC->PDC_RNCR = DMA_BUFFER_SIZE;     // DMA Next Counter registers
         }
 
@@ -1555,10 +1581,15 @@ int GetIso15693CommandFromReader(uint8_t *received, size_t max_len, uint32_t *eo
                             - dr->byteCount * (dr->Coding == CODING_1_OUT_OF_4 ? 128 : 2048) // time for byte transfers
                             - 32  // time for SOF transfer
                             - 16; // time for EOF transfer
-        LogTrace_ISO15693(dr->output, dr->byteCount, (sof_time * 32), (*eof_time * 32), NULL, true);
+        log_trace_ISO15639(dr->output, dr->byteCount, (sof_time * 32), (*eof_time * 32), NULL, true);
     }
 
-    return dr->byteCount;
+    int byteCount = dr->byteCount;
+
+    palloc_free(dr);
+    palloc_free(dma.data);
+
+    return byteCount;
 }
 
 //-----------------------------------------------------------------------------
@@ -1572,13 +1603,11 @@ void AcquireRawAdcSamplesIso15693(void) {
     DbpString("Starting to acquire data...");
     FpgaDownloadAndGo(FPGA_BITSTREAM_HF_15);
 
-    BigBuf_free();
-    clear_trace();
+    start_tracing();
 
     // Start from off (no field generated)
     FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
     SpinDelay(10);
-
 
     uint8_t cmd[5];
     BuildIdentifyRequest(cmd);
@@ -1586,7 +1615,8 @@ void AcquireRawAdcSamplesIso15693(void) {
 
     LED_A_ON();
 
-    uint8_t *dest = BigBuf_malloc(4000);
+    uint16_t len = 4000;
+    uint8_t *dest = palloc(1, len);
 
     // switch field on
     FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER);
@@ -1602,10 +1632,10 @@ void AcquireRawAdcSamplesIso15693(void) {
     SpinDelay(250);
 
     // Now send the command
-    tosend_t *ts = get_tosend();
+    fpga_queue_t *queue = get_fpga_queue();
 
     uint32_t start_time = 0;
-    TransmitTo15693Tag(ts->buf, ts->max, &start_time, false);
+    TransmitTo15693Tag(queue->data, queue->max, &start_time, false);
 
     // wait for last transfer to complete
     while (!(AT91C_BASE_SSC->SSC_SR & AT91C_SSC_TXEMPTY)) ;
@@ -1619,6 +1649,9 @@ void AcquireRawAdcSamplesIso15693(void) {
         }
     }
 
+    // Store the data into the trace buffer 
+    log_trace(dest, len, 0, 0, nullptr, true);
+    palloc_free(dest);
 
     FpgaDisableSscDma();
     FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
@@ -1635,9 +1668,7 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
     if (g_dbglevel >= DBG_INFO) {
         DbpString("Press " _GREEN_("pm3 button") " to abort sniffing");
     }
-    BigBuf_free();
-    clear_trace();
-    set_tracing(true);
+    start_tracing();
 
     DecodeTag_t dtag = {0};
     uint8_t response[ISO15693_MAX_RESPONSE_LENGTH] = {0};
@@ -1661,11 +1692,18 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
     StartCountSspClk();
 
     // The DMA buffer, used to stream samples from the FPGA
-    dmabuf16_t *dma = get_dma16();
+    buffer16u_t dma = palloc_buffer16(DMA_BUFFER_SIZE);
+
+    if(dma.data == nullptr) {
+        if (g_dbglevel > DBG_ERROR) DbpString("Memory Allocation failed. Exiting");
+        switch_off();
+        return;
+    }
 
     // Setup and start DMA.
-    if (FpgaSetupSscDma((uint8_t *) dma->buf, DMA_BUFFER_SIZE) == false) {
+    if (FpgaSetupSscDma((uint8_t *) dma.data, DMA_BUFFER_SIZE) == false) {
         if (g_dbglevel > DBG_ERROR) DbpString("FpgaSetupSscDma failed. Exiting");
+        palloc_free(dma.data);
         switch_off();
         return;
     }
@@ -1680,7 +1718,7 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
     // Count of samples received so far, so that we can include timing
     int samples = 0;
 
-    uint16_t *upTo = dma->buf;
+    uint16_t *upTo = dma.data;
 
     for (;;) {
 
@@ -1698,22 +1736,22 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
         sniffdata = *upTo++;
 
         // we have read all of the DMA buffer content
-        if (upTo >= dma->buf + DMA_BUFFER_SIZE) {
+        if (upTo >= dma.data + DMA_BUFFER_SIZE) {
 
             // start reading the circular buffer from the beginning
-            upTo = dma->buf;
+            upTo = dma.data;
 
             // DMA Counter Register had reached 0, already rotated.
             if (AT91C_BASE_SSC->SSC_SR & (AT91C_SSC_ENDRX)) {
 
                 // primary buffer was stopped
                 if (AT91C_BASE_PDC_SSC->PDC_RCR == false) {
-                    AT91C_BASE_PDC_SSC->PDC_RPR = (uint32_t) dma->buf;
+                    AT91C_BASE_PDC_SSC->PDC_RPR = (uint32_t) dma.data;
                     AT91C_BASE_PDC_SSC->PDC_RCR = DMA_BUFFER_SIZE;
                 }
                 // secondary buffer sets as primary, secondary buffer was stopped
                 if (AT91C_BASE_PDC_SSC->PDC_RNCR == false) {
-                    AT91C_BASE_PDC_SSC->PDC_RNPR = (uint32_t) dma->buf;
+                    AT91C_BASE_PDC_SSC->PDC_RNPR = (uint32_t) dma.data;
                     AT91C_BASE_PDC_SSC->PDC_RNCR = DMA_BUFFER_SIZE;
                 }
 
@@ -1740,7 +1778,7 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
                                         - 256  // time for SOF transfer (1024/fc / 4)
                                         - 128; // time for EOF transfer (512/fc / 4)
                     // sof/eof_times * 4 here to bring from ssp_clk freq to RF carrier freq
-                    LogTrace_ISO15693(dreader.output, dreader.byteCount, (sof_time * 4), (eof_time * 4), NULL, true);
+                    log_trace_ISO15639(dreader.output, dreader.byteCount, (sof_time * 4), (eof_time * 4), NULL, true);
 
                     if (iclass == false) { // Those flags don't exist in iClass
                         expect_fsk_answer = dreader.output[0] & ISO15_REQ_SUBCARRIER_TWO;
@@ -1779,7 +1817,7 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
                                         - (dtag.lastBit != SOF_PART2 ? 512 : 0); // time for EOF transfer (2048/fc / 4)
 
                     // sof/eof_times * 4 here to bring from ssp_clk freq to RF carrier freq
-                    LogTrace_ISO15693(dtag.output, dtag.len, (sof_time * 4), (eof_time * 4), NULL, false);
+                    log_trace_ISO15639(dtag.output, dtag.len, (sof_time * 4), (eof_time * 4), NULL, false);
 
                     // And ready to receive another response.
                     DecodeTagReset(&dtag);
@@ -1812,7 +1850,7 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
                                             - (dtagfsk.lastBit != SOF ? 512 : 0); // time for EOF transfer (2048/fc / 4)
 
                         // sof/eof_times * 4 here to bring from ssp_clk freq to RF carrier freq
-                        LogTrace_ISO15693(dtagfsk.output, dtagfsk.len, (sof_time * 4), (eof_time * 4), NULL, false);
+                        log_trace_ISO15639(dtagfsk.output, dtagfsk.len, (sof_time * 4), (eof_time * 4), NULL, false);
                     }
 
                     DecodeTagFSKReset(&dtagfsk);
@@ -1831,6 +1869,8 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
     FpgaDisableTracing();
     switch_off();
 
+    palloc_free(dma.data);
+
     DbpString("");
     if (g_dbglevel > DBG_ERROR) {
         DbpString(_CYAN_("Sniff statistics"));
@@ -1845,10 +1885,13 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
         Dbprintf("DecodeReader byteCnt... %d", dreader.byteCount);
         Dbprintf("DecodeReader posCount.. %d", dreader.posCount);
     }
-    Dbprintf("Trace length........... " _YELLOW_("%d"), BigBuf_get_traceLen());
+    Dbprintf("Trace length........... " _YELLOW_("%d"), get_trace_length());
 }
 
-// Initialize Proxmark3 as ISO15693 reader
+/**
+ * @brief Initialize the Proxmark as a ISO15693 Reader.
+ * This turns on tracing and sets up the FPGA
+ */
 void Iso15693InitReader(void) {
 
     LEDsoff();
@@ -1866,7 +1909,7 @@ void Iso15693InitReader(void) {
     FpgaSetupSsc(FPGA_MAJOR_MODE_HF_READER);
     SetAdcMuxFor(GPIO_MUXSEL_HIPKD);
 
-    set_tracing(true);
+    start_tracing();
 
     // give tags some time to energize
     SpinDelay(250);
@@ -1917,8 +1960,8 @@ int SendDataTag(uint8_t *send, int sendlen, bool init, bool speed_fast, uint8_t 
         CodeIso15693AsReader256(send, sendlen);
     }
 
-    tosend_t *ts = get_tosend();
-    TransmitTo15693Tag(ts->buf, ts->max, &start_time, false);
+    fpga_queue_t *queue = get_fpga_queue();
+    TransmitTo15693Tag(queue->data, queue->max, &start_time, false);
 
     if (tearoff_hook() == PM3_ETEAROFF) { // tearoff occurred
         *resp_len = 0;
@@ -1926,8 +1969,8 @@ int SendDataTag(uint8_t *send, int sendlen, bool init, bool speed_fast, uint8_t 
     } else {
 
         int res = PM3_SUCCESS;
-        *eof_time = start_time + 32 * ((8 * ts->max) - 4); // subtract the 4 padding bits after EOF
-        LogTrace_ISO15693(send, sendlen, (start_time * 4), (*eof_time * 4), NULL, true);
+        *eof_time = start_time + 32 * ((8 * queue->max) - 4); // subtract the 4 padding bits after EOF
+        log_trace_ISO15639(send, sendlen, (start_time * 4), (*eof_time * 4), NULL, true);
         if (recv != NULL) {
             bool fsk = ((send[0] & ISO15_REQ_SUBCARRIER_TWO) == ISO15_REQ_SUBCARRIER_TWO);
             bool recv_speed = ((send[0] & ISO15_REQ_DATARATE_HIGH) == ISO15_REQ_DATARATE_HIGH);
@@ -1940,10 +1983,10 @@ int SendDataTag(uint8_t *send, int sendlen, bool init, bool speed_fast, uint8_t 
 int SendDataTagEOF(uint8_t *recv, uint16_t max_recv_len, uint32_t start_time, uint16_t timeout, uint32_t *eof_time, bool fsk, bool recv_speed, uint16_t *resp_len) {
 
     CodeIso15693AsReaderEOF();
-    tosend_t *ts = get_tosend();
-    TransmitTo15693Tag(ts->buf, ts->max, &start_time, false);
-    uint32_t end_time = start_time + 32 * (8 * ts->max - 4); // subtract the 4 padding bits after EOF
-    LogTrace_ISO15693(NULL, 0, (start_time * 4), (end_time * 4), NULL, true);
+    fpga_queue_t *queue = get_fpga_queue();
+    TransmitTo15693Tag(queue->data, queue->max, &start_time, false);
+    uint32_t end_time = start_time + 32 * (8 * queue->max - 4); // subtract the 4 padding bits after EOF
+    log_trace_ISO15639(NULL, 0, (start_time * 4), (end_time * 4), NULL, true);
 
     int res = PM3_SUCCESS;
     if (recv) {
@@ -2026,10 +2069,16 @@ static void DbdecodeIso15693Answer(int len, uint8_t *d) {
 void ReaderIso15693(iso15_card_select_t *p_card) {
 
     LED_A_ON();
-    set_tracing(true);
 
-    uint8_t *answer = BigBuf_malloc(ISO15693_MAX_RESPONSE_LENGTH);
-    memset(answer, 0x00, ISO15693_MAX_RESPONSE_LENGTH);
+    uint8_t *answer = palloc(1, ISO15693_MAX_RESPONSE_LENGTH);
+
+    if(answer == nullptr) {
+        if (g_dbglevel > DBG_ERROR) DbpString("Memory Allocation failed. Exiting");
+        reply_ng(CMD_HF_ISO15693_READER, PM3_EMALLOC, nullptr, 0);
+        return;
+    }
+
+    start_tracing();
 
     // FIRST WE RUN AN INVENTORY TO GET THE TAG UID
     // THIS MEANS WE CAN PRE-BUILD REQUESTS TO SAVE CPU TIME
@@ -2061,7 +2110,7 @@ void ReaderIso15693(iso15_card_select_t *p_card) {
             uid[7] = answer[2];
 
             if (p_card != NULL) {
-                memcpy(p_card->uid, uid, 8);
+                palloc_copy(p_card->uid, uid, 8);
                 p_card->uidlen = 8;
             }
 
@@ -2090,7 +2139,7 @@ void ReaderIso15693(iso15_card_select_t *p_card) {
         }
     }
     switch_off();
-    BigBuf_free();
+    palloc_free(answer);
 }
 
 // When SIM: initialize the Proxmark3 as ISO15693 tag
@@ -2110,8 +2159,8 @@ void Iso15693InitTag(void) {
     FpgaSetupSsc(FPGA_MAJOR_MODE_HF_SIMULATOR);
     SetAdcMuxFor(GPIO_MUXSEL_HIPKD);
 
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
 
     StartCountSspClk();
 }
@@ -2120,24 +2169,21 @@ void EmlClearIso15693(void) {
     // Resetting the bitstream also frees the BigBuf memory, so we do this here to prevent
     // an inconvenient reset in the future by Iso15693InitTag
     FpgaDownloadAndGo(FPGA_BITSTREAM_HF_15);
-    BigBuf_Clear_EM();
+    release_emuator();
     reply_ng(CMD_HF_ISO15693_EML_CLEAR, PM3_SUCCESS, NULL, 0);
 }
 
 // Simulate an ISO15693 TAG, perform anti-collision and then print any reader commands
 // all demodulation performed in arm rather than host. - greg
 void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
-
-    // free eventually allocated BigBuf memory
-    BigBuf_free_keep_EM();
     // Init early to be sure FPGA is loaded before any EML operation
     // usefull when eml memory is empty (UID supplied)
     Iso15693InitTag(); // to be sure FPGA is loaded before any EML operation
 
-    iso15_tag_t *tag = (iso15_tag_t *) BigBuf_get_EM_addr();
-    if (tag == NULL) {
+    iso15_tag_t *tag = (iso15_tag_t *)get_emulator_address();
+    if (tag == nullptr) {
         Dbprintf("Can't allocate emulator memory");
-        reply_ng(CMD_HF_ISO15693_SIMULATE, PM3_EFAILED, NULL, 0);
+        reply_ng(CMD_HF_ISO15693_SIMULATE, PM3_EMALLOC, NULL, 0);
         return;
     }
 
@@ -2165,8 +2211,8 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
             tag->bytesPerPage = (block_size > 0) ? block_size : 4;
             tag->pagesCount = 64;
             tag->ic = 0;
-            memset(tag->locks, 0, sizeof(tag->locks));
-            memset(tag->data, 0, sizeof(tag->data));
+            palloc_set(tag->locks, 0, sizeof(tag->locks));
+            palloc_set(tag->data, 0, sizeof(tag->data));
         }
     }
 
@@ -2344,7 +2390,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
             // No error: Answer
             recv[0] = ISO15_NOERROR;
             recv[1] = tag->dsfid;
-            memcpy(&recv[2], tag->uid, 8);
+            palloc_copy(&recv[2], tag->uid, 8);
             recvLen = 10;
         } else {
             if ((cmd[0] & ISO15_REQ_SELECT) == ISO15_REQ_SELECT) {
@@ -2381,7 +2427,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     if (g_dbglevel >= DBG_DEBUG) Dbprintf("Inventory cmd");
                     recv[0] = ISO15_NOERROR;
                     recv[1] = tag->dsfid;
-                    memcpy(&recv[2], tag->uid, 8);
+                    palloc_copy(&recv[2], tag->uid, 8);
                     recvLen = 10;
                     break;
                 case ISO15693_STAYQUIET:
@@ -2505,7 +2551,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     if (g_dbglevel >= DBG_DEBUG) Dbprintf("GetSystemInfo cmd");
                     recv[0] = ISO15_NOERROR;
                     recv[1] = 0x0f; // sysinfo contain all info
-                    memcpy(&recv[2], tag->uid, 8);
+                    palloc_copy(&recv[2], tag->uid, 8);
                     recv[10] = tag->dsfid;
                     recv[11] = tag->afi;
                     recv[12] = tag->pagesCount - 1;
@@ -2580,16 +2626,16 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
             AddCrc15(recv, recvLen);
             recvLen += 2;
             CodeIso15693AsTag(recv, recvLen);
-            tosend_t *ts = get_tosend();
+            fpga_queue_t *queue = get_fpga_queue();
             uint32_t response_time = reader_eof_time + DELAY_ISO15693_VCD_TO_VICC_SIM;
 
             if (tag->expectFsk) { // Not suppoted yet
-                if (g_dbglevel >= DBG_DEBUG) Dbprintf("%ERROR: FSK answers are not supported yet");
-                //TransmitTo15693ReaderFSK(ts->buf,ts->max, &response_time, 0, !tag->expectFast);
+                if (g_dbglevel >= DBG_DEBUG) Dbprintf("ERROR: FSK answers are not supported yet");
+                //TransmitTo15693ReaderFSK(queue->buf,queue->max, &response_time, 0, !tag->expectFast);
             } else
-                TransmitTo15693Reader(ts->buf, ts->max, &response_time, 0, !tag->expectFast);
+                TransmitTo15693Reader(queue->data, queue->max, &response_time, 0, !tag->expectFast);
 
-            LogTrace_ISO15693(recv, recvLen, response_time * 32, (response_time * 32) + (ts->max * 32 * 64), NULL, false);
+            log_trace_ISO15639(recv, recvLen, response_time * 32, (response_time * 32) + (queue->max * 32 * 64), NULL, false);
         }
     }
 
@@ -2606,7 +2652,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
 // (some manufactures offer a way to read the AFI, though)
 void BruteforceIso15693Afi(uint32_t flags) {
 
-    clear_trace();
+    release_trace();
 
     Iso15693InitReader();
 
@@ -2851,7 +2897,7 @@ void LockPassSlixIso15693(uint32_t pass_id, uint32_t password) {
 
                     Dbprintf("LockPass: Answer from %02X%02X%02X%02X%02X%02X%02X%02X", recvbuf[9], recvbuf[8], recvbuf[7], recvbuf[6], recvbuf[5], recvbuf[4], recvbuf[3], recvbuf[2]);
 
-                    memcpy(&cmd_lock_pass[3], &recvbuf[2], 8);
+                    palloc_copy(&cmd_lock_pass[3], &recvbuf[2], 8);
 
                     cmd_lock_pass[8+3] = pass_id;
 
@@ -2978,7 +3024,7 @@ void SetTag15693Uid_v2(const uint8_t *uid) {
 
 
 static void init_password_15693_Slix(uint8_t *buffer, const uint8_t *pwd, const uint8_t *rnd) {
-    memcpy(buffer, pwd, 4);
+    palloc_copy(buffer, pwd, 4);
     if (rnd) {
         buffer[0] ^= rnd[0];
         buffer[1] ^= rnd[1];
@@ -3000,7 +3046,7 @@ static bool get_rnd_15693_Slix(uint32_t start_time, uint32_t *eof_time, uint8_t 
     }
 
     if (rnd) {
-        memcpy(rnd, &recvbuf[1], 2);
+        palloc_copy(rnd, &recvbuf[1], 2);
     }
     return true;
 }
@@ -3040,7 +3086,7 @@ static uint32_t set_pass_15693_Slix(uint32_t start_time, uint32_t *eof_time, uin
 
     init_password_15693_Slix(&c[12], password, rnd);
 
-    memcpy(&c[3], uid, 8);
+    palloc_copy(&c[3], uid, 8);
     AddCrc15(c, 16);
 
     start_time = *eof_time + DELAY_ISO15693_VICC_TO_VCD_READER;
@@ -3144,8 +3190,8 @@ static uint32_t write_password_15693_Slix(uint32_t start_time, uint32_t *eof_tim
 
     uint8_t new_pwd_cmd[] = { (ISO15_REQ_DATARATE_HIGH | ISO15_REQ_ADDRESS), ISO15693_WRITE_PASSWORD, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, pwd_id, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-    memcpy(&new_pwd_cmd[3], uid, 8);
-    memcpy(&new_pwd_cmd[12], password, 4);
+    palloc_copy(&new_pwd_cmd[3], uid, 8);
+    palloc_copy(&new_pwd_cmd[12], password, 4);
 
     AddCrc15(new_pwd_cmd, 16);
 
@@ -3220,7 +3266,7 @@ static uint32_t write_afi_15693(uint32_t start_time, uint32_t *eof_time, const u
 
     uint8_t cmd[] = { ISO15_REQ_DATARATE_HIGH | ISO15_REQ_ADDRESS, ISO15693_WRITE_AFI, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-    memcpy(&cmd[2], uid, 8);
+    palloc_copy(&cmd[2], uid, 8);
     cmd[10] = afi;
     AddCrc15(cmd, 11);
 
