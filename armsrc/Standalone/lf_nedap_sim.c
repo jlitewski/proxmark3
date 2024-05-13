@@ -24,7 +24,7 @@
 #include "util.h"
 #include "dbprint.h"
 #include "string.h"
-#include "BigBuf.h"
+#include "palloc.h"
 #include "crc16.h"
 
 #define MODULE_LONG_NAME    "LF Nedap simple simulator"
@@ -100,10 +100,10 @@ static void biphaseSimBitInverted(uint8_t c, int *n, uint8_t *phase) {
     uint8_t *dest = BigBuf_get_addr();
 
     if (c) {
-        memset(dest + (*n), c ^ 1 ^ *phase, 32);
-        memset(dest + (*n) + 32, c ^ *phase, 32);
+        palloc_set(dest + (*n), c ^ 1 ^ *phase, 32);
+        palloc_set(dest + (*n) + 32, c ^ *phase, 32);
     } else {
-        memset(dest + (*n), c ^ *phase, 64);
+        palloc_set(dest + (*n), c ^ *phase, 64);
         *phase ^= 1;
     }
     *n += 64;
@@ -175,7 +175,7 @@ static void NedapGen(uint8_t subType, uint16_t customerCode, uint32_t id, bool i
 
 static uint8_t isEven_64_63(const uint8_t *data) { // 8
     uint32_t tmp[2];
-    memcpy(tmp, data, 8);
+    palloc_copy(tmp, data, 8);
     return (bitcount32(tmp[0]) + (bitcount32(tmp[1] & 0xfeffffff))) & 1;
 }
 

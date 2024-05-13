@@ -23,7 +23,8 @@
 #include "appmain.h"
 #include "lfops.h"
 #include "lfsampling.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "fpgaloader.h"
 #include "util.h"
 #include "dbprint.h"
@@ -199,23 +200,29 @@ static uint32_t PSKDemod(uint8_t *dest, size_t *size, int *startIdx) {
     //int pskRawDemod_ext(uint8_t *dest, size_t *size, int *clock, int *invert, int *startIdx)
     int errCnt = pskRawDemod_ext(dest, size, &clk, &invert, startIdx);
     if (errCnt > 100) {
-        BigBuf_free();
         return PM3_ESOFT;
     }
     return PM3_SUCCESS;
 }
 
 static int demodNexWatch(void) {
-    uint8_t *dest = BigBuf_get_addr();
-    size_t size = MIN(16385, BigBuf_max_traceLen());
+    size_t size = MIN(16385, get_max_trace_length());
+    uint8_t *dest = palloc(1, size);
     int startIdx = 0;
 
+    if(dest == nullptr) {
+        return PM3_EMALLOC;
+    }
+
     if (PSKDemod(dest, &size, &startIdx) != PM3_SUCCESS) {
+        palloc_free(dest);
         return PM3_ESOFT;
     }
+
     bool invert = false;
     int idx = detectNexWatch(dest, &size, &invert);
     if (idx < 0) {
+        palloc_free(dest);
         return PM3_ESOFT;
     }
 
@@ -282,7 +289,7 @@ static int demodNexWatch(void) {
     Dbprintf(" Raw : " _YELLOW_("%08"PRIX32"%08"PRIX32"%08"PRIX32), raw1, raw2, raw3);
 
     uint8_t entry[81];
-    memset(entry, 0, sizeof(entry));
+    palloc_set(entry, 0, sizeof(entry));
 
     sprintf((char *)entry, "Nexwatch ID: %"PRIu32", Magic bytes: 0x%X, Mode: %x\n",
             cn,
@@ -292,7 +299,7 @@ static int demodNexWatch(void) {
     append(entry, strlen((char *)entry));
     Dbprintf("%s", entry);
 
-    BigBuf_free();
+    palloc_free(dest);
     return PM3_SUCCESS;
 }
 
@@ -304,7 +311,6 @@ void RunMod(void) {
 
     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
     LFSetupFPGAForADC(LF_DIVISOR_125, true);
-    BigBuf_Clear();
 
     StandAloneMode();
 
@@ -331,7 +337,7 @@ void RunMod(void) {
         uint32_t res;
 
 
-        size_t size = MIN(16385, BigBuf_max_traceLen());
+        size_t size = MIN(16385, get_max_trace_length());
         DoAcquisition_config(false, size, true);
         res = demodNexWatch();
         if (res == PM3_SUCCESS) {
