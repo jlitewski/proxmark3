@@ -23,7 +23,9 @@
 
 #include "proxmark3_arm.h"
 #include "cmd.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "fpgaloader.h"
 #include "ticks.h"
 #include "dbprint.h"
@@ -38,6 +40,14 @@
 #include "pmflash.h"
 #include "flashmem.h" // persistence on flash
 #include "appmain.h" // print stack
+
+/** TODO: Refactor this file to make it work with Palloc
+ * 
+ ** It seems like BigBuf was abused quite a bit here to make things work, and it's hard to replace
+ ** BigBuf with palloc/tracer/cardemu because of it. These functions have to be looked over closer
+ ** after the rest of the code moves over to palloc/tracer/cardemu and modified to fit the new memory
+ ** management style
+ */
 
 /*
 Notes about EM4xxx timings.
@@ -367,7 +377,9 @@ void loadT55xxConfig(void) {
         return;
     }
 
-    uint8_t *buf = BigBuf_malloc(T55XX_CONFIG_LEN);
+    uint8_t *buf = palloc(1, T55XX_CONFIG_LEN);
+
+    if(buf == nullptr) return;
 
     Flash_CheckBusy(BUSY_TIMEOUT);
     uint16_t isok = Flash_ReadDataCont(T55XX_CONFIG_OFFSET, buf, T55XX_CONFIG_LEN);
@@ -380,18 +392,18 @@ void loadT55xxConfig(void) {
         if (buf[i] == 0x00) cntB--;
     }
     if (!cntA || !cntB) {
-        BigBuf_free();
+        palloc_free(buf);
         return;
     }
 
     if (buf[0] != 0xFF) // if not set for clear
-        memcpy((uint8_t *)&T55xx_Timing, buf, T55XX_CONFIG_LEN);
+        palloc_copy((uint8_t *)&T55xx_Timing, buf, T55XX_CONFIG_LEN);
 
     if (isok == T55XX_CONFIG_LEN) {
         if (g_dbglevel > 1) DbpString("T55XX Config load success");
     }
 
-    BigBuf_free();
+    palloc_free(buf);
 #endif
 }
 
@@ -426,8 +438,6 @@ void ModThenAcquireRawAdcSamples125k(uint32_t delay_off, uint16_t period_0, uint
     StartTicks();
 
     WaitMS(100);
-    // clear read buffer
-    BigBuf_Clear_keep_EM();
 
     // if delay_off = 0 then just bitbang 1 = antenna on 0 = off for respective periods.
     bool bitbang = (delay_off == 0);
@@ -539,8 +549,6 @@ void ReadTItag(bool ledcontrol) {
 #define FREQLO 123200
 #define FREQHI 134200
 
-    signed char *dest = (signed char *)BigBuf_get_addr();
-    uint16_t n = BigBuf_max_traceLen();
     // 128 bit shift register [shift3:shift2:shift1:shift0]
     uint32_t shift3 = 0, shift2 = 0, shift1 = 0, shift0 = 0;
 
@@ -564,6 +572,11 @@ void ReadTItag(bool ledcontrol) {
     AcquireTiType(ledcontrol);
 
     FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
+
+    // Set up the memory to use
+    start_tracing();
+    signed char *dest = (signed char *)get_current_trace();
+    uint16_t n = get_max_trace_length();
 
     for (i = 0; i < n - 1; i++) {
         // count cycles by looking for lo to hi zero crossings
@@ -656,6 +669,7 @@ void ReadTItag(bool ledcontrol) {
             DbpString("Info: CRC is good");
         }
     }
+    stop_tracing();
     StopTicks();
 }
 
@@ -688,11 +702,8 @@ void AcquireTiType(bool ledcontrol) {
     // each sample is 1 bit stuffed into a uint32_t so we need 1250 uint32_t
 #define TIBUFLEN 1250
 
-    // clear buffer
-    uint32_t *buf = (uint32_t *)BigBuf_get_addr();
-
-    //clear buffer now so it does not interfere with timing later
-    BigBuf_Clear_ext(false);
+    // create a storage buffer
+    buffer32u_t buf = palloc_buffer32(TIBUFLEN);
 
     // Set up the synchronous serial port
     AT91C_BASE_PIOA->PIO_PDR = GPIO_SSC_DIN;
@@ -732,9 +743,9 @@ void AcquireTiType(bool ledcontrol) {
     i = 0;
     for (;;) {
         if (AT91C_BASE_SSC->SSC_SR & AT91C_SSC_RXRDY) {
-            buf[i] = AT91C_BASE_SSC->SSC_RHR; // store 32 bit values in buffer
+            buf.data[i] = AT91C_BASE_SSC->SSC_RHR; // store 32 bit values in buffer
             i++;
-            if (i >= TIBUFLEN) break;
+            if (i >= buf.size) break;
         }
         WDT_HIT();
     }
@@ -743,19 +754,24 @@ void AcquireTiType(bool ledcontrol) {
     AT91C_BASE_PIOA->PIO_PDR = GPIO_SSC_DOUT;
     AT91C_BASE_PIOA->PIO_ASR = GPIO_SSC_DIN | GPIO_SSC_DOUT;
 
-    char *dest = (char *)BigBuf_get_addr();
+    release_trace();
+    start_tracing();
+    char *dest = (char *)get_current_trace();
     n = TIBUFLEN * 32;
 
     // unpack buffer
     for (i = TIBUFLEN - 1; i >= 0; i--) {
         for (j = 0; j < 32; j++) {
-            if (buf[i] & (1u << j)) {
+            if (buf.data[i] & (1u << j)) {
                 dest[--n] = 1;
             } else {
                 dest[--n] = -1;
             }
         }
     }
+
+    stop_tracing();
+    palloc_free(buf.data);
 
     // reset SSC
     FpgaSetupSsc(FPGA_MAJOR_MODE_LF_READER);
@@ -846,7 +862,7 @@ void SimulateTagLowFrequencyEx(int period, int gap, bool ledcontrol, int numcycl
     WaitMS(20);
 
     int i = 0, x = 0;
-    uint8_t *buf = BigBuf_get_addr();
+    uint16_t *buf = get_current_trace();
 
     // set frequency,  get values from 'lf config' command
     sample_config *sc = getSamplingConfig();

@@ -32,7 +32,9 @@
 #include <inttypes.h>
 
 #include "iso14443a.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "mifareutil.h"
 #include "fpgaloader.h"
 #include "proxmark3_arm.h"
@@ -223,7 +225,7 @@ static bool MifareSimInit(uint16_t flags, uint8_t *datain, uint16_t atqa, uint8_
     *uid_len = 0;
 
     // By default use 1K tag
-    memcpy(rATQA, rATQA_1k, sizeof(rATQA));
+    palloc_copy(rATQA, rATQA_1k, sizeof(rATQA));
     rSAK[0] = rSAK_1k;
 
     //by default RATS not supported
@@ -237,25 +239,25 @@ static bool MifareSimInit(uint16_t flags, uint8_t *datain, uint16_t atqa, uint8_
     // Get UID, SAK, ATQA from EMUL
     if ((flags & FLAG_UID_IN_EMUL) == FLAG_UID_IN_EMUL) {
         uint8_t block0[16];
-        emlGet(block0, 0, 16);
+        get_emulator_memory(block0, 0, 16);
 
         // If uid size defined, copy only uid from EMUL to use, backward compatibility for 'hf_colin.c', 'hf_mattyrun.c'
         if ((flags & (FLAG_4B_UID_IN_DATA | FLAG_7B_UID_IN_DATA | FLAG_10B_UID_IN_DATA)) != 0) {
-            memcpy(datain, block0, 10);  // load 10bytes from EMUL to the datain pointer. to be used below.
+            palloc_copy(datain, block0, 10);  // load 10bytes from EMUL to the datain pointer. to be used below.
         } else {
             // Check for 4 bytes uid: bcc corrected and single size uid bits in ATQA
             if ((block0[0] ^ block0[1] ^ block0[2] ^ block0[3]) == block0[4] && (block0[6] & 0xc0) == 0) {
                 flags |= FLAG_4B_UID_IN_DATA;
-                memcpy(datain, block0, 4);
+                palloc_copy(datain, block0, 4);
                 rSAK[0] = block0[5];
-                memcpy(rATQA, &block0[6], sizeof(rATQA));
+                palloc_copy(rATQA, &block0[6], sizeof(rATQA));
             }
             // Check for 7 bytes UID: double size uid bits in ATQA
             else if ((block0[8] & 0xc0) == 0x40) {
                 flags |= FLAG_7B_UID_IN_DATA;
-                memcpy(datain, block0, 7);
+                palloc_copy(datain, block0, 7);
                 rSAK[0] = block0[7];
-                memcpy(rATQA, &block0[8], sizeof(rATQA));
+                palloc_copy(rATQA, &block0[8], sizeof(rATQA));
             } else {
                 Dbprintf("ERROR: " _RED_("Invalid dump. UID/SAK/ATQA not found"));
                 return false;
@@ -267,28 +269,28 @@ static bool MifareSimInit(uint16_t flags, uint8_t *datain, uint16_t atqa, uint8_
     // Tune tag type, if defined directly
     // Otherwise use defined by default or extracted from EMUL
     if ((flags & FLAG_MF_MINI) == FLAG_MF_MINI) {
-        memcpy(rATQA, rATQA_Mini, sizeof(rATQA));
+        palloc_copy(rATQA, rATQA_Mini, sizeof(rATQA));
         rSAK[0] = rSAK_Mini;
         if (g_dbglevel > DBG_NONE) Dbprintf("Enforcing Mifare Mini ATQA/SAK");
     } else if ((flags & FLAG_MF_1K) == FLAG_MF_1K) {
-        memcpy(rATQA, rATQA_1k, sizeof(rATQA));
+        palloc_copy(rATQA, rATQA_1k, sizeof(rATQA));
         rSAK[0] = rSAK_1k;
         if (g_dbglevel > DBG_NONE) Dbprintf("Enforcing Mifare 1K ATQA/SAK");
     } else if ((flags & FLAG_MF_2K) == FLAG_MF_2K) {
-        memcpy(rATQA, rATQA_2k, sizeof(rATQA));
+        palloc_copy(rATQA, rATQA_2k, sizeof(rATQA));
         rSAK[0] = rSAK_2k;
         *rats = rRATS;
         *rats_len = sizeof(rRATS);
         if (g_dbglevel > DBG_NONE) Dbprintf("Enforcing Mifare 2K ATQA/SAK with RATS support");
     } else if ((flags & FLAG_MF_4K) == FLAG_MF_4K) {
-        memcpy(rATQA, rATQA_4k, sizeof(rATQA));
+        palloc_copy(rATQA, rATQA_4k, sizeof(rATQA));
         rSAK[0] = rSAK_4k;
         if (g_dbglevel > DBG_NONE) Dbprintf("Enforcing Mifare 4K ATQA/SAK");
     }
 
     // Prepare UID arrays
     if ((flags & FLAG_4B_UID_IN_DATA) == FLAG_4B_UID_IN_DATA) { // get UID from datain
-        memcpy(rUIDBCC1, datain, 4);
+        palloc_copy(rUIDBCC1, datain, 4);
         *uid_len = 4;
         if (g_dbglevel >= DBG_EXTENDED)
             Dbprintf("MifareSimInit - FLAG_4B_UID_IN_DATA => Get UID from datain: %02X - Flag: %02X - UIDBCC1: %02X", FLAG_4B_UID_IN_DATA, flags, rUIDBCC1);
@@ -306,8 +308,8 @@ static bool MifareSimInit(uint16_t flags, uint8_t *datain, uint16_t atqa, uint8_
         rATQA[0] = (rATQA[0] & 0x3f) | 0x00; // single size uid
 
     } else if ((flags & FLAG_7B_UID_IN_DATA) == FLAG_7B_UID_IN_DATA) {
-        memcpy(&rUIDBCC1[1], datain, 3);
-        memcpy(rUIDBCC2, datain + 3, 4);
+        palloc_copy(&rUIDBCC1[1], datain, 3);
+        palloc_copy(rUIDBCC2, datain + 3, 4);
         *uid_len = 7;
         if (g_dbglevel >= DBG_EXTENDED)
             Dbprintf("MifareSimInit - FLAG_7B_UID_IN_DATA => Get UID from datain: %02X - Flag: %02X - UIDBCC1: %02X", FLAG_7B_UID_IN_DATA, flags, rUIDBCC1);
@@ -328,9 +330,9 @@ static bool MifareSimInit(uint16_t flags, uint8_t *datain, uint16_t atqa, uint8_
         rATQA[0] = (rATQA[0] & 0x3f) | 0x40; // double size uid
 
     } else if ((flags & FLAG_10B_UID_IN_DATA) == FLAG_10B_UID_IN_DATA) {
-        memcpy(&rUIDBCC1[1], datain,   3);
-        memcpy(&rUIDBCC2[1], datain + 3, 3);
-        memcpy(rUIDBCC3,    datain + 6, 4);
+        palloc_copy(&rUIDBCC1[1], datain,   3);
+        palloc_copy(&rUIDBCC2[1], datain + 3, 3);
+        palloc_copy(rUIDBCC3,    datain + 6, 4);
         *uid_len = 10;
         if (g_dbglevel >= DBG_EXTENDED)
             Dbprintf("MifareSimInit - FLAG_10B_UID_IN_DATA => Get UID from datain: %02X - Flag: %02X - UIDBCC1: %02X", FLAG_10B_UID_IN_DATA, flags, rUIDBCC1);
@@ -372,21 +374,21 @@ static bool MifareSimInit(uint16_t flags, uint8_t *datain, uint16_t atqa, uint8_
     }
 
     // clone UIDs for byte-frame anti-collision multiple tag selection procedure
-    memcpy(rUIDBCC1b4, &rUIDBCC1[1], 4);
-    memcpy(rUIDBCC1b3, &rUIDBCC1[2], 3);
-    memcpy(rUIDBCC1b2, &rUIDBCC1[3], 2);
-    memcpy(rUIDBCC1b1, &rUIDBCC1[4], 1);
+    palloc_copy(rUIDBCC1b4, &rUIDBCC1[1], 4);
+    palloc_copy(rUIDBCC1b3, &rUIDBCC1[2], 3);
+    palloc_copy(rUIDBCC1b2, &rUIDBCC1[3], 2);
+    palloc_copy(rUIDBCC1b1, &rUIDBCC1[4], 1);
     if (*uid_len >= 7) {
-        memcpy(rUIDBCC2b4, &rUIDBCC2[1], 4);
-        memcpy(rUIDBCC2b3, &rUIDBCC2[2], 3);
-        memcpy(rUIDBCC2b2, &rUIDBCC2[3], 2);
-        memcpy(rUIDBCC2b1, &rUIDBCC2[4], 1);
+        palloc_copy(rUIDBCC2b4, &rUIDBCC2[1], 4);
+        palloc_copy(rUIDBCC2b3, &rUIDBCC2[2], 3);
+        palloc_copy(rUIDBCC2b2, &rUIDBCC2[3], 2);
+        palloc_copy(rUIDBCC2b1, &rUIDBCC2[4], 1);
     }
     if (*uid_len == 10) {
-        memcpy(rUIDBCC3b4, &rUIDBCC3[1], 4);
-        memcpy(rUIDBCC3b3, &rUIDBCC3[2], 3);
-        memcpy(rUIDBCC3b2, &rUIDBCC3[3], 2);
-        memcpy(rUIDBCC3b1, &rUIDBCC3[4], 1);
+        palloc_copy(rUIDBCC3b4, &rUIDBCC3[1], 4);
+        palloc_copy(rUIDBCC3b3, &rUIDBCC3[2], 3);
+        palloc_copy(rUIDBCC3b2, &rUIDBCC3[3], 2);
+        palloc_copy(rUIDBCC3b1, &rUIDBCC3[4], 1);
     }
 
     // Calculate actual CRC
@@ -424,7 +426,13 @@ static bool MifareSimInit(uint16_t flags, uint8_t *datain, uint16_t atqa, uint8_
     // 53 * 8 data bits, 53 * 1 parity bits, 18 start bits, 18 stop bits, 18 correction bits  ->   need 571 bytes buffer
 #define ALLOCATED_TAG_MODULATION_BUFFER_SIZE 571
 
-    uint8_t *free_buffer = BigBuf_malloc(ALLOCATED_TAG_MODULATION_BUFFER_SIZE);
+    uint8_t *free_buffer = palloc(1, ALLOCATED_TAG_MODULATION_BUFFER_SIZE);
+
+    if(free_buffer == nullptr) {
+        Dbprintf("Unable to allocate memory, exiting...");
+        return false;
+    }
+
     // modulation buffer pointer and current buffer free space size
     uint8_t *free_buffer_pointer = free_buffer;
     size_t free_buffer_size = ALLOCATED_TAG_MODULATION_BUFFER_SIZE;
@@ -432,6 +440,7 @@ static bool MifareSimInit(uint16_t flags, uint8_t *datain, uint16_t atqa, uint8_
     for (size_t i = 0; i < TAG_RESPONSE_COUNT; i++) {
         if (prepare_allocated_tag_modulation(&responses_init[i], &free_buffer_pointer, &free_buffer_size) == false) {
             Dbprintf("Not enough modulation buffer size, exit after %d elements", i);
+            palloc_free(free_buffer);
             return false;
         }
     }
@@ -445,6 +454,8 @@ static bool MifareSimInit(uint16_t flags, uint8_t *datain, uint16_t atqa, uint8_
 #define UIDBCC1  3
 #define UIDBCC2  8
 #define UIDBCC3  13
+
+    palloc_free(free_buffer);
 
     return true;
 }
@@ -483,13 +494,13 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
     pcs = &mpcs;
 
     uint32_t numReads = 0; //Counts numer of times reader reads a block
-    uint8_t receivedCmd[MAX_MIFARE_FRAME_SIZE] = {0x00};
-    uint8_t receivedCmd_dec[MAX_MIFARE_FRAME_SIZE] = {0x00};
-    uint8_t receivedCmd_par[MAX_MIFARE_PARITY_SIZE] = {0x00};
+    uint8_t receivedCmd[MAX_FRAME_SIZE] = {0x00};
+    uint8_t receivedCmd_dec[MAX_FRAME_SIZE] = {0x00};
+    uint8_t receivedCmd_par[MAX_PARITY_SIZE] = {0x00};
     uint16_t receivedCmd_len;
 
-    uint8_t response[MAX_MIFARE_FRAME_SIZE] = {0x00};
-    uint8_t response_par[MAX_MIFARE_PARITY_SIZE] = {0x00};
+    uint8_t response[MAX_FRAME_SIZE] = {0x00};
+    uint8_t response_par[MAX_PARITY_SIZE] = {0x00};
 
     uint8_t *rats = NULL;
     uint8_t rats_len = 0;
@@ -507,10 +518,10 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
     //allow collecting up to 7 sets of nonces to allow recovery of up to 7 keys
 #define ATTACK_KEY_COUNT 7 // keep same as define in cmdhfmf.c -> readerAttack() (Cannot be more than 7)
     nonces_t ar_nr_resp[ATTACK_KEY_COUNT * 2]; // *2 for 2 separate attack types (nml, moebius) 36 * 7 * 2 bytes = 504 bytes
-    memset(ar_nr_resp, 0x00, sizeof(ar_nr_resp));
+    palloc_set(ar_nr_resp, 0x00, sizeof(ar_nr_resp));
 
     uint8_t ar_nr_collected[ATTACK_KEY_COUNT * 2]; // *2 for 2nd attack type (moebius)
-    memset(ar_nr_collected, 0x00, sizeof(ar_nr_collected));
+    palloc_set(ar_nr_collected, 0x00, sizeof(ar_nr_collected));
     uint8_t nonce1_count = 0;
     uint8_t nonce2_count = 0;
     uint8_t moebius_n_count = 0;
@@ -524,11 +535,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
 
     const uart_14a_t *uart = GetUart14a();
 
-    // free eventually allocated BigBuf memory but keep Emulator Memory
-    BigBuf_free_keep_EM();
-
     if (MifareSimInit(flags, datain, atqa, sak, &responses, &cuid, &uid_len, &rats, &rats_len) == false) {
-        BigBuf_free_keep_EM();
         return;
     }
 
@@ -536,12 +543,12 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
     iso14443a_setup(FPGA_HF_ISO14443A_TAGSIM_LISTEN);
 
     // clear trace
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
     LED_D_ON();
     ResetSspClk();
 
-    uint8_t *p_em = BigBuf_get_EM_addr();
+    uint16_t *p_em = get_emulator_address();
     uint8_t cve_flipper = 0;
 
     int counter = 0;
@@ -640,7 +647,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                 break;
             }
             case MFEMUL_IDLE: {
-                LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                 if (g_dbglevel >= DBG_EXTENDED)
                     Dbprintf("MFEMUL_IDLE");
                 break;
@@ -674,7 +681,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                     }
                 }
                 if (uid_index < 0) {
-                    LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                    log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                     cardSTATE_TO_IDLE();
                     if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_SELECT] Incorrect cascade level received");
                     break;
@@ -706,7 +713,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                         }
                     } else {
                         // IDLE, not our UID
-                        LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                        log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                         cardSTATE_TO_IDLE();
                         if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_SELECT] cardSTATE = MFEMUL_IDLE");
                     }
@@ -725,7 +732,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                         if (g_dbglevel >= DBG_EXTENDED) Dbprintf("SELECT ANTICOLLISION - EmSendPrecompiledCmd(%02x)", &responses[uid_index]);
                     } else {
                         // IDLE, not our UID or split-byte frame anti-collision (not supports)
-                        LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                        log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                         cardSTATE_TO_IDLE();
                         if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_SELECT] cardSTATE = MFEMUL_IDLE");
                     }
@@ -733,7 +740,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                 }
 
                 // Unknown selection procedure
-                LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                 cardSTATE_TO_IDLE();
                 if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_SELECT] Unknown selection procedure");
                 break;
@@ -758,7 +765,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                     if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_WORK] Decrypt sequence");
                 } else {
                     // Data in clear
-                    memcpy(receivedCmd_dec, receivedCmd, receivedCmd_len);
+                    palloc_copy(receivedCmd_dec, receivedCmd, receivedCmd_len);
                 }
 
                 // all commands must have a valid CRC
@@ -964,26 +971,26 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                     if (IsSectorTrailer(blockNo)) {
 
                         if (IsAccessAllowed(blockNo, cardAUTHKEY, AC_KEYA_READ) == false) {
-                            memset(response, 0x00, 6); // keyA can never be read
+                            palloc_set(response, 0x00, 6); // keyA can never be read
                             if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_WORK - IsSectorTrailer] keyA can never be read - block %d (0x%02x)", blockNo, blockNo);
                         }
                         if (IsAccessAllowed(blockNo, cardAUTHKEY, AC_KEYB_READ) == false) {
-                            memset(response + 10, 0x00, 6); // keyB cannot be read
+                            palloc_set(response + 10, 0x00, 6); // keyB cannot be read
                             if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_WORK - IsSectorTrailer] keyB cannot be read - block %d (0x%02x)", blockNo, blockNo);
                         }
                         if (IsAccessAllowed(blockNo, cardAUTHKEY, AC_AC_READ) == false) {
-                            memset(response + 6, 0x00, 4); // AC bits cannot be read
+                            palloc_set(response + 6, 0x00, 4); // AC bits cannot be read
                             if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_WORK - IsAccessAllowed] AC bits cannot be read - block %d (0x%02x)", blockNo, blockNo);
                         }
                     } else {
                         if (IsAccessAllowed(blockNo, cardAUTHKEY, AC_DATA_READ) == false) {
-                            memset(response, 0x00, 16); // datablock cannot be read
+                            palloc_set(response, 0x00, 16); // datablock cannot be read
                             if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_WORK - IsAccessAllowed] Data block %d (0x%02x) cannot be read", blockNo, blockNo);
                         }
                     }
                     AddCrc14A(response, 16);
-                    mf_crypto1_encrypt(pcs, response, MAX_MIFARE_FRAME_SIZE, response_par);
-                    EmSendCmdPar(response, MAX_MIFARE_FRAME_SIZE, response_par);
+                    mf_crypto1_encrypt(pcs, response, MAX_FRAME_SIZE, response_par);
+                    EmSendCmdPar(response, MAX_FRAME_SIZE, response_par);
                     FpgaDisableTracing();
 
                     if (g_dbglevel >= DBG_EXTENDED) {
@@ -1063,7 +1070,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
 
                 // case MFEMUL_WORK => CMD HALT
                 if (receivedCmd_len > 1 && receivedCmd_dec[0] == ISO14443A_CMD_HALT && receivedCmd_dec[1] == 0x00) {
-                    LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                    log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                     LED_B_OFF();
                     LED_C_OFF();
                     cardSTATE = MFEMUL_HALTED;
@@ -1078,7 +1085,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                 if (receivedCmd_len == 4 && receivedCmd_dec[0] == ISO14443A_CMD_RATS && receivedCmd_dec[1] == 0x80) {
                     if (rats && rats_len) {
                         if (encrypted_data) {
-                            memcpy(response, rats, rats_len);
+                            palloc_copy(response, rats, rats_len);
                             mf_crypto1_encrypt(pcs, response, rats_len, response_par);
                             EmSendCmdPar(response, rats_len, response_par);
                         } else {
@@ -1102,7 +1109,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                     if (rats && rats_len) {
                         // response back NXP_DESELECT
                         if (encrypted_data) {
-                            memcpy(response, receivedCmd_dec, receivedCmd_len);
+                            palloc_copy(response, receivedCmd_dec, receivedCmd_len);
                             mf_crypto1_encrypt(pcs, response, receivedCmd_len, response_par);
                             EmSendCmdPar(response, receivedCmd_len, response_par);
                         } else
@@ -1136,7 +1143,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
 
                 if (receivedCmd_len != 8) {
                     cardSTATE_TO_IDLE();
-                    LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                    log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                     if (g_dbglevel >= DBG_EXTENDED)
                         Dbprintf("MFEMUL_AUTH1: receivedCmd_len != 8 (%d) => cardSTATE_TO_IDLE())", receivedCmd_len);
                     break;
@@ -1231,7 +1238,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                     cardAUTHKEY = AUTHKEYNONE; // not authenticated
                     cardSTATE_TO_IDLE();
                     // Really tags not respond NACK on invalid authentication
-                    LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                    log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                     break;
                 }
 
@@ -1256,23 +1263,23 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
 
             // WRITE BL2
             case MFEMUL_WRITEBL2: {
-                if (receivedCmd_len == MAX_MIFARE_FRAME_SIZE) {
+                if (receivedCmd_len == MAX_FRAME_SIZE) {
                     mf_crypto1_decryptEx(pcs, receivedCmd, receivedCmd_len, receivedCmd_dec);
                     if (CheckCrc14A(receivedCmd_dec, receivedCmd_len)) {
                         if (IsSectorTrailer(cardWRBL)) {
                             emlGetMem(response, cardWRBL, 1);
                             if (!IsAccessAllowed(cardWRBL, cardAUTHKEY, AC_KEYA_WRITE)) {
-                                memcpy(receivedCmd_dec, response, 6); // don't change KeyA
+                                palloc_copy(receivedCmd_dec, response, 6); // don't change KeyA
                             }
                             if (!IsAccessAllowed(cardWRBL, cardAUTHKEY, AC_KEYB_WRITE)) {
-                                memcpy(receivedCmd_dec + 10, response + 10, 6); // don't change KeyA
+                                palloc_copy(receivedCmd_dec + 10, response + 10, 6); // don't change KeyA
                             }
                             if (!IsAccessAllowed(cardWRBL, cardAUTHKEY, AC_AC_WRITE)) {
-                                memcpy(receivedCmd_dec + 6, response + 6, 4); // don't change AC bits
+                                palloc_copy(receivedCmd_dec + 6, response + 6, 4); // don't change AC bits
                             }
                         } else {
                             if (!IsAccessAllowed(cardWRBL, cardAUTHKEY, AC_DATA_WRITE)) {
-                                memcpy(receivedCmd_dec, response, 16); // don't change anything
+                                palloc_copy(receivedCmd_dec, response, 16); // don't change anything
                             }
                         }
                         emlSetMem_xt(receivedCmd_dec, cardWRBL, 1, 16);
@@ -1286,7 +1293,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                 }
                 cardSTATE_TO_IDLE();
                 if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_WRITEBL2] cardSTATE = MFEMUL_IDLE");
-                LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                 break;
             }
 
@@ -1301,7 +1308,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                         cardSTATE_TO_IDLE();
                         break;
                     }
-                    LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                    log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                     cardINTREG = cardINTREG + ans;
 
                     cardSTATE = MFEMUL_WORK;
@@ -1323,7 +1330,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                         break;
                     }
                 }
-                LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                 cardINTREG = cardINTREG - ans;
                 cardSTATE = MFEMUL_WORK;
                 if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_INTREG_DEC] cardSTATE = MFEMUL_WORK");
@@ -1340,7 +1347,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                     cardSTATE_TO_IDLE();
                     break;
                 }
-                LogTrace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
+                log_trace(uart->output, uart->len, uart->startTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->endTime * 16 - DELAY_AIR2ARM_AS_TAG, uart->parity, true);
                 cardSTATE = MFEMUL_WORK;
                 if (g_dbglevel >= DBG_EXTENDED) Dbprintf("[MFEMUL_INTREG_REST] cardSTATE = MFEMUL_WORK");
                 break;
@@ -1395,7 +1402,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
     }
 
     if (g_dbglevel >= DBG_ERROR) {
-        Dbprintf("Emulator stopped. Tracing: %d  trace length: %d ", get_tracing(), BigBuf_get_traceLen());
+        Dbprintf("Emulator stopped. Tracing: %d  trace length: %d ", is_tracing(), get_trace_length());
     }
 
     if ((flags & FLAG_INTERACTIVE) == FLAG_INTERACTIVE) {  // Interactive mode flag, means we need to send ACK
@@ -1405,6 +1412,5 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
 
     FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
     LEDsoff();
-    set_tracing(false);
-    BigBuf_free_keep_EM();
+    stop_tracing();
 }

@@ -25,7 +25,9 @@
 #include "standalone.h" // standalone definitions
 #include "proxmark3_arm.h"
 #include "appmain.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "fpgaloader.h"
 #include "util.h"
 #include "ticks.h"
@@ -33,7 +35,7 @@
 #include "spiffs.h"
 #include "iclass.h"
 #include "iso15693.h"
-#include "optimized_cipher.h"
+#include "../common/loclass/cipher.h"
 #include "pm3_cmd.h"
 #include "protocols.h"
 
@@ -209,7 +211,7 @@ static int fullsim_mode(void) {
     rdv40_spiffs_lazy_mount();
 
     SpinOff(0);
-    uint8_t *emul = BigBuf_get_EM_addr();
+    uint8_t *emul = (uint8_t*)get_emulator_address();
     uint32_t fsize = size_in_spiffs(HF_ICLASS_FULLSIM_ORIG_BIN);
     int res = rdv40_spiffs_read_as_filetype(HF_ICLASS_FULLSIM_ORIG_BIN, emul, fsize, RDV40_SPIFFS_SAFETY_SAFE);
     rdv40_spiffs_lazy_unmount();
@@ -235,10 +237,13 @@ static int fullsim_mode(void) {
 }
 
 static int reader_attack_mode(void) {
-
-    BigBuf_free();
     uint16_t mac_response_len = 0;
-    uint8_t *mac_responses = BigBuf_malloc(MAC_RESPONSES_SIZE);
+    uint8_t *mac_responses = palloc(1, MAC_RESPONSES_SIZE);
+
+    if(mac_responses == nullptr) {
+        Dbprintf("Unable to allocate memory, aborting...");
+        return PM3_EMALLOC;
+    }
 
     iclass_simulate(ICLASS_SIM_MODE_READER_ATTACK, NUM_CSNS, false, csns, mac_responses, &mac_response_len);
 
@@ -250,9 +255,10 @@ static int reader_attack_mode(void) {
 
         size_t dumplen = NUM_CSNS * 24;
 
-        uint8_t *dump = BigBuf_malloc(dumplen);
+        uint8_t *dump = palloc(1, dumplen);
         if (dump == false) {
             Dbprintf("failed to allocate memory");
+            palloc_free(mac_responses);
             return PM3_EMALLOC;
         }
 
@@ -288,8 +294,12 @@ static int reader_attack_mode(void) {
         } else {
             Dbprintf(_RED_("error") " writing %s to flash ( %d )", fn, res);
         }
+
+        palloc_free(dump);
     }
-    BigBuf_free();
+
+    palloc_free(mac_responses);
+
     DbpString("-=[ exiting " _CYAN_("`reader attack`") " mode ]=-");
     return PM3_SUCCESS;
 }
@@ -299,12 +309,15 @@ static int reader_dump_mode(void) {
     DbpString("this mode has no tracelog");
     if (have_aa2())
         DbpString("dumping of " _YELLOW_("AA2 enabled"));
+    
+    uint8_t *card_data = palloc(1, ICLASS_16KS_SIZE);
+
+    if(card_data == nullptr) {
+        Dbprintf("Unable to allocate data, aborting...");
+        return PM3_EMALLOC;
+    }
 
     for (;;) {
-
-        BigBuf_free();
-
-        uint8_t *card_data = BigBuf_malloc(ICLASS_16KS_SIZE);
         memset(card_data, 0xFF, ICLASS_16KS_SIZE);
 
         if (BUTTON_PRESS()) {
@@ -324,8 +337,7 @@ static int reader_dump_mode(void) {
         memcpy(auth.key, legacy_aa1_key, sizeof(auth.key));
 
         Iso15693InitReader();
-        set_tracing(false);
-
+        stop_tracing();
 
         picopass_hdr_t *hdr = (picopass_hdr_t *)card_data;
 
@@ -427,6 +439,9 @@ static int reader_dump_mode(void) {
         save_to_flash(card_data, (start_block + dumped) * 8, NULL);
         Dbprintf("%u bytes saved", (start_block + dumped) * 8);
     }
+
+    palloc_free(card_data);
+
     DbpString("-=[ exiting " _CYAN_("`read & dump`") " mode ]=-");
     return PM3_SUCCESS;
 }
@@ -436,12 +451,15 @@ static int dump_sim_mode(void) {
     DbpString("this mode has no tracelog");
     if (have_aa2())
         DbpString("dumping of " _YELLOW_("AA2 enabled"));
+    
+    uint8_t *card_data = palloc(1, ICLASS_16KS_SIZE);
+
+    if(card_data == nullptr) {
+        Dbprintf("Unable to allocate data, aborting...");
+        return PM3_EMALLOC;
+    }
 
     for (;;) {
-
-        BigBuf_free();
-
-        uint8_t *card_data = BigBuf_malloc(ICLASS_16KS_SIZE);
         memset(card_data, 0xFF, ICLASS_16KS_SIZE);
 
         if (BUTTON_PRESS()) {
@@ -461,8 +479,7 @@ static int dump_sim_mode(void) {
         memcpy(auth.key, legacy_aa1_key, sizeof(auth.key));
 
         Iso15693InitReader();
-        set_tracing(false);
-
+        stop_tracing();
 
         picopass_hdr_t *hdr = (picopass_hdr_t *)card_data;
 
@@ -573,7 +590,7 @@ static int dump_sim_mode(void) {
     rdv40_spiffs_lazy_mount();
 
     SpinOff(0);
-    uint8_t *emul = BigBuf_get_EM_addr();
+    uint8_t *emul = (uint8_t*)get_emulator_address();
     uint32_t fsize = size_in_spiffs(HF_ICALSSS_READSIM_TEMP_BIN);
     int res = rdv40_spiffs_read_as_filetype(HF_ICALSSS_READSIM_TEMP_BIN, emul, fsize, RDV40_SPIFFS_SAFETY_SAFE);
     rdv40_spiffs_lazy_unmount();
@@ -595,13 +612,15 @@ static int dump_sim_mode(void) {
         Dbprintf(_RED_("error") " writing "HF_ICALSSS_READSIM_TEMP_MOD_BIN" to flash ( %d )", res);
     }
 
+    palloc_free(card_data);
+
     DbpString("-=[ exiting " _CYAN_("`dump & sim`") " mode ]=-");
     return PM3_SUCCESS;
 }
 
 static int config_sim_mode(void) {
 
-    uint8_t *emul = BigBuf_get_EM_addr();
+    uint8_t *emul = (uint8_t*)get_emulator_address();
 
     for (uint8_t i = 0; i < 2; i++) {
         SpinOff(0);
@@ -627,17 +646,15 @@ void ModInfo(void) {
 void RunMod(void) {
 
     uint8_t mode = ICE_USE;
-    uint8_t *bb = BigBuf_get_EM_addr();
+    uint8_t *bb = (uint8_t*)get_emulator_address();
     if (bb[0] > 0 && bb[0] < HF_ICLASS_NUM_MODES) {
         mode = bb[0];
     }
 
     FpgaDownloadAndGo(FPGA_BITSTREAM_HF_15);
-    BigBuf_Clear_ext(false);
 
     StandAloneMode();
     Dbprintf(_YELLOW_("HF iCLASS mode a.k.a iceCLASS started"));
-
 
     for (;;) {
 

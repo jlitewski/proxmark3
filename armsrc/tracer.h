@@ -44,7 +44,7 @@ bool is_tracing(void);
 uint16_t get_max_trace_length(void);
 uint16_t get_trace_length(void);
 uint16_t get_trace_space_left(void);
-uint16_t *get_current_trace(void);
+memptr_t *get_current_trace(void);
 bool has_trace_data(void);
 void release_trace(void);
 

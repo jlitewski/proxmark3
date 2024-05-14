@@ -19,7 +19,8 @@
 
 #include "standalone.h"
 #include "proxmark3_arm.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "cardemu.h"
 #include "appmain.h"
 #include "fpgaloader.h"
 #include "util.h"
@@ -67,9 +68,9 @@ static void save_dump_to_file(legic_card_select_t *p_card) {
 #ifdef WITH_FLASH
 
     // legic functions puts it memory in Emulator reserved memory.
-    uint8_t *mem = BigBuf_get_EM_addr();
+    uint8_t *mem = get_emulator_address();
 
-    char *preferredName = (char *)BigBuf_malloc(30);
+    char *preferredName = (char *)palloc(1, 30);
     if (preferredName == NULL) {
         goto OUT;
     }
@@ -77,7 +78,7 @@ static void save_dump_to_file(legic_card_select_t *p_card) {
     sprintf(preferredName, "hf-legic-%02X%02X%02X%02X-dump", p_card->uid[0], p_card->uid[1], p_card->uid[2], p_card->uid[3]);
     uint16_t preferredNameLen = strlen(preferredName);
 
-    char *filename = (char *)BigBuf_malloc(preferredNameLen + 4 + 1 + 10);
+    char *filename = (char *)palloc(1, preferredNameLen + 4 + 1 + 10);
     if (filename == NULL) {
         goto OUT;
     }
@@ -93,7 +94,8 @@ static void save_dump_to_file(legic_card_select_t *p_card) {
 
     Dbprintf("[=] saved card dump to flashmem::" _YELLOW_("%s"), filename);
 OUT:
-    BigBuf_free_keep_EM();
+    palloc_free(mem);
+    palloc_free(filename);
 #endif
 
 }

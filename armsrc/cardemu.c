@@ -22,7 +22,7 @@
 #include "dbprint.h"
 
 static bool is_emulating = false;
-static uint16_t *emu_addr = nullptr;
+static memptr_t *emu_addr = nullptr;
 
 void start_emulation(void) {
     // TODO Flesh out an actual emulator
@@ -42,9 +42,9 @@ bool has_emulator_data(void) {
     return (emu_addr != nullptr);
 }
 
-uint16_t *get_emulator_address(void) {
+memptr_t *get_emulator_address(void) {
     if(emu_addr == nullptr) {
-        emu_addr = (uint16_t*)palloc(1, CARD_MEMORY_SIZE);
+        emu_addr = (memptr_t*)palloc(1, CARD_MEMORY_SIZE);
     }
 
     return emu_addr;
@@ -69,7 +69,7 @@ void release_emuator(void) {
 
 int set_emulator_memory(const uint8_t *data, uint16_t offset, uint16_t len) {
     if(emu_addr == nullptr) {
-        emu_addr = (uint16_t*)palloc(1, CARD_MEMORY_SIZE);
+        emu_addr = (memptr_t*)palloc(1, CARD_MEMORY_SIZE);
         if(emu_addr == nullptr) return PM3_EMALLOC;
     }
 

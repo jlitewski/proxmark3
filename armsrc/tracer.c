@@ -29,7 +29,7 @@
 static uint16_t trace_len = 0;       // How long our current trace is
 static uint16_t free_space = 0;      // The amount of free space, in bytes
 static bool tracing = false;         // Flag for if we are currently tracing or not
-static uint16_t *blk_addr = nullptr; // The address to the space we have from palloc
+static memptr_t *blk_addr = nullptr; // The address to the space we have from palloc
 
 /**
  * @brief Sets up the proxmark to begin tracing RFID waveforms.
@@ -111,7 +111,7 @@ uint16_t get_trace_space_left(void) {
  * 
  * @return The pointer in memory of the trace data (`uint16_t*`) or `nullptr` if none has been set up
  */
-uint16_t *get_current_trace(void) {
+memptr_t *get_current_trace(void) {
     return blk_addr;
 }
 

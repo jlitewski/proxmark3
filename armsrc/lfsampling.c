@@ -19,7 +19,8 @@
 #include "lfsampling.h"
 
 #include "proxmark3_arm.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "fpgaloader.h"
 #include "ticks.h"
 #include "dbprint.h"
@@ -137,7 +138,6 @@ void initSampleBufferEx(uint32_t *sample_size, bool use_malloc) {
         Dbprintf("initSampleBufferEx, param NULL");
         return;
     }
-    BigBuf_free_keep_EM();
 
     // We can't erase the buffer now, it would drastically delay the acquisition
     if (use_malloc) {

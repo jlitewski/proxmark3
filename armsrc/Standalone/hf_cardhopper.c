@@ -17,7 +17,8 @@
 #include <string.h>
 
 #include "appmain.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "dbprint.h"
 #include "fpgaloader.h"
 #include "iso14443a.h"
@@ -88,8 +89,8 @@ void RunMod(void) {
     DbpString(_CYAN_("[@]") " CardHopper has started - waiting for mode");
     FpgaDownloadAndGo(FPGA_BITSTREAM_HF);
 
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
 
     // Indicate we are alive and in CardHopper
     LEDsoff();

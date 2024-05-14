@@ -17,7 +17,8 @@
 
 #include "common.h"
 #include "proxmark3_arm.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "mifareutil.h"
 #include "desfire_crypto.h"
 #include "cmd.h"
@@ -57,7 +58,7 @@ bool InitDesfireCard(void) {
     iso14a_card_select_t card;
 
     iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
-    set_tracing(true);
+    start_tracing();
 
     if (!iso14443a_select_card(NULL, &card, NULL, true, 0, false)) {
         if (g_dbglevel >= DBG_ERROR) DbpString("Can't select card");
@@ -81,7 +82,7 @@ void MifareSendCommand(uint8_t *datain) {
     struct p *payload = (struct p *) datain;
 
     uint8_t resp[RECEIVE_SIZE];
-    memset(resp, 0, sizeof(resp));
+    palloc_set(resp, 0, sizeof(resp));
 
     if (g_dbglevel >= DBG_EXTENDED) {
         Dbprintf(" flags : %02X", payload->flags);
@@ -90,7 +91,7 @@ void MifareSendCommand(uint8_t *datain) {
     }
 
     if (payload->flags & CLEARTRACE)
-        clear_trace();
+        release_trace();
 
     if (payload->flags & INIT) {
         if (!InitDesfireCard()) {
@@ -116,7 +117,7 @@ void MifareSendCommand(uint8_t *datain) {
 
     cmdres_t rpayload;
     rpayload.len = len;
-    memcpy(rpayload.data, resp, rpayload.len);
+    palloc_copy(rpayload.data, resp, rpayload.len);
     reply_ng(CMD_HF_DESFIRE_COMMAND, PM3_SUCCESS, (uint8_t *)&rpayload, sizeof(rpayload));
     LED_B_OFF();
 }
@@ -138,7 +139,7 @@ void MifareDesfireGetInformation(void) {
         uint8_t details[14];
     } PACKED payload;
 
-    memset(&payload, 0x00, sizeof(payload));
+    palloc_set(&payload, 0x00, sizeof(payload));
     /*
         1 = PCB                 1
         2 = cid                 2
@@ -148,8 +149,8 @@ void MifareDesfireGetInformation(void) {
         PCB == 0x0A because sending CID byte.
         CID == 0x00 first card?
     */
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
     iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
 
     // reset the pcb_blocknum,
@@ -167,7 +168,7 @@ void MifareDesfireGetInformation(void) {
     }
 
     // add uid.
-    memcpy(payload.uid, card.uid, card.uidlen);
+    palloc_copy(payload.uid, card.uid, card.uidlen);
     payload.uidlen = card.uidlen;
 
     LED_A_ON();
@@ -194,7 +195,7 @@ void MifareDesfireGetInformation(void) {
         return;
     }
 
-    memcpy(payload.versionHW, resp + 1, sizeof(payload.versionHW));
+    palloc_copy(payload.versionHW, resp + 1, sizeof(payload.versionHW));
 
     // ADDITION_FRAME 1
     cmd[1] = MFDES_ADDITIONAL_FRAME;
@@ -217,7 +218,7 @@ void MifareDesfireGetInformation(void) {
         return;
     }
 
-    memcpy(payload.versionSW, resp + 1,  sizeof(payload.versionSW));
+    palloc_copy(payload.versionSW, resp + 1,  sizeof(payload.versionSW));
 
     // ADDITION_FRAME 2
     len =  DesfireAPDU(cmd, cmd_len, resp);
@@ -239,7 +240,7 @@ void MifareDesfireGetInformation(void) {
         return;
     }
 
-    memcpy(payload.details, resp + 1,  sizeof(payload.details));
+    palloc_copy(payload.details, resp + 1,  sizeof(payload.details));
 
     reply_ng(CMD_HF_DESFIRE_INFO, PM3_SUCCESS, (uint8_t *)&payload, sizeof(payload));
 
@@ -315,14 +316,14 @@ void MifareDES_Auth1(uint8_t *datain) {
 
     if (payload->keylen == 0) {
         if (payload->algo == MFDES_AUTH_DES)  {
-            memcpy(keybytes, PICC_MASTER_KEY8, 8);
+            palloc_copy(keybytes, PICC_MASTER_KEY8, 8);
         } else if (payload->algo == MFDES_ALGO_AES || payload->algo == MFDES_ALGO_3DES) {
-            memcpy(keybytes, PICC_MASTER_KEY16, 16);
+            palloc_copy(keybytes, PICC_MASTER_KEY16, 16);
         } else if (payload->algo == MFDES_ALGO_3K3DES) {
-            memcpy(keybytes, PICC_MASTER_KEY24, 24);
+            palloc_copy(keybytes, PICC_MASTER_KEY24, 24);
         }
     } else {
-        memcpy(keybytes, payload->key, payload->keylen);
+        palloc_copy(keybytes, payload->key, payload->keylen);
     }
 
 
@@ -400,9 +401,9 @@ void MifareDES_Auth1(uint8_t *datain) {
 
     // Part 2
     if (payload->mode != MFDES_AUTH_PICC) {
-        memcpy(encRndB, resp + 1, rndlen);
+        palloc_copy(encRndB, resp + 1, rndlen);
     } else {
-        memcpy(encRndB, resp + 2, rndlen);
+        palloc_copy(encRndB, resp + 2, rndlen);
     }
 
     // Part 3
@@ -423,7 +424,7 @@ void MifareDES_Auth1(uint8_t *datain) {
         tdes_nxp_receive(encRndB, RndB, rndlen, key->data, IV, 3);
 
     // - Rotate RndB by 8 bits
-    memcpy(rotRndB, RndB, rndlen);
+    palloc_copy(rotRndB, RndB, rndlen);
     rol(rotRndB, rndlen);
 
     uint8_t encRndA[16] = {0x00};
@@ -431,30 +432,30 @@ void MifareDES_Auth1(uint8_t *datain) {
     // - Encrypt our response
     if (payload->mode == MFDES_AUTH_DES || payload->mode == MFDES_AUTH_PICC) {
         des_decrypt(encRndA, RndA, key->data);
-        memcpy(both, encRndA, rndlen);
+        palloc_copy(both, encRndA, rndlen);
 
         for (int x = 0; x < rndlen; x++) {
             rotRndB[x] = rotRndB[x] ^ encRndA[x];
         }
 
         des_decrypt(encRndB, rotRndB, key->data);
-        memcpy(both + 8, encRndB, rndlen);
+        palloc_copy(both + 8, encRndB, rndlen);
     } else if (payload->mode == MFDES_AUTH_ISO) {
         if (payload->algo == MFDES_ALGO_3DES) {
             uint8_t tmp[16] = {0x00};
-            memcpy(tmp, RndA, rndlen);
-            memcpy(tmp + rndlen, rotRndB, rndlen);
+            palloc_copy(tmp, RndA, rndlen);
+            palloc_copy(tmp + rndlen, rotRndB, rndlen);
             tdes_nxp_send(tmp, both, 16, key->data, IV, 2);
         } else if (payload->algo == MFDES_ALGO_3K3DES) {
             uint8_t tmp[32] = {0x00};
-            memcpy(tmp, RndA, rndlen);
-            memcpy(tmp + rndlen, rotRndB, rndlen);
+            palloc_copy(tmp, RndA, rndlen);
+            palloc_copy(tmp + rndlen, rotRndB, rndlen);
             tdes_nxp_send(tmp, both, 32, key->data, IV, 3);
         }
     } else if (payload->mode == MFDES_AUTH_AES) {
         uint8_t tmp[32] = {0x00};
-        memcpy(tmp, RndA, rndlen);
-        memcpy(tmp + 16, rotRndB, rndlen);
+        palloc_copy(tmp, RndA, rndlen);
+        palloc_copy(tmp + 16, rotRndB, rndlen);
         if (payload->algo == MFDES_ALGO_AES) {
             if (mbedtls_aes_setkey_enc(&ctx, key->data, 128) != 0) {
                 if (g_dbglevel >= DBG_EXTENDED) {
@@ -477,12 +478,12 @@ void MifareDES_Auth1(uint8_t *datain) {
         cmd[2] = 0x00;
         cmd[3] = 0x00;
         cmd[4] = bothlen;
-        memcpy(cmd + 5, both, bothlen);
+        palloc_copy(cmd + 5, both, bothlen);
         cmd[bothlen + 5] = 0x0;
         len = DesfireAPDU(cmd, 5 + bothlen + 1, resp);
     } else {
         cmd[0] = MFDES_ADDITIONAL_FRAME;
-        memcpy(cmd + 1, both, bothlen);
+        palloc_copy(cmd + 1, both, bothlen);
         len = DesfireAPDU(cmd, 1 + bothlen, resp);
     }
 
@@ -516,9 +517,9 @@ void MifareDES_Auth1(uint8_t *datain) {
         print_result("SESSIONKEY : ", sessionkey->data, payload->keylen);
 
     if (payload->mode != MFDES_AUTH_PICC) {
-        memcpy(encRndA, resp + 1, rndlen);
+        palloc_copy(encRndA, resp + 1, rndlen);
     } else {
-        memcpy(encRndA, resp + 2, rndlen);
+        palloc_copy(encRndA, resp + 2, rndlen);
     }
 
     if (payload->mode == MFDES_AUTH_DES || payload->mode == MFDES_AUTH_PICC) {
@@ -568,27 +569,27 @@ void MifareDES_Auth1(uint8_t *datain) {
     uint8_t buff2[8] = {0x00};
     uint8_t buff3[8] = {0x00};
 
-    memcpy(buff1,newKey, 8);
-    memcpy(buff2,newKey + 8, 8);
+    palloc_copy(buff1,newKey, 8);
+    palloc_copy(buff2,newKey + 8, 8);
 
     compute_crc(CRC_14443_A, newKey, 16, &first, &second);
-    memcpy(buff3, &first, 1);
-    memcpy(buff3 + 1, &second, 1);
+    palloc_copy(buff3, &first, 1);
+    palloc_copy(buff3 + 1, &second, 1);
 
      tdes_dec(&buff1, &buff1, skey->data);
-     memcpy(cmd+2,buff1,8);
+     palloc_copy(cmd+2,buff1,8);
 
      for (int x = 0; x < 8; x++) {
      buff2[x] = buff2[x] ^ buff1[x];
      }
      tdes_dec(&buff2, &buff2, skey->data);
-     memcpy(cmd+10,buff2,8);
+     palloc_copy(cmd+10,buff2,8);
 
      for (int x = 0; x < 8; x++) {
      buff3[x] = buff3[x] ^ buff2[x];
      }
      tdes_dec(&buff3, &buff3, skey->data);
-     memcpy(cmd+19,buff3,8);
+     palloc_copy(cmd+19,buff3,8);
 
      // The command always times out on the first attempt, this will retry until a response
      // is received.
@@ -611,27 +612,27 @@ void MifareDES_Auth1(uint8_t *datain) {
             uint8_t buff2[8] = {0x00};
             uint8_t buff3[8] = {0x00};
 
-            memcpy(buff1,newKey, 8);
-            memcpy(buff2,newKey + 8, 8);
+            palloc_copy(buff1,newKey, 8);
+            palloc_copy(buff2,newKey + 8, 8);
 
             compute_crc(CRC_14443_A, newKey, 16, &first, &second);
-            memcpy(buff3, &first, 1);
-            memcpy(buff3 + 1, &second, 1);
+            palloc_copy(buff3, &first, 1);
+            palloc_copy(buff3 + 1, &second, 1);
 
     des_dec(&buff1, &buff1, skey->data);
-    memcpy(cmd+3,buff1,8);
+    palloc_copy(cmd+3,buff1,8);
 
     for (int x = 0; x < 8; x++) {
         buff2[x] = buff2[x] ^ buff1[x];
     }
     des_dec(&buff2, &buff2, skey->data);
-    memcpy(cmd+11,buff2,8);
+    palloc_copy(cmd+11,buff2,8);
 
     for (int x = 0; x < 8; x++) {
         buff3[x] = buff3[x] ^ buff2[x];
     }
     des_dec(&buff3, &buff3, skey->data);
-    memcpy(cmd+19,buff3,8);
+    palloc_copy(cmd+19,buff3,8);
 
     // The command always times out on the first attempt, this will retry until a response
     // is received.
@@ -651,7 +652,7 @@ void MifareDES_Auth1(uint8_t *datain) {
     LED_B_ON();
     authres_t rpayload;
     rpayload.sessionkeylen = payload->keylen;
-    memcpy(rpayload.sessionkey, sessionkey->data, rpayload.sessionkeylen);
+    palloc_copy(rpayload.sessionkey, sessionkey->data, rpayload.sessionkeylen);
     reply_ng(CMD_HF_DESFIRE_AUTH1, PM3_SUCCESS, (uint8_t *)&rpayload, sizeof(rpayload));
     LED_B_OFF();
 }
@@ -689,7 +690,7 @@ int DesfireAPDU(uint8_t *cmd, size_t cmd_len, uint8_t *dataout) {
         pcb_blocknum ^= 1;  //toggle next block
     }
 
-    memcpy(dataout, resp, len);
+    palloc_copy(dataout, resp, len);
     return len;
 }
 
@@ -699,7 +700,7 @@ size_t CreateAPDU(uint8_t *datain, size_t len, uint8_t *dataout) {
     size_t cmdlen = MIN(len + 3, PM3_CMD_DATA_SIZE - 1);
 
     uint8_t cmd[cmdlen];
-    memset(cmd, 0, cmdlen);
+    palloc_set(cmd, 0, cmdlen);
 
     cmd[0] = 0x02;  //  0x0A = send cid,  0x02 = no cid.
     cmd[0] |= pcb_blocknum; // OR the block number into the PCB
@@ -708,7 +709,7 @@ size_t CreateAPDU(uint8_t *datain, size_t len, uint8_t *dataout) {
 
     //cmd[1] = 0x90;  //  CID: 0x00 //TODO: allow multiple selected cards
 
-    memcpy(cmd + 1, datain, len);
+    palloc_copy(cmd + 1, datain, len);
     AddCrc14A(cmd, len + 1);
 
     /*
@@ -716,7 +717,7 @@ size_t CreateAPDU(uint8_t *datain, size_t len, uint8_t *dataout) {
     hf 14a apdu -k 90 AF 00 00 00
     hf 14a apdu 90AF000000
     */
-    memcpy(dataout, cmd, cmdlen);
+    palloc_copy(dataout, cmd, cmdlen);
     return cmdlen;
 }
 

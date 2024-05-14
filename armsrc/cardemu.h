@@ -35,7 +35,7 @@ void stop_emulation(void);
 bool emulator_running(void);
 bool has_emulator_data(void);
 
-uint16_t *get_emulator_address(void);
+memptr_t *get_emulator_address(void);
 void clear_emulator(void);
 void release_emuator(void);
 

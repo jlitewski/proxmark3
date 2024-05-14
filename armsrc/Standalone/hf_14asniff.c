@@ -74,7 +74,7 @@
 #include "appmain.h"
 #include "dbprint.h"
 #include "ticks.h"
-#include "BigBuf.h"
+#include "tracer.h"
 
 #define HF_14ASNIFF_LOGFILE "hf_14asniff.trace"
 
@@ -104,7 +104,7 @@ void RunMod(void) {
     Dbprintf("Stopped sniffing");
     SpinDelay(200);
 
-    uint32_t trace_len = BigBuf_get_traceLen();
+    uint32_t trace_len = get_trace_length();
 #ifndef WITH_FLASH
     // Keep stuff in BigBuf for USB/BT dumping
     if (trace_len > 0)

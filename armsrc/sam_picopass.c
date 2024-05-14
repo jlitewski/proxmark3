@@ -19,7 +19,8 @@
 #include "iclass.h"
 #include "crc16.h"
 #include "proxmark3_arm.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "cmd.h"
 #include "commonutil.h"
 #include "ticks.h"
@@ -109,19 +110,24 @@ int sam_picopass_get_pacs(void) {
     // if (use_credit_key)
     //     read_check_cc[0] = 0x10 | ICLASS_CMD_READCHECK;
 
-    BigBuf_free_keep_EM();
-
-    clear_trace();
+    release_trace();
 
     I2C_Reset_EnterMainProgram();
     StopTicks();
 
-    uint8_t *resp = BigBuf_calloc(ISO7816_MAX_FRAME);
-
     bool shallow_mod = false;
-    uint16_t resp_len = 0;
+    uint16_t resp_len = 1; // Set this to 1 as a flag for palloc_free()
     int res;
     uint32_t eof_time = 0;
+
+    uint8_t *resp = palloc(1, ISO7816_MAX_FRAME);
+
+    if(resp == nullptr) {
+        res = PM3_EMALLOC;
+        goto out;
+    }
+
+    resp_len = 0;
 
     // wakeup
     Iso15693InitReader();
@@ -147,7 +153,7 @@ int sam_picopass_get_pacs(void) {
     }
 
     // copy the Anti-collision CSN to our select-packet
-    memcpy(&select[1], resp, 8);
+    palloc_copy(&select[1], resp, 8);
 
     // select the card
     start_time = eof_time + DELAY_ICLASS_VICC_TO_VCD_READER;
@@ -161,7 +167,7 @@ int sam_picopass_get_pacs(void) {
     }
 
     // store CSN
-    memcpy(hdr.csn, resp, sizeof(hdr.csn));
+    palloc_copy(hdr.csn, resp, sizeof(hdr.csn));
 
     // card selected, now read config (block1) (only 8 bytes no CRC)
     start_time = eof_time + DELAY_ICLASS_VICC_TO_VCD_READER;
@@ -175,7 +181,7 @@ int sam_picopass_get_pacs(void) {
     }
 
     // store CONFIG
-    memcpy((uint8_t *)&hdr.conf, resp, sizeof(hdr.conf));
+    palloc_copy((uint8_t *)&hdr.conf, resp, sizeof(hdr.conf));
 
     uint8_t pagemap = get_pagemap(&hdr);
     if (pagemap == PICOPASS_NON_SECURE_PAGEMODE) {
@@ -195,7 +201,7 @@ int sam_picopass_get_pacs(void) {
     }
 
     // store AIA
-    memcpy(hdr.app_issuer_area, resp, sizeof(hdr.app_issuer_area));
+    palloc_copy(hdr.app_issuer_area, resp, sizeof(hdr.app_issuer_area));
 
     // card selected, now read e-purse (cc) (block2) (only 8 bytes no CRC)
     start_time = eof_time + DELAY_ICLASS_VICC_TO_VCD_READER;
@@ -209,19 +215,26 @@ int sam_picopass_get_pacs(void) {
     }
 
     // store EPURSE
-    memcpy(hdr.epurse, resp, sizeof(hdr.epurse));
+    palloc_copy(hdr.epurse, resp, sizeof(hdr.epurse));
 
     // -----------------------------------------------------------------------------
     // SAM comms
     // -----------------------------------------------------------------------------
-    size_t sam_len = 0;
-    uint8_t *sam_apdu = BigBuf_calloc(ISO7816_MAX_FRAME);
+    size_t sam_len = 1; // Set this to 1 as a flag for palloc_free()
+    uint8_t *sam_apdu = palloc(1, ISO7816_MAX_FRAME);
+
+    if(sam_apdu == nullptr) {
+        res = PM3_EMALLOC;
+        goto out;
+    }
+
+    sam_len = 0;
 
     // -----------------------------------------------------------------------------
     // first
     // a0 da 02 63 1a 44 0a 44 00 00 00 a0 12 ad 10 a0 0e 80 02 00 04 81 08 9b fc a4 00 fb ff 12 e0
     hexstr_to_byte_array("a0da02631a440a44000000a012ad10a00e800200048108", sam_apdu, &sam_len);
-    memcpy(sam_apdu + sam_len, hdr.csn, sizeof(hdr.csn));
+    palloc_copy(sam_apdu + sam_len, hdr.csn, sizeof(hdr.csn));
     sam_len += sizeof(hdr.csn);
 
     if (sam_rxtx(sam_apdu, sam_len, resp, &resp_len) == false) {
@@ -250,7 +263,7 @@ int sam_picopass_get_pacs(void) {
     //  picopass  legacy is fixed.  wants AIA and crc. ff ff ff ff ff ff ff ff ea f5
     //  picpoasss SE                                   ff ff ff 00 06 ff ff ff f8 8e
     hexstr_to_byte_array("a0da02631c140a00000000bd14a012a010800affffff0006fffffff88e81020000", sam_apdu, &sam_len);
-    memcpy(sam_apdu + 19, hdr.app_issuer_area, sizeof(hdr.app_issuer_area));
+    palloc_copy(sam_apdu + 19, hdr.app_issuer_area, sizeof(hdr.app_issuer_area));
     AddCrc(sam_apdu + 19, 8);
 
     if (sam_rxtx(sam_apdu, sam_len, resp, &resp_len) == false) {
@@ -267,7 +280,7 @@ int sam_picopass_get_pacs(void) {
     // forth  EPURSE
     // a0da02631a140a00000000bd12a010a00e8008 ffffffffedffffff 81020000
     hexstr_to_byte_array("a0da02631a140a00000000bd12a010a00e8008ffffffffedffffff81020000", sam_apdu, &sam_len);
-    memcpy(sam_apdu + 19, hdr.epurse, sizeof(hdr.epurse));
+    palloc_copy(sam_apdu + 19, hdr.epurse, sizeof(hdr.epurse));
 
     if (sam_rxtx(sam_apdu, sam_len, resp, &resp_len) == false) {
         res = PM3_ECARDEXCHANGE;
@@ -276,7 +289,7 @@ int sam_picopass_get_pacs(void) {
     print_dbg("-- 4", resp, resp_len);
 
     uint8_t nr_mac[9] = {0};
-    memcpy(nr_mac, resp + 11, sizeof(nr_mac));
+    palloc_copy(nr_mac, resp + 11, sizeof(nr_mac));
     // resp here hold the whole   NR/MAC
     // 05 9bcd475e965ee20e // CHECK (w key)
     print_dbg("NR/MAC", nr_mac, sizeof(nr_mac));
@@ -292,8 +305,8 @@ int sam_picopass_get_pacs(void) {
     uint8_t mac[4] = {0};
     if (g_dbglevel == DBG_DEBUG) {
         uint8_t wb[16] = {0};
-        memcpy(wb, hdr.epurse, sizeof(hdr.epurse));
-        memcpy(wb + sizeof(hdr.epurse), nr_mac + 1, 4);
+        palloc_copy(wb, hdr.epurse, sizeof(hdr.epurse));
+        palloc_copy(wb + sizeof(hdr.epurse), nr_mac + 1, 4);
         print_dbg("cc_nr...", wb, sizeof(wb));
         doMAC_N(wb, sizeof(wb), div_key, mac);
         print_dbg("Calc MAC...", mac, sizeof(mac));
@@ -304,7 +317,7 @@ int sam_picopass_get_pacs(void) {
 
     // NOW we auth against tag
     uint8_t cmd_check[9] = { ICLASS_CMD_CHECK };
-    memcpy(cmd_check + 1, nr_mac + 1, 8);
+    palloc_copy(cmd_check + 1, nr_mac + 1, 8);
 
     start_time = GetCountSspClk();
     iclass_send_as_reader(cmd_check, sizeof(cmd_check), &start_time, &eof_time, shallow_mod);
@@ -316,14 +329,14 @@ int sam_picopass_get_pacs(void) {
         goto out;
     }
     // store MAC
-    memcpy(mac, resp, sizeof(mac));
+    palloc_copy(mac, resp, sizeof(mac));
     print_dbg("Got MAC", mac, sizeof(mac));
 
     // -----------------------------------------------------------------------------
     // fifth  send received MAC
     // A0DA026316140A00000000BD0EA00CA00A8004 311E32E9 81020000
     hexstr_to_byte_array("A0DA026316140A00000000BD0EA00CA00A8004311E32E981020000", sam_apdu, &sam_len);
-    memcpy(sam_apdu + 19, mac, sizeof(mac));
+    palloc_copy(sam_apdu + 19, mac, sizeof(mac));
 
     if (sam_rxtx(sam_apdu, sam_len, resp, &resp_len) == false) {
         res = PM3_ECARDEXCHANGE;
@@ -336,15 +349,15 @@ int sam_picopass_get_pacs(void) {
 
     // c161c10000a11aa118800e8702 ffffffff88ffffff 0a914eb981020004820236b09000
 
-    memcpy(tmp_p1, resp + 13, sizeof(tmp_p1));
-    memcpy(tmp_p2, resp + 13 + 4, sizeof(tmp_p2));
+    palloc_copy(tmp_p1, resp + 13, sizeof(tmp_p1));
+    palloc_copy(tmp_p2, resp + 13 + 4, sizeof(tmp_p2));
     // -----------------------------------------------------------------------------
     // sixth  send fake epurse update
     // A0DA02631C140A00000000BD14A012A010800A 88FFFFFFFFFFFFFF9DE1 81020000
     hexstr_to_byte_array("A0DA02631C140A00000000BD14A012A010800A88FFFFFFFFFFFFFF9DE181020000", sam_apdu, &sam_len);
 
-    memcpy(sam_apdu + 19, tmp_p2, sizeof(tmp_p1));
-    memcpy(sam_apdu + 19 + 4, tmp_p1, sizeof(tmp_p1));
+    palloc_copy(sam_apdu + 19, tmp_p2, sizeof(tmp_p1));
+    palloc_copy(sam_apdu + 19 + 4, tmp_p1, sizeof(tmp_p1));
     AddCrc(sam_apdu + 19, 8);
 
     if (sam_rxtx(sam_apdu, sam_len, resp, &resp_len) == false) {
@@ -371,7 +384,7 @@ int sam_picopass_get_pacs(void) {
     // eight  send block 6 config to SAM
     // A0DA02631C140A00000000BD14A012A010800A 030303030003E0174323 81020000
     hexstr_to_byte_array("A0DA02631C140A00000000BD14A012A010800A030303030003E017432381020000", sam_apdu, &sam_len);
-    memcpy(sam_apdu + 19, resp, resp_len);
+    palloc_copy(sam_apdu + 19, resp, resp_len);
 
     if (sam_rxtx(sam_apdu, sam_len, resp, &resp_len) == false) {
         res = PM3_ECARDEXCHANGE;
@@ -398,7 +411,7 @@ int sam_picopass_get_pacs(void) {
     // nine  send credential blocks to SAM
     // A0DA026334140A00000000BD2CA02AA0288022 030303030003E017769CB4A198E0DEC82AD4C8211F9968712BE7393CF8E71D7E804C 81020000
     hexstr_to_byte_array("A0DA026334140A00000000BD2CA02AA0288022030303030003E017769CB4A198E0DEC82AD4C8211F9968712BE7393CF8E71D7E804C81020000", sam_apdu, &sam_len);
-    memcpy(sam_apdu + 19, resp, resp_len);
+    palloc_copy(sam_apdu + 19, resp, resp_len);
 
     if (sam_rxtx(sam_apdu, sam_len, resp, &resp_len) == false) {
         res = PM3_ECARDEXCHANGE;
@@ -411,7 +424,7 @@ int sam_picopass_get_pacs(void) {
     // TEN  ask for PACS data
     // A0DA02630C440A00000000BD04A0028200
     hexstr_to_byte_array("A0DA02630C440A00000000BD04A0028200", sam_apdu, &sam_len);
-    memcpy(sam_apdu + 19, resp, resp_len);
+    palloc_copy(sam_apdu + 19, resp, resp_len);
 
     if (sam_rxtx(sam_apdu, sam_len, resp, &resp_len) == false) {
         res = PM3_ECARDEXCHANGE;
@@ -425,21 +438,28 @@ int sam_picopass_get_pacs(void) {
     }
 
     // c164000000bd098a07 030506951f9a00 9000
-    uint8_t *pacs = BigBuf_calloc(resp[8]);
-    memcpy(pacs, resp + 9, resp[8]);
+    uint8_t *pacs = palloc(1, resp[8]);
 
-    print_dbg("-- 10  PACS data", pacs, resp[8]);
+    if(pacs == nullptr) {
+        res = PM3_EMALLOC;
+    } else {
+        palloc_copy(pacs, resp + 9, resp[8]);
 
-    reply_ng(CMD_HF_SAM_PICOPASS, PM3_SUCCESS, pacs, resp[8]);
-    res = PM3_SUCCESS;
-    goto off;
+        print_dbg("-- 10  PACS data", pacs, resp[8]);
+
+        reply_ng(CMD_HF_SAM_PICOPASS, PM3_SUCCESS, pacs, resp[8]);
+
+        palloc_free(pacs);
+        goto off;
+    }
 
 out:
     reply_ng(CMD_HF_SAM_PICOPASS, res, NULL, 0);
 
 off:
     switch_off();
-    BigBuf_free();
+    if(resp_len != 1) palloc_free(resp);
+    if(sam_len  != 1) palloc_free(sam_apdu);
     return res;
 }
 

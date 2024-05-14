@@ -25,8 +25,6 @@
 #include "util.h"
 #include "dbprint.h"
 #include "ticks.h"
-#include "string.h"
-#include "BigBuf.h"
 #include "iso14443a.h"
 #include "protocols.h"
 #include "cmd.h"

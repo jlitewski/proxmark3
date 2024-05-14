@@ -40,7 +40,8 @@ from the client to view the stored quadlets.
 #include "fpgaloader.h"
 #include "dbprint.h"
 #include "ticks.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "string.h"
 
 #define DELAY_READER_AIR2ARM_AS_SNIFFER (2 + 3 + 8)
@@ -56,26 +57,35 @@ static void RAMFUNC SniffAndStore(uint8_t param) {
 
     iso14443a_setup(FPGA_HF_ISO14443A_SNIFFER);
 
-    // Allocate memory from BigBuf for some buffers
-    // free all previous allocations first
-    BigBuf_free();
-    BigBuf_Clear_ext(false);
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
 
     // Array to store the authpwds
-    uint8_t *capturedPwds = BigBuf_malloc(4 * MAX_PWDS_PER_SESSION);
+    uint8_t *capturedPwds = palloc(1, 4 * MAX_PWDS_PER_SESSION);
 
     // The command (reader -> tag) that we're receiving.
-    uint8_t *receivedCmd = BigBuf_malloc(MAX_FRAME_SIZE);
-    uint8_t *receivedCmdPar = BigBuf_malloc(MAX_PARITY_SIZE);
+    uint8_t *receivedCmd = palloc(1, MAX_FRAME_SIZE);
+    uint8_t *receivedCmdPar = palloc(1, MAX_PARITY_SIZE);
 
     // The response (tag -> reader) that we're receiving.
-    uint8_t *receivedResp = BigBuf_malloc(MAX_FRAME_SIZE);
-    uint8_t *receivedRespPar = BigBuf_malloc(MAX_PARITY_SIZE);
+    uint8_t *receivedResp = palloc(1, MAX_FRAME_SIZE);
+    uint8_t *receivedRespPar = palloc(1, MAX_PARITY_SIZE);
 
     // The DMA buffer, used to stream samples from the FPGA
-    uint8_t *dmaBuf = BigBuf_malloc(DMA_BUFFER_SIZE);
+    uint8_t *dmaBuf = palloc(1, DMA_BUFFER_SIZE); //TODO: Move over to buffer8u_t
+
+    if(capturedPwds == nullptr || receivedCmd == nullptr || receivedCmdPar == nullptr ||
+       receivedResp == nullptr || receivedRespPar == nullptr || dmaBuf == nullptr) {
+        if (g_dbglevel > 1) Dbprintf("Memory Allocation failed. Exiting");
+        palloc_free(capturedPwds);
+        palloc_free(receivedCmd);
+        palloc_free(receivedCmdPar);
+        palloc_free(receivedResp);
+        palloc_free(receivedRespPar);
+        palloc_free(dmaBuf);
+        return;
+    }
+
     uint8_t *data = dmaBuf;
 
     uint8_t previous_data = 0;
@@ -91,8 +101,13 @@ static void RAMFUNC SniffAndStore(uint8_t param) {
 
     // Setup and start DMA.
     if (!FpgaSetupSscDma((uint8_t *)dmaBuf, DMA_BUFFER_SIZE)) {
-        if (g_dbglevel > 1)
-            Dbprintf("FpgaSetupSscDma failed. Exiting");
+        if (g_dbglevel > 1) Dbprintf("FpgaSetupSscDma failed. Exiting");
+        palloc_free(capturedPwds);
+        palloc_free(receivedCmd);
+        palloc_free(receivedCmdPar);
+        palloc_free(receivedResp);
+        palloc_free(receivedRespPar);
+        palloc_free(dmaBuf);
         return;
     }
 
@@ -119,6 +134,7 @@ static void RAMFUNC SniffAndStore(uint8_t param) {
 
         int register readBufDataP = data - dmaBuf;
         int register dmaBufDataP = DMA_BUFFER_SIZE - AT91C_BASE_PDC_SSC->PDC_RCR;
+
         if (readBufDataP <= dmaBufDataP)
             dataLen = dmaBufDataP - readBufDataP;
         else
@@ -129,8 +145,8 @@ static void RAMFUNC SniffAndStore(uint8_t param) {
             Dbprintf("[!] blew circular buffer! | datalen %u", dataLen);
             break;
         }
-        if (dataLen < 1)
-            continue;
+
+        if (dataLen < 1) continue;
 
         // primary buffer was stopped( <-- we lost data!
         if (!AT91C_BASE_PDC_SSC->PDC_RCR) {
@@ -170,7 +186,7 @@ static void RAMFUNC SniffAndStore(uint8_t param) {
                             auth_attempts++;
                         }
 
-                        if (!LogTrace(receivedCmd, uart->len, uart->startTime * 16 - DELAY_READER_AIR2ARM_AS_SNIFFER,
+                        if (!log_trace(receivedCmd, uart->len, uart->startTime * 16 - DELAY_READER_AIR2ARM_AS_SNIFFER,
                                       uart->endTime * 16 - DELAY_READER_AIR2ARM_AS_SNIFFER, uart->parity, true))
                             break;
                     }
@@ -190,7 +206,7 @@ static void RAMFUNC SniffAndStore(uint8_t param) {
                 if (ManchesterDecoding(tagdata, 0, (my_rsamples - 1) * 4)) {
                     LED_B_ON();
 
-                    if (!LogTrace(receivedResp, demod->len, demod->startTime * 16 - DELAY_TAG_AIR2ARM_AS_SNIFFER,
+                    if (!log_trace(receivedResp, demod->len, demod->startTime * 16 - DELAY_TAG_AIR2ARM_AS_SNIFFER,
                                   demod->endTime * 16 - DELAY_TAG_AIR2ARM_AS_SNIFFER, demod->parity, false))
                         break;
 
@@ -217,7 +233,7 @@ static void RAMFUNC SniffAndStore(uint8_t param) {
     } // end main loop
 
     FpgaDisableSscDma();
-    set_tracing(false);
+    stop_tracing();
 
     Dbprintf("Stopped sniffing");
 
@@ -234,6 +250,13 @@ static void RAMFUNC SniffAndStore(uint8_t param) {
             rdv40_spiffs_append((char *)HF_BOG_LOGFILE, capturedPwds, 4 * auth_attempts, RDV40_SPIFFS_SAFETY_SAFE);
         }
     }
+
+    palloc_free(capturedPwds);
+    palloc_free(receivedCmd);
+    palloc_free(receivedCmdPar);
+    palloc_free(receivedResp);
+    palloc_free(receivedRespPar);
+    palloc_free(dmaBuf);
 
     if (g_dbglevel > 1)
         Dbprintf("[!] Wrote %u Authentication attempts into logfile", auth_attempts);
