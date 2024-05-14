@@ -253,7 +253,7 @@ static pBlock *allocate_block(size_t alloc) {
  * @param size The size of each element
  * @return the address of the block of memory, or nullptr
  */
-void *palloc(uint16_t numElement, const uint16_t size) {
+memptr_t *palloc(uint16_t numElement, const uint16_t size) {
     if(((heap == NULL) || !(heap->init))) return false; // Can't allocate memory if we haven't initialized any
 
     size_t orig = numElement;
@@ -425,11 +425,12 @@ int8_t palloc_fresh_blocks(void) {
 }
 
 /**
- * @brief Returns the amount of space we have left to allocate stuff with
+ * @brief Returns the amount of sram we have left to allocate stuff with. This is only taking the
+ * microprocessor sram into account, not any connect flash memory space
  * 
- * @return The amount os space we have left, in bytes 
+ * @return The amount of sram we have left, in bytes 
  */
-size_t palloc_space_left(void) {
+size_t palloc_sram_left(void) {
     return free_space;
 }
 
@@ -456,7 +457,7 @@ bool palloc_heap_integrity(void) {
 void palloc_status(void) {
     Dbprintf("--- " _CYAN_("Memory") " -----------------");
     Dbprintf(" - Usuable:................ "_CYAN_("%d"), MEM_USABLE);
-    Dbprintf(" - Free:................... "_CYAN_("%d"), palloc_space_left());
+    Dbprintf(" - Free:................... "_CYAN_("%d"), palloc_sram_left());
     Dbprintf(" - Heap Status:............ %s",
         (palloc_heap_integrity() ? _GREEN_("OK") : _RED_("INTEGRITY ISSUES"))
     );

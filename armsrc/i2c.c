@@ -862,7 +862,7 @@ void SmartCardRaw(const smart_card_raw_t *p) {
     LED_D_ON();
 
     uint16_t len = 0;
-    uint8_t *resp = palloc(1, ISO7816_MAX_FRAME);
+    uint8_t *resp = (uint8_t*)palloc(1, ISO7816_MAX_FRAME);
     // check if alloacted...
     smartcard_command_t flags = p->flags;
 
@@ -941,8 +941,8 @@ void SmartCardUpgrade(uint64_t arg0) {
 
     bool isOK = true;
     uint16_t length = arg0, pos = 0;
-    uint8_t *fwdata = palloc(1, length);
-    uint8_t *verfiydata = palloc(1, I2C_BLOCK_SIZE);
+    uint8_t *fwdata = (uint8_t*)palloc(1, length);
+    uint8_t *verfiydata = (uint8_t*)palloc(1, I2C_BLOCK_SIZE);
 
     while (length) {
 

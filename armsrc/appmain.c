@@ -374,7 +374,7 @@ static void printConnSpeed(uint32_t wait) {
     DbpString(_CYAN_("Transfer Speed"));
     Dbprintf("  Sending packets to client...");
 
-    uint8_t *test_data = palloc(2, PM3_CMD_DATA_SIZE);
+    uint8_t *test_data = (uint8_t*)palloc(2, PM3_CMD_DATA_SIZE);
     uint32_t start_time = GetTickCount();
     uint32_t delta_time = 0;
     uint32_t bytes_transferred = 0;

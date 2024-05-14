@@ -49,7 +49,6 @@
 #include "spiffs.h"
 #include "ticks.h"
 #include "lfops.h"
-#include "BigBuf.h"
 #include "fpgaloader.h"
 #include "parity.h"
 
@@ -74,7 +73,6 @@ void ModInfo(void) {
 void RunMod(void) {
     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
     LFSetupFPGAForADC(LF_DIVISOR_125, true);
-    BigBuf_Clear();
     StandAloneMode();
     WDT_HIT();
 

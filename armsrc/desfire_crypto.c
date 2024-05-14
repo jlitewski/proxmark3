@@ -318,7 +318,7 @@ void cmac(const desfirekey_t key, uint8_t *ivect, const uint8_t *data, size_t le
         return;
     }
 
-    uint8_t *buffer = palloc(1, padded_data_length(len, kbs));
+    uint8_t *buffer = (uint8_t*)palloc(1, padded_data_length(len, kbs));
 
     palloc_copy(buffer, data, len);
 

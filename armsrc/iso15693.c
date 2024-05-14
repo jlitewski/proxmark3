@@ -181,7 +181,7 @@ static void CodeIso15693AsReaderEOF(void) {
 
 static int get_uid_slix(uint32_t start_time, uint32_t *eof_time, uint8_t *uid) {
 
-    uint8_t *answer = palloc(1, ISO15693_MAX_RESPONSE_LENGTH);
+    uint8_t *answer = (uint8_t*)palloc(1, ISO15693_MAX_RESPONSE_LENGTH);
 
     if(answer == nullptr) {
         return PM3_EMALLOC;
@@ -1494,7 +1494,7 @@ int GetIso15693CommandFromReader(uint8_t *received, size_t max_len, uint32_t *eo
     bool gotFrame = false;
 
     // the decoder data structure
-    DecodeReader_t *dr = palloc(1, sizeof(DecodeReader_t));
+    DecodeReader_t *dr = (DecodeReader_t*)palloc(1, sizeof(DecodeReader_t));
 
     if(dr == nullptr) {
         if (g_dbglevel > DBG_ERROR) Dbprintf("Memory Allocation failed. Exiting");
@@ -1616,7 +1616,7 @@ void AcquireRawAdcSamplesIso15693(void) {
     LED_A_ON();
 
     uint16_t len = 4000;
-    uint8_t *dest = palloc(1, len);
+    uint8_t *dest = (uint8_t*)palloc(1, len);
 
     // switch field on
     FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER);
@@ -2070,7 +2070,7 @@ void ReaderIso15693(iso15_card_select_t *p_card) {
 
     LED_A_ON();
 
-    uint8_t *answer = palloc(1, ISO15693_MAX_RESPONSE_LENGTH);
+    uint8_t *answer = (uint8_t*)palloc(1, ISO15693_MAX_RESPONSE_LENGTH);
 
     if(answer == nullptr) {
         if (g_dbglevel > DBG_ERROR) DbpString("Memory Allocation failed. Exiting");

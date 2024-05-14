@@ -1246,7 +1246,7 @@ void SniffHitag2(bool ledcontrol) {
     auth_table_len = 0;
     auth_table_pos = 0;
 
-    auth_table = palloc(1, AUTH_TABLE_LENGTH);
+    auth_table = (uint8_t*)palloc(1, AUTH_TABLE_LENGTH);
 
     while (BUTTON_PRESS() == false) {
 

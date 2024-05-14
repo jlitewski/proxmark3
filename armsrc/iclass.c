@@ -401,7 +401,7 @@ int do_iclass_simulation(int simulationMode, uint8_t *reader_mac_buf) {
     uint8_t *trace_data = nullptr;
     int trace_data_size;
 
-    iclass_resp_t *resp = palloc(1, sizeof(iclass_resp_t));
+    iclass_resp_t *resp = (iclass_resp_t*)palloc(1, sizeof(iclass_resp_t));
     if(resp == nullptr) {
         // TODO Fill this out before merging into proxmark-nxtgen!
         return PM3_EMALLOC;
@@ -453,11 +453,11 @@ int do_iclass_simulation(int simulationMode, uint8_t *reader_mac_buf) {
 
     //This is used for responding to READ-block commands or other data which is dynamically generated
     //First the 'trace'-data, not encoded for FPGA
-    uint8_t *data_generic_trace = palloc(1, 34); // 32 bytes data + 2byte CRC is max tag answer
+    uint8_t *data_generic_trace = (uint8_t*)palloc(1, 34); // 32 bytes data + 2byte CRC is max tag answer
 
     //Then storage for the modulated data
     //Each bit is doubled when modulated for FPGA, and we also have SOF and EOF (2 bytes)
-    uint8_t *data_response = palloc(1, (34 * 2) + 3);
+    uint8_t *data_response = (uint8_t*)palloc(1, (34 * 2) + 3);
 
     enum { IDLE, ACTIVATED, SELECTED, HALTED } chip_state = IDLE;
 
@@ -922,7 +922,7 @@ int do_iclass_simulation_nonsec(void) {
     uint8_t *trace_data = NULL;
     int trace_data_size = 0;
 
-    iclass_resp_t *resp = palloc(1, sizeof(iclass_resp_t));
+    iclass_resp_t *resp = (iclass_resp_t*)palloc(1, sizeof(iclass_resp_t));
     if(resp == nullptr) {
         // TODO Fill this out before merging into proxmark-nxtgen!
         return PM3_EMALLOC;
@@ -965,11 +965,11 @@ int do_iclass_simulation_nonsec(void) {
 
     //This is used for responding to READ-block commands or other data which is dynamically generated
     //First the 'trace'-data, not encoded for FPGA
-    uint8_t *data_generic_trace = palloc(1, 32 + 2); // 32 bytes data + 2byte CRC is max tag answer
+    uint8_t *data_generic_trace = (uint8_t*)palloc(1, 32 + 2); // 32 bytes data + 2byte CRC is max tag answer
 
     //Then storage for the modulated data
     //Each bit is doubled when modulated for FPGA, and we also have SOF and EOF (2 bytes)
-    uint8_t *data_response = palloc(1, (32 + 2) * 2 + 2);
+    uint8_t *data_response = (uint8_t*)palloc(1, (32 + 2) * 2 + 2);
 
     enum { IDLE, ACTIVATED, SELECTED, HALTED } chip_state = IDLE;
 
@@ -1629,7 +1629,7 @@ void iClass_Dump(uint8_t *msg) {
     iclass_auth_req_t *req = &cmd->req;
     bool shallow_mod = req->shallow_mod;
 
-    uint8_t *dataout = palloc(1, ICLASS_16KS_SIZE);
+    uint8_t *dataout = (uint8_t*)palloc(1, ICLASS_16KS_SIZE);
     if (dataout == nullptr) {
         DbpString("fail to allocate memory");
         if (req->send_reply) {

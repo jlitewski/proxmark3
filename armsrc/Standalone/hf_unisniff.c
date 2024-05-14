@@ -123,8 +123,9 @@
 #include "appmain.h"
 #include "dbprint.h"
 #include "ticks.h"
-#include "BigBuf.h"
-#include "string.h"
+#include "palloc.h"
+#include "cardemu.h"
+#include "tracer.h"
 
 #define HF_UNISNIFF_PROTOCOL            "14a"
 #define HF_UNISNIFF_LOGFILE             "hf_unisniff"
@@ -172,7 +173,7 @@ void RunMod(void) {
     const char *protocols[] = {"14a", "14b", "15", "iclass", "user"};
 
     // some magic to allow for `hw standalone` command to trigger a particular sniff from inside the pm3 client
-    const char *bb = (const char *)BigBuf_get_EM_addr();
+    const char *bb = (const char *)get_emulator_address();
     uint8_t sniff_protocol;
     if (strlen(bb) > 0) {
         for (sniff_protocol = 0; sniff_protocol < ARRAYLEN(protocols); sniff_protocol++) {
@@ -199,7 +200,7 @@ void RunMod(void) {
     rdv40_spiffs_lazy_mount();
     // Allocate memory now for buffer for filename to save to.  Who knows what'll be
     // available after filling the trace buffer.
-    char *filename = (char *)BigBuf_calloc(64);
+    char *filename = (char *)palloc(1, 64);
     if (filename == NULL) {
         Dbprintf("failed to allocate memory");
         return;
@@ -288,7 +289,6 @@ void RunMod(void) {
 
             WDT_HIT();
             if (data_available()) {
-                BigBuf_free();
                 return;
             }
 
@@ -345,7 +345,6 @@ void RunMod(void) {
             break;
         default:
             Dbprintf("No protocol selected, exiting...");
-            BigBuf_free();
             LEDsoff();
             return;
     }
@@ -353,7 +352,7 @@ void RunMod(void) {
     Dbprintf("Stopped sniffing");
     SpinDelay(200);
 
-    uint32_t trace_len = BigBuf_get_traceLen();
+    uint32_t trace_len = get_trace_length();
 
 #ifndef WITH_FLASH
     // Keep stuff in BigBuf for USB/BT dumping
@@ -370,7 +369,7 @@ void RunMod(void) {
     } else {
         Dbprintf("Trace length... %u bytes", trace_len);
 
-        uint8_t *trace_buffer = BigBuf_get_addr();
+        uint8_t *trace_buffer = (uint8_t*)get_current_trace();
 
         sprintf(filename, "%s_%s%s", HF_UNISNIFF_LOGFILE, protocols[sniff_protocol], HF_UNISNIFF_LOGEXT);
 
@@ -418,7 +417,7 @@ void RunMod(void) {
 
     SpinErr(LED_A, 200, 5);
     SpinDelay(100);
-    BigBuf_free();
+    palloc_free(filename);
 #endif
 
     Dbprintf("-=[ exit ]=-");

@@ -463,8 +463,8 @@ out:
 // response is a multi-line text response containing the hex of the keystream;
 // nrar_hex is the 32 bit nR and aR in hex
 void ht2_crack2(uint8_t *nrar_hex) {
-    lf_hitag_crack2_t *c2 = palloc(1, sizeof(lf_hitag_crack2_t));
-    lf_hitag_crack_response_t *packet = palloc(1, sizeof(lf_hitag_crack_response_t));
+    lf_hitag_crack2_t *c2 = (lf_hitag_crack2_t*)palloc(1, sizeof(lf_hitag_crack2_t));
+    lf_hitag_crack_response_t *packet = (lf_hitag_crack_response_t*)palloc(1, sizeof(lf_hitag_crack_response_t));
 
     g_logging = false;
     LEDsoff();
@@ -549,7 +549,7 @@ void ht2_crack2(uint8_t *nrar_hex) {
         Dbprintf("Recovered " _YELLOW_("%i") " bits of keystream", kslen);
     }
     
-    uint8_t *keybitshex = palloc(1, 64);
+    uint8_t *keybitshex = (uint8_t*)palloc(1, 64);
     for (int i = 0; i < 2048; i += 256) {
         binarray2hex(c2->keybits + i, 256, keybitshex);
         Dbhexdump(256, keybitshex, false);

@@ -201,7 +201,7 @@ static uint32_t HfEncodeTkm(const uint8_t *uid, uint8_t modulation, uint8_t *dat
 int HfSimulateTkm(const uint8_t *uid, uint8_t modulation, uint32_t timeout) {
     LEDsoff();
 
-    uint8_t *data = palloc(1, 256);
+    uint8_t *data = (uint8_t*)palloc(1, 256);
     uint32_t elen = HfEncodeTkm(uid, modulation, data);
     if (elen == 0) {
         DbpString("encode error");

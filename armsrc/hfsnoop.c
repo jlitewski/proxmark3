@@ -105,7 +105,7 @@ int HfSniff(uint32_t samplesToSkip, uint32_t triggersToSkip, uint16_t *len, uint
     SpinDelay(100);
 
     *len = get_max_trace_length();
-    uint8_t *mem = palloc(1, *len);
+    uint8_t *mem = (uint8_t*)palloc(1, *len);
 
     uint32_t trigger_cnt = 0;
     uint16_t r = 0, interval = 0;

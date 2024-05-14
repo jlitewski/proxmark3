@@ -666,12 +666,12 @@ void RAMFUNC SniffIso14443a(uint8_t param) {
     start_tracing();
 
     // The command (reader -> tag) that we're receiving.
-    uint8_t *receivedCmd = palloc(1, MAX_FRAME_SIZE);
-    uint8_t *receivedCmdPar = palloc(1, MAX_PARITY_SIZE);
+    uint8_t *receivedCmd = (uint8_t*)palloc(1, MAX_FRAME_SIZE);
+    uint8_t *receivedCmdPar = (uint8_t*)palloc(1, MAX_PARITY_SIZE);
 
     // The response (tag -> reader) that we're receiving.
-    uint8_t *receivedResp = palloc(1, MAX_FRAME_SIZE);
-    uint8_t *receivedRespPar = palloc(1, MAX_PARITY_SIZE);
+    uint8_t *receivedResp = (uint8_t*)palloc(1, MAX_FRAME_SIZE);
+    uint8_t *receivedRespPar = (uint8_t*)palloc(1, MAX_PARITY_SIZE);
 
     if(receivedCmd == nullptr || receivedCmdPar == nullptr || receivedResp == nullptr || receivedRespPar == nullptr) {
         Dbprintf(_RED_("Unable to allocate memory! Aborting..."));
@@ -1360,7 +1360,7 @@ bool SimulateIso14443aInit(uint8_t tagType, uint16_t flags, uint8_t *data, tag_r
 
 #define ALLOCATED_TAG_MODULATION_BUFFER_SIZE (  ((77 + rRATS_len) * 8) + 77 + rRATS_len + 12 + 12 + 12)
 
-    uint8_t *free_buffer = palloc(1, ALLOCATED_TAG_MODULATION_BUFFER_SIZE);
+    uint8_t *free_buffer = (uint8_t*)palloc(1, ALLOCATED_TAG_MODULATION_BUFFER_SIZE);
     // modulation buffer pointer and current buffer free space size
     uint8_t *free_buffer_pointer = free_buffer;
     size_t free_buffer_size = ALLOCATED_TAG_MODULATION_BUFFER_SIZE;
@@ -1415,8 +1415,8 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *data, uint8_
 #define DYNAMIC_RESPONSE_BUFFER_SIZE 64
 #define DYNAMIC_MODULATION_BUFFER_SIZE 512
 
-    uint8_t *dynamic_response_buffer = palloc(1, DYNAMIC_RESPONSE_BUFFER_SIZE);
-    uint8_t *dynamic_modulation_buffer = palloc(1, DYNAMIC_MODULATION_BUFFER_SIZE);
+    uint8_t *dynamic_response_buffer = (uint8_t*)palloc(1, DYNAMIC_RESPONSE_BUFFER_SIZE);
+    uint8_t *dynamic_modulation_buffer = (uint8_t*)palloc(1, DYNAMIC_MODULATION_BUFFER_SIZE);
 
     if(dynamic_modulation_buffer == nullptr || dynamic_response_buffer == nullptr) {
         if(dynamic_modulation_buffer != nullptr) palloc_free(dynamic_modulation_buffer);
@@ -2485,9 +2485,9 @@ void iso14443a_antifuzz(uint32_t flags) {
     int len = 0;
 
     // allocate buffers:
-    uint8_t *received = palloc(1, MAX_FRAME_SIZE);
-    uint8_t *receivedPar = palloc(1, MAX_PARITY_SIZE);
-    uint8_t *resp = palloc(1, 20);
+    uint8_t *received = (uint8_t*)palloc(1, MAX_FRAME_SIZE);
+    uint8_t *receivedPar = (uint8_t*)palloc(1, MAX_PARITY_SIZE);
+    uint8_t *resp = (uint8_t*)palloc(1, 20);
 
     // Respond with EMALLOC if we can't allocate the memory
     if(received == nullptr || receivedPar == nullptr || resp == nullptr) {
@@ -3006,7 +3006,7 @@ b5,b6 = 00 - DESELECT
         11 - WTX
 */
 int iso14_apdu(uint8_t *cmd, uint16_t cmd_len, bool send_chaining, void *data, uint8_t *res) {
-    uint8_t *real_cmd = palloc(1, cmd_len + 4);
+    uint8_t *real_cmd = (uint8_t*)palloc(1, cmd_len + 4);
 
     if(real_cmd == nullptr) {
         return PM3_EMALLOC;
@@ -3797,7 +3797,7 @@ void DetectNACKbug(void) {
     // i  =  number of authentications sent.  Not always 256, since we are trying to sync but close to it.
     FpgaDisableTracing();
 
-    uint8_t *data = palloc(1, 4);
+    uint8_t *data = (uint8_t*)palloc(1, 4);
     data[0] = isOK;
     data[1] = num_nacks;
     num_to_bytes(i, 2, data + 2);

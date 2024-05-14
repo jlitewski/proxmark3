@@ -24,7 +24,8 @@
 #include "dbprint.h"
 #include "ticks.h"
 #include "string.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "iso14443a.h"
 #include "protocols.h"
 #include "cmd.h"
@@ -187,13 +188,9 @@ void RunMod(void) {
 
             //Simulate tag to get PWD
 
-            // free eventually allocated BigBuf memory but keep Emulator Memory
-            BigBuf_free_keep_EM();
-
             memcpy(data, stuid, sizeof(stuid));
 
             if (SimulateIso14443aInit(tagType, flags, data, &responses, &cuid, counters, tearings, &pages) == false) {
-                BigBuf_free_keep_EM();
                 reply_ng(CMD_HF_MIFARE_SIMULATE, PM3_EINIT, NULL, 0);
                 DbpString(_YELLOW_("!!") "Error initializing the simulation process!");
                 SpinDelay(500);
@@ -211,8 +208,8 @@ void RunMod(void) {
 
             bool odd_reply = true;
 
-            clear_trace();
-            set_tracing(true);
+            release_trace();
+            start_tracing();
 
             while (!gotkey) {
                 LED_B_OFF();
@@ -306,8 +303,7 @@ void RunMod(void) {
             }
             switch_off();
 
-            set_tracing(false);
-            BigBuf_free_keep_EM();
+            stop_tracing();
             reply_ng(CMD_HF_MIFARE_SIMULATE, retval, NULL, 0);
 
         } else if (state == STATE_DUMP) {
@@ -365,13 +361,9 @@ void RunMod(void) {
             LED_D_OFF();
             LED_C_ON();
 
-            // free eventually allocated BigBuf memory but keep Emulator Memory
-            BigBuf_free_keep_EM();
-
             memcpy(data, stuid, sizeof(stuid));
 
             if (SimulateIso14443aInit(tagType, flags, data, &responses, &cuid, counters, tearings, &pages) == false) {
-                BigBuf_free_keep_EM();
                 reply_ng(CMD_HF_MIFARE_SIMULATE, PM3_EINIT, NULL, 0);
                 DbpString(_YELLOW_("!!") "Error initializing the simulation process!");
                 SpinDelay(500);
@@ -389,8 +381,8 @@ void RunMod(void) {
 
             bool odd_reply = true;
 
-            clear_trace();
-            set_tracing(true);
+            release_trace();
+            start_tracing();
 
             for (;;) {
                 LED_B_OFF();
@@ -482,8 +474,7 @@ void RunMod(void) {
             }
             switch_off();
 
-            set_tracing(false);
-            BigBuf_free_keep_EM();
+            stop_tracing();
             reply_ng(CMD_HF_MIFARE_SIMULATE, retval, NULL, 0);
         }
     }

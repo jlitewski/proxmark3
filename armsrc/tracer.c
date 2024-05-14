@@ -85,7 +85,7 @@ bool is_tracing(void) {
  * @return the maximum amount of space we can use for trace data
  */
 uint16_t get_max_trace_length(void) {
-    return (palloc_space_left() > MAX_BLOCK_SIZE ? MAX_BLOCK_SIZE : palloc_space_left());
+    return (palloc_sram_left() > MAX_BLOCK_SIZE ? MAX_BLOCK_SIZE : palloc_sram_left());
 }
 
 /**

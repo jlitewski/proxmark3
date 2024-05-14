@@ -22,8 +22,8 @@
 #include "appmain.h"
 #include "lfops.h"
 #include "lfsampling.h"
-#include "BigBuf.h"
 #include "palloc.h"
+#include "tracer.h"
 #include "cardemu.h"
 #include "fpgaloader.h"
 #include "util.h"
@@ -89,13 +89,17 @@ static void append(uint8_t *entry, size_t entry_len) {
 
 static uint32_t IceEM410xdemod(void) {
 
-    uint8_t *dest = BigBuf_get_addr();
+    size_t size = MIN(16385, palloc_sram_left());
+    uint8_t *dest = palloc(1, size);
+
+    if(dest == nullptr) {
+        return PM3_EMALLOC;
+    }
+
     size_t idx = 0;
     int clk = 0, invert = 0, maxErr = 20;
     uint32_t hi = 0;
     uint64_t lo = 0;
-
-    size_t size = MIN(16385, BigBuf_max_traceLen());
 
     //askdemod and manchester decode
     int errCnt = askdemod(dest, &size, &clk, &invert, maxErr, 0, 1);
@@ -103,14 +107,14 @@ static uint32_t IceEM410xdemod(void) {
     WDT_HIT();
 
     if (errCnt > 50) {
-        BigBuf_free();
+        palloc_free(dest);
         return PM3_ESOFT;
     }
 
     int type = Em410xDecode(dest, &size, &idx, &hi, &lo);
     // Did we find a Short EM or a Long EM?
     if ((type < 0) || ((type & (0x1 | 0x2)) == 0)) {
-        BigBuf_free();
+        palloc_free(dest);
         return PM3_ESOFT;
     }
 
@@ -136,21 +140,26 @@ static uint32_t IceEM410xdemod(void) {
 
     append(entry, strlen((char *)entry));
     Dbprintf("%s", entry);
-    BigBuf_free();
+    palloc_free(dest);
     return PM3_SUCCESS;
 }
 
 static uint32_t IceAWIDdemod(void) {
 
-    uint8_t *dest = BigBuf_get_addr();
-    size_t size = MIN(12800, BigBuf_max_traceLen());
+    size_t size = MIN(12800, palloc_sram_left());
+    uint8_t *dest = palloc(1, size);
+
+    if(dest == nullptr) {
+        return PM3_EMALLOC;
+    }
+
     int dummyIdx = 0;
 
     //askdemod and manchester decode
     int idx = detectAWID(dest, &size, &dummyIdx);
 
     if (idx <= 0 || size != 96) {
-        BigBuf_free();
+        palloc_free(dest);
         return PM3_ESOFT;
     }
 
@@ -161,7 +170,7 @@ static uint32_t IceAWIDdemod(void) {
 
     size = removeParity(dest, idx + 8, 4, 1, 88);
     if (size != 66) {
-        BigBuf_free();
+        palloc_free(dest);
         return PM3_ESOFT;
     }
 
@@ -188,27 +197,29 @@ static uint32_t IceAWIDdemod(void) {
 
     append(entry, strlen((char *)entry));
     Dbprintf("%s", entry);
-    BigBuf_free();
+    palloc_free(dest);
     return PM3_SUCCESS;
 }
 
 static uint32_t IceIOdemod(void) {
+
+    size_t size = MIN(12000, palloc_sram_left());
+    uint8_t *dest = (uint8_t*)palloc(1, size);
+
+    if(dest == nullptr) {
+        return PM3_EMALLOC;
+    }
 
     int dummyIdx = 0;
     uint8_t version = 0, facilitycode = 0;
     uint16_t number = 0;
     uint32_t hi = 0, lo = 0;
 
-    size_t size = MIN(12000, BigBuf_max_traceLen());
-
-//    uint8_t *dest = BigBuf_malloc(size);
-    uint8_t *dest = BigBuf_get_addr();
-
     //fskdemod and get start index
     int idx = detectIOProx(dest, &size, &dummyIdx);
 
     if (idx < 0) {
-        BigBuf_free();
+        palloc_free(dest);
         return PM3_ESOFT;
     }
 
@@ -232,7 +243,7 @@ static uint32_t IceIOdemod(void) {
 
     append(entry, strlen((char *)entry));
     Dbprintf("%s", entry);
-    BigBuf_free();
+    palloc_free(dest);
     return PM3_SUCCESS;
 }
 
@@ -243,15 +254,17 @@ static uint32_t IceHIDDemod(void) {
     uint32_t hi2 = 0, hi = 0, lo = 0;
 
     // large enough to catch 2 sequences of largest format
-    //size_t size = 50 * 128 * 2;  // 12800 bytes
-    size_t size = MIN(12800, BigBuf_max_traceLen());
-    //uint8_t *dest = BigBuf_malloc(size);
-    uint8_t *dest = BigBuf_get_addr();
+    size_t size = MIN(12800, palloc_sram_left());
+    uint8_t *dest = (uint8_t*)palloc(1, size);
+
+    if(dest == nullptr) {
+        return PM3_EMALLOC;
+    }
 
     // FSK demodulator
     int idx = HIDdemodFSK(dest, &size, &hi2, &hi, &lo, &dummyIdx);
     if (idx < 0) {
-        BigBuf_free();
+        palloc_free(dest);
         return PM3_ESOFT;
     }
 
@@ -325,7 +338,7 @@ static uint32_t IceHIDDemod(void) {
         Dbprintf("%s", entry);
     }
 
-    BigBuf_free();
+    palloc_free(dest);
     return PM3_SUCCESS;
 }
 
@@ -337,7 +350,6 @@ void RunMod(void) {
 
     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
     LFSetupFPGAForADC(LF_DIVISOR_125, true);
-    BigBuf_Clear();
 
     StandAloneMode();
 
@@ -364,7 +376,7 @@ void RunMod(void) {
         uint32_t res;
 
         // since we steal 12800 from bigbuffer, no need to sample it.
-        size_t size = MIN(28000, BigBuf_max_traceLen());
+        size_t size = MIN(28000, palloc_sram_left());
         DoAcquisition_config(false, size, true);
         res = IceHIDDemod();
         if (res == PM3_SUCCESS) {
@@ -386,7 +398,7 @@ void RunMod(void) {
             continue;
         }
 
-        size = MIN(20000, BigBuf_max_traceLen());
+        size = MIN(20000, palloc_sram_left());
         DoAcquisition_config(false, size, true);
         res = IceEM410xdemod();
         if (res == PM3_SUCCESS) {

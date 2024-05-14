@@ -498,7 +498,7 @@ static void iso18092_setup(uint8_t fpga_minor_mode) {
     // Initialize Demod and Uart structs
     // DemodInit(BigBuf_malloc(MAX_FRAME_SIZE));
 
-    FelicaFrameinit(palloc(1, FELICA_MAX_FRAME_SIZE));
+    FelicaFrameinit((uint8_t*)palloc(1, FELICA_MAX_FRAME_SIZE));
 
     felica_nexttransfertime = 2 * DELAY_ARM2AIR_AS_READER;  // 418
     // iso18092_set_timeout(2120); // 106 * 20ms  maximum start-up time of card
@@ -529,6 +529,7 @@ static void iso18092_setup(uint8_t fpga_minor_mode) {
 
 static void felica_reset_frame_mode(void) {
     switch_off();
+    palloc_free(FelicaFrame.framebytes);
     //Resetting Frame mode (First set in fpgaloader.c)
     AT91C_BASE_SSC->SSC_RFMR = SSC_FRAME_MODE_BITS_IN_WORD(8) | AT91C_SSC_MSBF | SSC_FRAME_MODE_WORDS_PER_TRANSFER(0);
 }
@@ -575,7 +576,7 @@ void felica_sendraw(const PacketCommandNG *c) {
     if ((param & FELICA_RAW) == FELICA_RAW) {
 
         // 2 sync, 1 len, 2crc == 5
-        uint8_t *buf = palloc(1, len + 5);
+        uint8_t *buf = (uint8_t*)palloc(1, len + 5);
         // add sync bits
         buf[0] = 0xb2;
         buf[1] = 0x4d;

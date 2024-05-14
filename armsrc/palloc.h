@@ -43,7 +43,7 @@
 //====================
 
 void palloc_init(void);
-void *palloc(uint16_t numElement, const uint16_t size);
+memptr_t *palloc(uint16_t numElement, const uint16_t size);
 void palloc_copy(void *ptr, const void *src, uint16_t len);
 void palloc_set(void *ptr, const uint16_t value, uint16_t len);
 bool palloc_free(void *ptr);
@@ -52,7 +52,7 @@ bool palloc_freeEX(void *ptr, bool verbose);
 int8_t palloc_free_blocks(void);
 int8_t palloc_used_blocks(void);
 int8_t palloc_fresh_blocks(void);
-size_t palloc_space_left(void);
+size_t palloc_sram_left(void);
 void palloc_compact_heap(void);
 bool palloc_heap_integrity(void);
 

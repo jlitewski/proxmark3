@@ -790,18 +790,18 @@ void SimulateIso14443bTag(const uint8_t *pupi) {
 
     fpga_queue_t *queue = get_fpga_queue();
 
-    uint8_t *receivedCmd = palloc(1, MAX_FRAME_SIZE);
+    uint8_t *receivedCmd = (uint8_t*)palloc(1, MAX_FRAME_SIZE);
 
     // prepare "ATQB" tag answer (encoded):
     CodeIso14443bAsTag(respATQB, sizeof(respATQB));
-    uint8_t *encodedATQB = palloc(1, queue->max);
+    uint8_t *encodedATQB = (uint8_t*)palloc(1, queue->max);
     uint16_t encodedATQBLen = queue->max;
     palloc_copy(encodedATQB, queue->data, queue->max);
 
 
     // prepare "OK" tag answer (encoded):
     CodeIso14443bAsTag(respOK, sizeof(respOK));
-    uint8_t *encodedOK = palloc(1, queue->max);
+    uint8_t *encodedOK = (uint8_t*)palloc(1, queue->max);
     uint16_t encodedOKLen = queue->max;
     palloc_copy(encodedOK, queue->data, queue->max);
 
@@ -2342,8 +2342,8 @@ void read_14b_st_block(uint8_t blocknr) {
 
     start_tracing();
 
-    uint8_t *data = palloc(1, ISO14B_BLOCK_SIZE);
-    iso14b_card_select_t *card = palloc(1, sizeof(iso14b_card_select_t));
+    uint8_t *data = (uint8_t*)palloc(1, ISO14B_BLOCK_SIZE);
+    iso14b_card_select_t *card = (iso14b_card_select_t*)palloc(1, sizeof(iso14b_card_select_t));
 
     int res = iso14443b_select_srx_card(card);
     if (res != PM3_SUCCESS) {
