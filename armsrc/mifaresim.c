@@ -548,7 +548,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
     LED_D_ON();
     ResetSspClk();
 
-    uint16_t *p_em = get_emulator_address();
+    uint8_t *p_em = (uint8_t*)get_emulator_address();
     uint8_t cve_flipper = 0;
 
     int counter = 0;

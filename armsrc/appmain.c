@@ -2433,7 +2433,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 #endif
         case CMD_DOWNLOAD_EMULATOR: {
             LED_B_ON();
-            uint16_t *mem = get_emulator_address();
+            uint8_t *mem = (uint8_t*)get_emulator_address();
             uint32_t startidx = packet->oldarg[0];
             uint32_t numofbytes = packet->oldarg[1];
 
@@ -2869,7 +2869,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             struct p *payload = (struct p *) packet->data.asBytes;
 
-            uint8_t *bb = get_emulator_address();
+            uint8_t *bb = (uint8_t*)get_emulator_address();
             if (payload->mlen == 0) {
                 bb[0] = payload->arg;
             } else {

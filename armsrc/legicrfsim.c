@@ -31,7 +31,7 @@
 #include "dbprint.h"
 #include "util.h"
 
-static uint16_t *legic_mem;      /* card memory, used for sim */
+static memptr_t *legic_mem;      /* card memory, used for sim */
 static legic_card_select_t card;/* metadata of currently selected card */
 static crc_t legic_crc;
 

@@ -1815,7 +1815,7 @@ void em4x50_sim(const uint32_t *password, bool ledcontrol) {
 
     int command = PM3_ENODATA;
 
-    uint16_t *em4x50_mem = get_emulator_address();
+    uint8_t *em4x50_mem = (uint8_t*)get_emulator_address();
     uint32_t tag[EM4X50_NO_WORDS] = {0x0};
 
     for (int i = 0; i < EM4X50_NO_WORDS; i++)

@@ -68,7 +68,7 @@ static void save_dump_to_file(legic_card_select_t *p_card) {
 #ifdef WITH_FLASH
 
     // legic functions puts it memory in Emulator reserved memory.
-    uint8_t *mem = get_emulator_address();
+    uint8_t *mem = (uint8_t*)get_emulator_address();
 
     char *preferredName = (char *)palloc(1, 30);
     if (preferredName == NULL) {

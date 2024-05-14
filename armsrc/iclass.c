@@ -163,7 +163,7 @@ void iclass_simulate(uint8_t sim_type, uint8_t num_csns, bool send_reply, uint8_
     if(send_reply) start_tracing();
 
     //Use the emulator memory for SIM
-    uint16_t *emulator = get_emulator_address();
+    uint8_t *emulator = (uint8_t*)get_emulator_address();
     uint8_t mac_responses[PM3_CMD_DATA_SIZE] = { 0 };
 
     if (sim_type == ICLASS_SIM_MODE_CSN) {
@@ -308,8 +308,8 @@ int do_iclass_simulation(int simulationMode, uint8_t *reader_mac_buf) {
     cipher_state_t cipher_state_KC[8];
     cipher_state_t *cipher_state = &cipher_state_KD[0];
 
-    uint16_t *emulator = get_emulator_address();
-    uint8_t *csn = emulator;
+    memptr_t *emulator = get_emulator_address();
+    uint8_t *csn = (uint8_t*)emulator;
 
     // CSN followed by two CRC bytes
     uint8_t anticoll_data[10] = { 0 };
@@ -875,8 +875,8 @@ int do_iclass_simulation_nonsec(void) {
     uint16_t page_size = 32 * 8;
     uint8_t current_page = 0;
 
-    uint16_t *emulator = get_emulator_address();
-    uint16_t *csn = emulator;
+    memptr_t *emulator = get_emulator_address();
+    uint8_t *csn = (uint8_t*)emulator;
 
     // CSN followed by two CRC bytes
     uint8_t anticoll_data[10] = { 0 };

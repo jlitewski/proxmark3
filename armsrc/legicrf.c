@@ -32,7 +32,7 @@
 #include "util.h"
 #include "protocols.h"
 
-static uint16_t *legic_mem;      /* card memory, used for read, write */
+static memptr_t *legic_mem;      /* card memory, used for read, write */
 static legic_card_select_t card;/* metadata of currently selected card */
 static crc_t legic_crc;
 

@@ -719,8 +719,8 @@ void emlGetMem(uint8_t *data, int blockNum, int blocksCount) {
 }
 
 bool emlCheckValBl(int blockNum) {
-    uint16_t *mem = get_emulator_address();
-    uint16_t *d = mem + (blockNum * 16);
+    uint8_t *mem = (uint8_t*)get_emulator_address();
+    uint8_t *d = mem + (blockNum * 16);
 
     if ((d[0] != (d[4] ^ 0xff)) || (d[0] != d[8]) ||
             (d[1] != (d[5] ^ 0xff)) || (d[1] != d[9]) ||
@@ -734,8 +734,8 @@ bool emlCheckValBl(int blockNum) {
 }
 
 int emlGetValBl(uint32_t *blReg, uint8_t *blBlock, int blockNum) {
-    uint16_t *mem = get_emulator_address();
-    uint16_t *d = mem + blockNum * 16;
+    uint8_t *mem = (uint8_t*)get_emulator_address();
+    uint8_t *d = mem + blockNum * 16;
 
     if (emlCheckValBl(blockNum) == false) {
         return PM3_ESOFT;
@@ -747,7 +747,7 @@ int emlGetValBl(uint32_t *blReg, uint8_t *blBlock, int blockNum) {
 }
 
 void emlSetValBl(uint32_t blReg, uint8_t blBlock, int blockNum) {
-    uint8_t *mem = get_emulator_address();
+    uint8_t *mem = (uint8_t*)get_emulator_address();
     uint8_t *d = mem + blockNum * 16;
 
     palloc_copy(d + 0, &blReg, 4);
@@ -763,7 +763,7 @@ void emlSetValBl(uint32_t blReg, uint8_t blBlock, int blockNum) {
 
 uint64_t emlGetKey(int sectorNum, int keyType) {
     uint8_t key[6] = {0x00};
-    uint8_t *mem = get_emulator_address();
+    uint8_t *mem = (uint8_t*)get_emulator_address();
     palloc_copy(key, mem + 16 * (FirstBlockOfSector(sectorNum) + NumBlocksPerSector(sectorNum) - 1) + keyType * 10, 6);
     return bytes_to_num(key, 6);
 }
@@ -771,7 +771,7 @@ uint64_t emlGetKey(int sectorNum, int keyType) {
 void emlClearMem(void) {
     const uint8_t trailer[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x07, 0x80, 0x69, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     const uint8_t uid[]   =   {0xe6, 0x84, 0x87, 0xf3, 0x16, 0x88, 0x04, 0x00, 0x46, 0x8e, 0x45, 0x55, 0x4d, 0x70, 0x41, 0x04};
-    uint8_t *mem = get_emulator_address();
+    uint8_t *mem = (uint8_t*)get_emulator_address();
     palloc_set(mem, 0, CARD_MEMORY_SIZE);
 
     // fill sectors trailer data

@@ -19,7 +19,7 @@
 #include <inttypes.h>
 #include "ticks.h"
 #include "proxmark3_arm.h"
-#include "BigBuf.h"
+#include "cardemu.h"
 #include "commonutil.h"
 #include "fpgaloader.h"
 #include "util.h"
@@ -65,7 +65,6 @@ static bool fill_eml_from_file(char *dumpfile) {
     uint32_t size = size_in_spiffs(dumpfile);
     if (size != DUMP_SIZE) {
         Dbprintf(_RED_("File Size: %dB  The dump file size is incorrect! Only support Mifare Classic 1K! Please check it."));
-        BigBuf_free();
         return false;
     }
 
@@ -76,7 +75,7 @@ static bool fill_eml_from_file(char *dumpfile) {
     }
 
     emlClearMem();
-    uint8_t *emCARD = BigBuf_get_EM_addr();
+    uint8_t *emCARD = (uint8_t*)get_emulator_address();
     rdv40_spiffs_read_as_filetype(dumpfile, emCARD, size, RDV40_SPIFFS_SAFETY_SAFE);
     return true;
 }
@@ -86,7 +85,7 @@ static bool write_file_from_eml(char *dumpfile) {
         Dbprintf(_RED_("Dump file %s not found!"), dumpfile);
         return false;
     }
-    uint8_t *emCARD = BigBuf_get_EM_addr();
+    uint8_t *emCARD = (uint8_t*)get_emulator_address();
     rdv40_spiffs_write(dumpfile, emCARD, DUMP_SIZE, RDV40_SPIFFS_SAFETY_SAFE);
     return true;
 }
