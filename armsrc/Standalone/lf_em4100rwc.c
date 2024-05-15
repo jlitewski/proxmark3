@@ -53,7 +53,7 @@ static uint32_t predefined_high[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 static uint8_t predefined_slots;
 
 static uint16_t buffer_len;
-static uint16_t *memory_addr = nullptr;
+static memptr_t *memory_addr = nullptr;
 
 void ModInfo(void) {
     DbpString("  LF EM4100 read/write/clone mode");
@@ -204,7 +204,7 @@ void RunMod(void) {
                     construct_EM410x_emul(rev_quads(predefined_ids[selected]));
                     flash_leds(100, 5);
 
-                    SimulateTagLowFrequency(buffer_len, 0, true);
+                    SimulateTagLowFrequency(buffer_len, 0, true, (uint8_t*)memory_addr);
                     led_slot(selected);
                     state = 0; // Switch to select mode
                 }
@@ -231,4 +231,6 @@ void RunMod(void) {
                 break;
         }
     }
+
+    palloc_free(memory_addr);
 }

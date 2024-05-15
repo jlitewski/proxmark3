@@ -89,7 +89,7 @@ static uint64_t em4100rswb_low[] = {0, 0, 0, 0};
 // In em4100rswb_high[] must be nulls
 static uint32_t em4100rswb_high[] = {0, 0, 0, 0};
 
-static uint16_t *memory_addr = nullptr;
+static memptr_t *memory_addr = nullptr;
 static uint16_t buffer_len;
 
 void ModInfo(void) {
@@ -233,7 +233,7 @@ static int BruteEMTag(uint64_t originalCard, int slot) {
         uint64_t currentCard = PackEmID(originalCard, cardnum);
         Dbprintf("[=] >>  Simulating card id %"PRIx64" <<", currentCard);
         construct_EM410x_emul(rev_quads(currentCard));
-        SimulateTagLowFrequencyEx(buffer_len, 0, 1, bruteforce_speeds[current_bruteforce_speed] * 10000);
+        SimulateTagLowFrequencyEx(buffer_len, 0, 1, bruteforce_speeds[current_bruteforce_speed] * 10000, (uint8_t*)memory_addr);
 
         int button_pressed = BUTTON_CLICKED(1000);
         if (button_pressed == BUTTON_SINGLE_CLICK) {
@@ -278,7 +278,7 @@ static int ExecuteMode(int mode, int slot) {
         case LF_RWSB_MODE_SIM:
             Dbprintf("[=] >>  Sim mode started  <<");
             construct_EM410x_emul(rev_quads(em4100rswb_low[slot]));
-            SimulateTagLowFrequency(buffer_len, 0, true);
+            SimulateTagLowFrequency(buffer_len, 0, true, (uint8_t*)memory_addr);
             return LF_RWSB_UNKNOWN_RESULT;
         case LF_RWSB_MODE_WRITE:
             Dbprintf("[!!] >>  Write mode started  <<");

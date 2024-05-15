@@ -38,7 +38,7 @@
 // Predefined IDs must be stored in predefined_ids[].
 static uint64_t predefined_ids[] = {0x565A1140BE, 0x365A398149, 0x5555555555, 0xFFFFFFFFFF};
 static uint8_t predefined_slots;
-static uint16_t *memory_addr = nullptr;
+static memptr_t *memory_addr = nullptr;
 static uint16_t buffer_len = 0;
 
 void ModInfo(void) {
@@ -113,14 +113,10 @@ void RunMod(void) {
         SpinUp(100);
         LED_Slot(selected);
         construct_EM410x_emul(rev_quads(predefined_ids[selected]));
-        SimulateTagLowFrequency(buffer_len, 0, true);
+        SimulateTagLowFrequency(buffer_len, 0, true, (uint8_t*)memory_addr);
 
         selected = (selected + 1) % predefined_slots;
     }
 
-    memory_addr = palloc(1, (MAX_BLOCK_SIZE / 4)); //8k bytes should be enough?
-    if(memory_addr == nullptr) {
-        Dbprintf(_RED_("Unable to allocate memory for the EM4100 Emulator!"));
-        return;
-    }
+    palloc_free(memory_addr);
 }

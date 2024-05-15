@@ -267,9 +267,8 @@ void lf_init(bool reader, bool simulate, bool ledcontrol) {
     // Prepare data trace
     uint32_t bufsize = 10000;
 
-    // use malloc
     if (g_logging) {
-        initSampleBufferEx(&bufsize, true);
+        initSampleBuffer(&bufsize);
     }
 
     lf_sample_mean();

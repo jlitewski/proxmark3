@@ -1462,7 +1462,7 @@ void SimulateHitag2(bool ledcontrol) {
     while (BUTTON_PRESS() == false) {
 
         // use malloc
-        initSampleBufferEx(&signal_size, true);
+        initSampleBuffer(&signal_size);
 
         if (ledcontrol) {
             LED_D_ON();
@@ -1791,8 +1791,7 @@ void ReaderHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
 
     while (bStop == false && BUTTON_PRESS() == false) {
 
-        // use malloc
-        initSampleBufferEx(&signal_size, true);
+        initSampleBuffer(&signal_size);
 
         WDT_HIT();
 
@@ -2154,8 +2153,7 @@ void WriterHitag(const lf_hitag_data_t *payload, bool ledcontrol) {
 
     while (bStop == false && BUTTON_PRESS() == false) {
 
-        // use malloc
-        initSampleBufferEx(&signal_size, true);
+        initSampleBuffer(&signal_size);
 
         // only every 4000th times, in order to save time when collecting samples.
         if (checked == 4000) {
