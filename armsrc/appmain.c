@@ -986,6 +986,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             WriteTItag(payload->high, payload->low, packet->crc, true);
             break;
         }
+        //XXX This might be broken with the changes needed by palloc
         case CMD_LF_SIMULATE: {
             LED_A_ON();
             struct p {
@@ -994,7 +995,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *)packet->data.asBytes;
             // length, start gap, led control
-            SimulateTagLowFrequency(payload->len, payload->gap, true);
+            SimulateTagLowFrequency(payload->len, payload->gap, true, (uint8_t*)get_current_trace());
             reply_ng(CMD_LF_SIMULATE, PM3_EOPABORTED, NULL, 0);
             LED_A_OFF();
             break;
@@ -1187,7 +1188,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         }
         case CMD_LF_HITAG_ELOAD: {
             lf_hitag_t *payload = (lf_hitag_t *) packet->data.asBytes;
-            uint8_t *mem = BigBuf_get_EM_addr();
+            uint8_t *mem = (uint8_t*)get_emulator_address();
             memcpy(mem, payload->data, payload->len);
             break;
         }
@@ -1239,7 +1240,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             // destroy the Emulator Memory.
             //-----------------------------------------------------------------------------
             FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
-            emlSet(packet->data.asBytes, packet->oldarg[0], packet->oldarg[1]);
+            set_emulator_memory(packet->data.asBytes, packet->oldarg[0], packet->oldarg[1]);
             break;
         }
         case CMD_LF_EM4X50_CHK: {
@@ -1345,7 +1346,7 @@ static void PacketReceived(PacketCommandNG *packet) {
                 uint8_t data[];
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
-            emlSet(payload->data, payload->offset, payload->count);
+            set_emulator_memory(payload->data, payload->offset, payload->count);
             break;
         }
         case CMD_HF_ISO15693_EML_GETMEM: {
@@ -1361,12 +1362,28 @@ static void PacketReceived(PacketCommandNG *packet) {
                 return;
             }
 
-            uint8_t *buf = BigBuf_malloc(payload->length);
-            emlGet(buf, payload->offset, payload->length);
-            LED_B_ON();
-            reply_ng(CMD_HF_ISO15693_EML_GETMEM, PM3_SUCCESS, buf, payload->length);
-            LED_B_OFF();
-            BigBuf_free_keep_EM();
+            uint8_t *buf = (uint8_t*)palloc(1, payload->length);
+            if(buf == nullptr) {
+                Dbprintf("Unable to allocate memory, aborting...");
+                LED_C_ON();
+                reply_ng(CMD_HF_ISO15693_EML_GETMEM, PM3_EMALLOC, nullptr, 0);
+                LED_C_OFF();
+                break;
+            }
+
+            int res = get_emulator_memory(buf, payload->offset, payload->length);
+            if(res != PM3_SUCCESS) {
+                Dbprintf(_YELLOW_("There was an issue getting the emulator data!"));
+                LED_B_ON();
+                reply_ng(CMD_HF_ISO15693_EML_GETMEM, res, nullptr, 0);
+                LED_B_OFF();
+            } else {
+                LED_B_ON();
+                reply_ng(CMD_HF_ISO15693_EML_GETMEM, res, buf, payload->length);
+                LED_B_OFF();
+            }
+
+            palloc_free(buf);
             break;
         }
         case CMD_HF_ISO15693_SIMULATE: {
@@ -1501,7 +1518,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             //-----------------------------------------------------------------------------
             FpgaDownloadAndGo(FPGA_BITSTREAM_HF);
             legic_packet_t *payload = (legic_packet_t *) packet->data.asBytes;
-            emlSet(payload->data, payload->offset, payload->len);
+            set_emulator_memory(payload->data, payload->offset, payload->len);
             break;
         }
 #endif
@@ -2036,7 +2053,7 @@ static void PacketReceived(PacketCommandNG *packet) {
                 uint8_t data[];
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
-            emlSet(payload->data, payload->offset, payload->len);
+            set_emulator_memory(payload->data, payload->offset, payload->len);
             break;
         }
         case CMD_HF_ICLASS_WRITEBL: {
@@ -2124,16 +2141,24 @@ static void PacketReceived(PacketCommandNG *packet) {
                 uint8_t data[400];
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
-            uint8_t *mem = BigBuf_get_addr();
-            memcpy(mem + payload->idx, payload->data, payload->bytes_in_packet);
-
-            uint8_t a = 0, b = 0;
-            compute_crc(CRC_14443_A, mem + payload->idx,  payload->bytes_in_packet, &a, &b);
             int res = PM3_SUCCESS;
-            if (payload->crc != (a << 8 | b)) {
-                DbpString("CRC Failed");
-                res = PM3_ESOFT;
+
+            uint8_t *mem = (uint8_t*)palloc(1, (payload->bytes_in_packet + payload->crc + sizeof(payload->data)));
+            if(mem == nullptr) {
+                res = PM3_EMALLOC;
+                DbpString("Unable to allocate memory!");
+            } else {
+                memcpy(mem + payload->idx, payload->data, payload->bytes_in_packet);
+
+                uint8_t a = 0, b = 0;
+                compute_crc(CRC_14443_A, mem + payload->idx,  payload->bytes_in_packet, &a, &b);
+                if (payload->crc != (a << 8 | b)) {
+                    DbpString("CRC Failed");
+                    res = PM3_ESOFT;
+                }
+                palloc_free(mem);
             }
+
             reply_ng(CMD_SMART_UPLOAD, res, NULL, 0);
             break;
         }
@@ -2144,7 +2169,13 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
 
-            uint8_t *fwdata = BigBuf_get_addr();
+            uint8_t *fwdata = (uint8_t*)palloc(1, payload->fw_size + payload->crc);
+            if(fwdata == nullptr) {
+                Dbprintf("Unable to allocate memory, aborting...");
+                reply_ng(CMD_SMART_UPGRADE, PM3_EMALLOC, nullptr, 0);
+                break;
+            }
+            
             uint8_t a = 0, b = 0;
             compute_crc(CRC_14443_A, fwdata, payload->fw_size, &a, &b);
 
@@ -2154,7 +2185,8 @@ static void PacketReceived(PacketCommandNG *packet) {
             } else {
                 SmartCardUpgrade(payload->fw_size);
             }
-            fwdata = NULL;
+
+            palloc_free(fwdata);
             break;
         }
 
@@ -2189,9 +2221,15 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
 
+            uint8_t *dest = (uint8_t*)palloc(1, USART_FIFOLEN);
+            if(dest == nullptr) {
+                Dbprintf("Unable to allocate memory, aborting...");
+                reply_ng(CMD_USART_RX, PM3_EMALLOC, nullptr, 0);
+                break;
+            }
+
             uint16_t available;
             uint16_t pre_available = 0;
-            uint8_t *dest = BigBuf_malloc(USART_FIFOLEN);
             uint32_t wait = payload->waittime;
 
             StartTicks();
@@ -2199,7 +2237,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             uint32_t ti = GetTickCount();
 
             while (true) {
-                WaitMS(50);
+                WaitMS(wait);
                 available = usart_rxdata_available();
                 if (available > pre_available) {
                     // When receiving data, reset timer and shorten timeout
@@ -2212,6 +2250,7 @@ static void PacketReceived(PacketCommandNG *packet) {
                 if (GetTickCountDelta(ti) > wait)
                     break;
             }
+
             if (available > 0) {
                 uint16_t len = usart_read_ng(dest, available);
                 reply_ng(CMD_USART_RX, PM3_SUCCESS, dest, len);
@@ -2220,7 +2259,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             }
 
             StopTicks();
-            BigBuf_free();
+            palloc_free(dest);
             LED_B_OFF();
             break;
         }
@@ -2233,9 +2272,15 @@ static void PacketReceived(PacketCommandNG *packet) {
             struct p *payload = (struct p *) packet->data.asBytes;
             usart_writebuffer_sync(payload->data, packet->length - sizeof(payload));
 
+            uint8_t *dest = (uint8_t*)palloc(1, USART_FIFOLEN);
+            if(dest == nullptr) {
+                Dbprintf("Unable to allocate memory, aborting...");
+                reply_ng(CMD_USART_TXRX, PM3_EMALLOC, nullptr, 0);
+                break;
+            }
+
             uint16_t available;
             uint16_t pre_available = 0;
-            uint8_t *dest = BigBuf_malloc(USART_FIFOLEN);
             uint32_t wait = payload->waittime;
 
             StartTicks();
@@ -2243,7 +2288,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             uint32_t ti = GetTickCount();
 
             while (true) {
-                WaitMS(50);
+                WaitMS(wait);
                 available = usart_rxdata_available();
                 if (available > pre_available) {
                     // When receiving data, reset timer and shorten timeout
@@ -2265,7 +2310,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             }
 
             StopTicks();
-            BigBuf_free();
+            palloc_free(dest);
             LED_B_OFF();
             break;
         }
@@ -2275,6 +2320,7 @@ static void PacketReceived(PacketCommandNG *packet) {
                 uint8_t parity;
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
+            
             usart_init(payload->baudrate, payload->parity);
             reply_ng(CMD_USART_CONFIG, PM3_SUCCESS, NULL, 0);
             break;
@@ -2887,16 +2933,6 @@ static void PacketReceived(PacketCommandNG *packet) {
             reply_ng(CMD_PING, PM3_SUCCESS, packet->data.asBytes, packet->length);
             break;
         }
-#ifdef WITH_LCD
-        case CMD_LCD_RESET: {
-            LCDReset();
-            break;
-        }
-        case CMD_LCD: {
-            LCDSend(packet->oldarg[0]);
-            break;
-        }
-#endif
         case CMD_FINISH_WRITE:
         case CMD_HARDWARE_RESET: {
             usb_disable();
@@ -2968,10 +3004,6 @@ void  __attribute__((noreturn)) AppMain(void) {
     FpgaDownloadAndGo(FPGA_BITSTREAM_HF);
 
     StartTickCount();
-
-#ifdef WITH_LCD
-    LCDInit();
-#endif
 
 #ifdef WITH_SMARTCARD
     I2C_init(false);

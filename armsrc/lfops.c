@@ -330,21 +330,24 @@ void setT55xxConfig(uint8_t arg0, const t55xx_configurations_t *c) {
 #ifdef WITH_FLASH
     // shall persist to flashmem
     if (arg0 == 0) {
-        BigBuf_free();
         return;
     }
 
     if (!FlashInit()) {
-        BigBuf_free();
         return;
     }
 
-    uint8_t *buf = BigBuf_malloc(T55XX_CONFIG_LEN);
+    uint8_t *buf = (uint8_t*)palloc(1, T55XX_CONFIG_LEN);
+    if(buf == nullptr) {
+        Dbprintf("Unable to allocate memory, aborting...");
+        return;
+    }
+
     Flash_CheckBusy(BUSY_TIMEOUT);
     uint16_t res = Flash_ReadDataCont(T55XX_CONFIG_OFFSET, buf, T55XX_CONFIG_LEN);
     if (res == 0) {
         FlashStop();
-        BigBuf_free();
+        palloc_free(buf);
         return;
     }
 
@@ -362,7 +365,7 @@ void setT55xxConfig(uint8_t arg0, const t55xx_configurations_t *c) {
         DbpString("T55XX Config save " _GREEN_("success"));
     }
 
-    BigBuf_free();
+    palloc_free(buf);
 #endif
 }
 
@@ -862,7 +865,6 @@ void SimulateTagLowFrequencyEx(int period, int gap, bool ledcontrol, int numcycl
     WaitMS(20);
 
     int i = 0, x = 0;
-    uint8_t *buf = (uint8_t*)get_current_trace();
 
     // set frequency,  get values from 'lf config' command
     sample_config *sc = getSamplingConfig();
@@ -907,7 +909,7 @@ void SimulateTagLowFrequencyEx(int period, int gap, bool ledcontrol, int numcycl
 
         if (ledcontrol) LED_D_OFF();
 
-        if (buf[i])
+        if (buffer[i])
             OPEN_COIL();
         else
             SHORT_COIL();
