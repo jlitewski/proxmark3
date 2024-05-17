@@ -55,7 +55,7 @@ void MifareHasStaticNonce(void);  // Has the tag a static nonce?
 void MifareHasStaticEncryptedNonce(uint8_t block_no, uint8_t key_type, uint8_t *key); // Has the tag a static encrypted nonce?
 
 // MFC GEN3
-int DoGen3Cmd(uint8_t *cmd, uint8_t cmd_len);
+int DoGen3Cmd(uint8_t *cmd, size_t cmd_len);
 void MifareGen3UID(uint8_t uidlen, uint8_t *uid); // Gen 3 magic card set UID without manufacturer block
 void MifareGen3Blk(uint8_t block_len, uint8_t *block); // Gen 3 magic card overwrite manufacturer block
 void MifareGen3Freez(void); // Gen 3 magic card lock further UID changes

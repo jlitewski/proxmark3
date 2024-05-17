@@ -972,10 +972,10 @@ void Simulate_iso14443b_srx_tag(uint8_t *uid) {
     FpgaSetupSsc(FPGA_MAJOR_MODE_HF_SIMULATOR);
 
     // allocate command receive buffer
-    BigBuf_free();
-    BigBuf_Clear_ext(false);
-    clear_trace();
-    set_tracing(true);
+    //BigBuf_free();
+    //BigBuf_Clear_ext(false);
+    //clear_trace();
+    //set_tracing(true);
 
     uint16_t len, cmdsReceived = 0;
     int cardSTATE = SIM_NOFIELD;
@@ -983,18 +983,18 @@ void Simulate_iso14443b_srx_tag(uint8_t *uid) {
 
     tosend_t *queue = get_tosend();
 
-    uint8_t *receivedCmd = BigBuf_malloc(MAX_FRAME_SIZE);
+    //uint8_t *receivedCmd = BigBuf_malloc(MAX_FRAME_SIZE);
 
     // prepare "ATQB" tag answer (encoded):
     CodeIso14443bAsTag(respATQB, sizeof(respATQB));
-    uint8_t *encodedATQB = BigBuf_malloc(queue->max);
+    //uint8_t *encodedATQB = BigBuf_malloc(queue->max);
     uint16_t encodedATQBLen = queue->max;
     palloc_copy(encodedATQB, queue->buf, queue->max);
 
 
     // prepare "OK" tag answer (encoded):
     CodeIso14443bAsTag(respOK, sizeof(respOK));
-    uint8_t *encodedOK = BigBuf_malloc(queue->max);
+    //uint8_t *encodedOK = BigBuf_malloc(queue->max);
     uint16_t encodedOKLen = queue->max;
     palloc_copy(encodedOK, queue->buf, queue->max);
 

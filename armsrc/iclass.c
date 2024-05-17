@@ -308,8 +308,8 @@ int do_iclass_simulation(int simulationMode, uint8_t *reader_mac_buf) {
     cipher_state_t cipher_state_KC[8];
     cipher_state_t *cipher_state = &cipher_state_KD[0];
 
-    memptr_t *emulator = get_emulator_address();
-    uint8_t *csn = (uint8_t*)emulator;
+    uint8_t *emulator = (uint8_t*)get_emulator_address();
+    uint8_t *csn = emulator;
 
     // CSN followed by two CRC bytes
     uint8_t anticoll_data[10] = { 0 };
@@ -379,9 +379,9 @@ int do_iclass_simulation(int simulationMode, uint8_t *reader_mac_buf) {
 
         for (int i = 1; i < max_page; i++) {
 
-            uint16_t *epurse = emulator + (i * page_size) + (8 * 2);
-            uint16_t *kd = emulator + (i * page_size) + (8 * 3);
-            uint16_t *kc = emulator + (i * page_size) + (8 * 4);
+            uint8_t *epurse = emulator + (i * page_size) + (8 * 2);
+            uint8_t *kd = emulator + (i * page_size) + (8 * 3);
+            uint8_t *kc = emulator + (i * page_size) + (8 * 4);
 
             cipher_state_KD[i] = opt_doTagMAC_1(epurse, kd);
             cipher_state_KC[i] = opt_doTagMAC_1(epurse, kc);
@@ -928,7 +928,7 @@ int do_iclass_simulation_nonsec(void) {
         return PM3_EMALLOC;
     }
 
-    int resp_sof_len, resp_anticoll_len, resp_csn_len, resp_conf_len, resp_cc_len, resp_ff_len, resp_aia_len;
+    int resp_sof_len, resp_anticoll_len, resp_csn_len, resp_conf_len, resp_aia_len;
 
     uint8_t ff_data[10] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00};
     AddCrc(ff_data, 8);
@@ -1054,21 +1054,21 @@ int do_iclass_simulation_nonsec(void) {
 
             switch (block) {
                 case 0: { // csn (0c 00)
-                    modulated_response = resp_csn;
+                    modulated_response = resp->csn;
                     modulated_response_size = resp_csn_len;
                     trace_data = csn_data;
                     trace_data_size = sizeof(csn_data);
                     goto send;
                 }
                 case 1: { // configuration (0c 01)
-                    modulated_response = resp_conf;
+                    modulated_response = resp->conf;
                     modulated_response_size = resp_conf_len;
                     trace_data = conf_block;
                     trace_data_size = sizeof(conf_block);
                     goto send;
                 }
                 case 2: { // Application Issuer Area (0c 02)
-                    modulated_response = resp_aia;
+                    modulated_response = resp->aia;
                     modulated_response_size = resp_aia_len;
                     trace_data = aia_data;
                     trace_data_size = sizeof(aia_data);
@@ -1099,7 +1099,7 @@ int do_iclass_simulation_nonsec(void) {
                 goto send;
             }
             // Reader ends the session
-            modulated_response = resp_sof;
+            modulated_response = resp->sof;
             modulated_response_size = resp_sof_len;
             chip_state = HALTED;
             goto send;

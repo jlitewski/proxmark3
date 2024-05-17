@@ -1199,7 +1199,7 @@ void SniffHitag2(bool ledcontrol) {
         lf_finalize(ledcontrol);
         Dbprintf("Collected %u bytes", total_count);
     switch_off();
-    BigBuf_free();
+    //BigBuf_free();
     }
         */
 

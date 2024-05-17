@@ -2237,7 +2237,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             uint32_t ti = GetTickCount();
 
             while (true) {
-                WaitMS(wait);
+                WaitMS(50);
                 available = usart_rxdata_available();
                 if (available > pre_available) {
                     // When receiving data, reset timer and shorten timeout
@@ -2288,7 +2288,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             uint32_t ti = GetTickCount();
 
             while (true) {
-                WaitMS(wait);
+                WaitMS(50);
                 available = usart_rxdata_available();
                 if (available > pre_available) {
                     // When receiving data, reset timer and shorten timeout
@@ -2458,19 +2458,21 @@ static void PacketReceived(PacketCommandNG *packet) {
             FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
 
             if ((payload->flag & 0x1) == 0x1) {
-                BigBuf_Clear_ext(false);
-                BigBuf_free();
+                release_trace();
             }
 
             // offset should not be over buffer
-            if (payload->offset >= BigBuf_get_size()) {
+            if (payload->offset >= palloc_sram_left()) {
                 reply_ng(CMD_LF_UPLOAD_SIM_SAMPLES, PM3_EOVFLOW, NULL, 0);
                 break;
             }
-            // ensure len bytes copied won't go past end of bigbuf
-            uint16_t len = MIN(BigBuf_get_size() - payload->offset, sizeof(payload->data));
 
-            uint8_t *mem = BigBuf_get_addr();
+            start_tracing();
+
+            // ensure len bytes copied won't go past end of bigbuf
+            uint16_t len = MIN(get_trace_space_left() - payload->offset, sizeof(payload->data));
+
+            uint8_t *mem = (uint8_t*)get_current_trace();
 
             memcpy(mem + payload->offset, &payload->data, len);
             reply_ng(CMD_LF_UPLOAD_SIM_SAMPLES, PM3_SUCCESS, NULL, 0);
@@ -2587,7 +2589,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             uint32_t size = packet->oldarg[1];
 
-            uint8_t *buff = BigBuf_malloc(size);
+            uint8_t *buff = (uint8_t*)palloc(1, size);
             if (buff == NULL) {
                 if (g_dbglevel >= DBG_DEBUG) Dbprintf("Could not allocate buffer");
                 // Trigger a finish downloading signal with an PM3_EMALLOC
@@ -2606,7 +2608,7 @@ static void PacketReceived(PacketCommandNG *packet) {
                 }
                 // Trigger a finish downloading signal with an ACK frame
                 reply_ng(CMD_SPIFFS_DOWNLOAD, PM3_SUCCESS, NULL, 0);
-                BigBuf_free();
+                palloc_free(buff);
             }
             LED_B_OFF();
             break;
@@ -2717,7 +2719,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         case CMD_SPIFFS_ELOAD: {
             LED_B_ON();
 
-            uint8_t *em = BigBuf_get_EM_addr();
+            uint8_t *em = (uint8_t*)get_emulator_address();
             if (em == NULL) {
                 reply_ng(CMD_SPIFFS_ELOAD, PM3_EMALLOC, NULL, 0);
                 LED_B_OFF();
@@ -2809,7 +2811,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         case CMD_FLASHMEM_DOWNLOAD: {
 
             LED_B_ON();
-            uint8_t *mem = BigBuf_malloc(PM3_CMD_DATA_SIZE);
+            uint8_t *mem = (uint8_t*)palloc(1, PM3_CMD_DATA_SIZE);
             uint32_t startidx = packet->oldarg[0];
             uint32_t numofbytes = packet->oldarg[1];
             // arg0 = startindex
@@ -2834,14 +2836,14 @@ static void PacketReceived(PacketCommandNG *packet) {
             FlashStop();
 
             reply_mix(CMD_ACK, 1, 0, 0, 0, 0);
-            BigBuf_free();
+            palloc_free(mem);
             LED_B_OFF();
             break;
         }
         case CMD_FLASHMEM_INFO: {
 
             LED_B_ON();
-            rdv40_validation_t *info = (rdv40_validation_t *)BigBuf_malloc(sizeof(rdv40_validation_t));
+            rdv40_validation_t *info = (rdv40_validation_t *)palloc(1, sizeof(rdv40_validation_t));
 
             bool isok = Flash_ReadData(FLASH_MEM_SIGNATURE_OFFSET, info->signature, FLASH_MEM_SIGNATURE_LEN);
 
@@ -2850,7 +2852,7 @@ static void PacketReceived(PacketCommandNG *packet) {
                 FlashStop();
             }
             reply_mix(CMD_ACK, isok, 0, 0, info, sizeof(rdv40_validation_t));
-            BigBuf_free();
+            palloc_free(info);
 
             LED_B_OFF();
             break;

@@ -744,13 +744,11 @@ void em4x50_chk(const char *filename, bool ledcontrol) {
 
 #ifdef WITH_FLASH
 
-    BigBuf_free();
-
     int changed = rdv40_spiffs_lazy_mount();
     uint16_t pwd_count = 0;
     uint32_t size = size_in_spiffs(filename);
     pwd_count = size / 4;
-    uint8_t *pwds = BigBuf_malloc(size);
+    uint8_t *pwds = (uint8_t*)palloc(1, size);
 
     rdv40_spiffs_read_as_filetype(filename, pwds, size, RDV40_SPIFFS_SAFETY_SAFE);
 
@@ -790,7 +788,7 @@ void em4x50_chk(const char *filename, bool ledcontrol) {
         }
     }
 
-    BigBuf_free();
+    palloc_free(pwds);
 
 #endif
 
@@ -1819,7 +1817,7 @@ void em4x50_sim(const uint32_t *password, bool ledcontrol) {
     uint32_t tag[EM4X50_NO_WORDS] = {0x0};
 
     for (int i = 0; i < EM4X50_NO_WORDS; i++)
-        tag[i] = bytes_to_num((size_t*)(em4x50_mem + (i * 4)), 4);
+        tag[i] = bytes_to_num(em4x50_mem + (i * 4), 4);
 
     // via eload uploaded dump usually does not contain a password
     if (tag[EM4X50_DEVICE_PASSWORD] == 0) {

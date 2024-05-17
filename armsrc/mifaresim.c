@@ -426,7 +426,7 @@ static bool MifareSimInit(uint16_t flags, uint8_t *datain, uint16_t atqa, uint8_
     // 53 * 8 data bits, 53 * 1 parity bits, 18 start bits, 18 stop bits, 18 correction bits  ->   need 571 bytes buffer
 #define ALLOCATED_TAG_MODULATION_BUFFER_SIZE 571
 
-    uint8_t *free_buffer = palloc(1, ALLOCATED_TAG_MODULATION_BUFFER_SIZE);
+    uint8_t *free_buffer = (uint8_t*)palloc(1, ALLOCATED_TAG_MODULATION_BUFFER_SIZE);
 
     if(free_buffer == nullptr) {
         Dbprintf("Unable to allocate memory, exiting...");
@@ -494,13 +494,13 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
     pcs = &mpcs;
 
     uint32_t numReads = 0; //Counts numer of times reader reads a block
-    uint8_t receivedCmd[MAX_FRAME_SIZE] = {0x00};
-    uint8_t receivedCmd_dec[MAX_FRAME_SIZE] = {0x00};
-    uint8_t receivedCmd_par[MAX_PARITY_SIZE] = {0x00};
+    uint8_t receivedCmd[MIFARE_MAX_FRAME_SIZE] = {0x00};
+    uint8_t receivedCmd_dec[MIFARE_MAX_FRAME_SIZE] = {0x00};
+    uint8_t receivedCmd_par[MIFARE_MAX_PARITY_SIZE] = {0x00};
     uint16_t receivedCmd_len;
 
-    uint8_t response[MAX_FRAME_SIZE] = {0x00};
-    uint8_t response_par[MAX_PARITY_SIZE] = {0x00};
+    uint8_t response[MIFARE_MAX_FRAME_SIZE] = {0x00};
+    uint8_t response_par[MIFARE_MAX_PARITY_SIZE] = {0x00};
 
     uint8_t *rats = NULL;
     uint8_t rats_len = 0;
@@ -989,8 +989,8 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
                         }
                     }
                     AddCrc14A(response, 16);
-                    mf_crypto1_encrypt(pcs, response, MAX_FRAME_SIZE, response_par);
-                    EmSendCmdPar(response, MAX_FRAME_SIZE, response_par);
+                    mf_crypto1_encrypt(pcs, response, MIFARE_MAX_FRAME_SIZE, response_par);
+                    EmSendCmdPar(response, MIFARE_MAX_FRAME_SIZE, response_par);
                     FpgaDisableTracing();
 
                     if (g_dbglevel >= DBG_EXTENDED) {
@@ -1263,7 +1263,7 @@ void Mifare1ksim(uint16_t flags, uint8_t exitAfterNReads, uint8_t *datain, uint1
 
             // WRITE BL2
             case MFEMUL_WRITEBL2: {
-                if (receivedCmd_len == MAX_FRAME_SIZE) {
+                if (receivedCmd_len == MIFARE_MAX_FRAME_SIZE) {
                     mf_crypto1_decryptEx(pcs, receivedCmd, receivedCmd_len, receivedCmd_dec);
                     if (CheckCrc14A(receivedCmd_dec, receivedCmd_len)) {
                         if (IsSectorTrailer(cardWRBL)) {

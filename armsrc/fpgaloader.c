@@ -496,8 +496,6 @@ void FpgaDownloadAndGo(uint8_t bitstream_version) {
     // Send waiting time extension request as this will take a while
     send_wtx(FPGA_LOAD_WAIT_TIME);
 
-    bool verbose = (g_dbglevel > 3);
-
     // XXX Clear as much memory as we can, since this is a VERY memory intensive task
     release_emuator();
     release_trace();
@@ -505,7 +503,7 @@ void FpgaDownloadAndGo(uint8_t bitstream_version) {
     lz4_stream_t compressed_fpga_stream;
     LZ4_streamDecode_t lz4StreamDecode_body = {{ 0 }};
     compressed_fpga_stream.lz4StreamDecode = &lz4StreamDecode_body;
-    uint8_t *output_buffer = palloc(1, FPGA_RING_BUFFER_BYTES); // XXX This might be an issue...
+    uint8_t *output_buffer = (uint8_t*)palloc(1, FPGA_RING_BUFFER_BYTES); // XXX This might be an issue...
 
     if (!reset_fpga_stream(bitstream_version, &compressed_fpga_stream, output_buffer))
         return;

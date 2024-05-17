@@ -57,7 +57,7 @@ void palloc_compact_heap(void);
 bool palloc_heap_integrity(void);
 
 void palloc_status(void);
-uint32_t palloc_sram_size();
+uint32_t palloc_sram_size(void);
 
 //==============
 // Buffer Stuff

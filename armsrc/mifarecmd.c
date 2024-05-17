@@ -67,8 +67,8 @@ static uint8_t wupGDM2[] = { MIFARE_MAGIC_GDM_WUPC2 };
 
 static bool mifare_wakeup_auth(struct Crypto1State *pcs, MifareWakeupType wakeup, uint8_t key_auth_cmd, uint8_t *key, uint8_t block_no) {
     uint32_t cuid = 0;
-    uint8_t receivedAnswer[MAX_FRAME_SIZE] = {0x00};
-    uint8_t receivedAnswerPar[MAX_PARITY_SIZE] = {0x00};
+    uint8_t receivedAnswer[MIFARE_MAX_FRAME_SIZE] = {0x00};
+    uint8_t receivedAnswerPar[MIFARE_MAX_PARITY_SIZE] = {0x00};
 
     iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
 
@@ -390,7 +390,7 @@ void MifareUReadCard(uint8_t arg0, uint16_t arg1, uint8_t arg2, uint8_t *datain)
     bool useKey = (arg2 == 1); // UL_C
     bool usePwd = (arg2 == 2); // UL_EV1/NTAG
     uint32_t countblocks = 0;
-    uint8_t *dataout = palloc(1, CARD_MEMORY_SIZE);
+    uint8_t *dataout = (uint8_t*)palloc(1, CARD_MEMORY_SIZE);
     if (dataout == nullptr) {
         Dbprintf("out of memory");
         OnError(1);
@@ -466,7 +466,7 @@ void MifareUReadCard(uint8_t arg0, uint16_t arg1, uint8_t arg2, uint8_t *datain)
 
     countblocks *= 4;
 
-    reply_mix(CMD_ACK, 1, countblocks, (uint64_t)dataout, 0, 0);
+    reply_mix(CMD_ACK, 1, countblocks, (uint64_t)*dataout, 0, 0);
     FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
     LEDsoff();
     palloc_free(dataout);
@@ -493,7 +493,7 @@ void MifareValue(uint8_t arg0, uint8_t arg1, uint8_t arg2, uint8_t *datain) {
     uint8_t isOK = 0;
     uint8_t uid[10] = {0x00};
     uint32_t cuid = 0;
-    uint8_t receivedAnswer[MAX_FRAME_SIZE] = {0x00};
+    uint8_t receivedAnswer[MIFARE_MAX_FRAME_SIZE] = {0x00};
     uint8_t len = 0;
     struct Crypto1State mpcs = {0, 0};
     struct Crypto1State *pcs;
@@ -787,7 +787,7 @@ static int valid_nonce(uint32_t Nt, uint32_t NtEnc, uint32_t Ks1, const uint8_t 
 void MifareAcquireNonces(uint32_t arg0, uint32_t flags) {
 
     uint8_t uid[10] = {0x00};
-    uint8_t answer[MAX_FRAME_SIZE] = {0x00};
+    uint8_t answer[MIFARE_MAX_FRAME_SIZE] = {0x00};
     uint8_t par[1] = {0x00};
     uint8_t buf[PM3_CMD_DATA_SIZE] = {0x00};
     uint32_t cuid = 0;
@@ -893,7 +893,7 @@ void MifareAcquireEncryptedNonces(uint32_t arg0, uint32_t arg1, uint32_t flags, 
     pcs = &mpcs;
 
     uint8_t uid[10] = {0x00};
-    uint8_t receivedAnswer[MAX_FRAME_SIZE] = {0x00};
+    uint8_t receivedAnswer[MIFARE_MAX_FRAME_SIZE] = {0x00};
     uint8_t par_enc[1] = {0x00};
     uint8_t buf[PM3_CMD_DATA_SIZE] = {0x00};
 
@@ -1051,7 +1051,7 @@ void MifareNested(uint8_t blockNo, uint8_t keyType, uint8_t targetBlockNo, uint8
     struct Crypto1State mpcs = {0, 0};
     struct Crypto1State *pcs;
     pcs = &mpcs;
-    uint8_t receivedAnswer[MAX_FRAME_SIZE] = {0x00};
+    uint8_t receivedAnswer[MIFARE_MAX_FRAME_SIZE] = {0x00};
 
     uint32_t auth1_time, auth2_time;
     static uint16_t delta_time = 0;
@@ -1582,11 +1582,11 @@ void MifareChkKeys_fast(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_t *da
 
         // limit size of available for keys in bigbuff
         // a key is 6bytes
-        uint16_t key_mem_available = MIN(BigBuf_get_size(), keyCount * 6);
+        uint16_t key_mem_available = MIN(palloc_sram_left(), keyCount * 6);
 
         keyCount = key_mem_available / 6;
 
-        datain = palloc(1, key_mem_available);
+        datain = (uint8_t*)palloc(1, key_mem_available);
         if (datain == NULL)
             goto OUT;
 
@@ -1598,7 +1598,7 @@ void MifareChkKeys_fast(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_t *da
 #endif
 
     if (uid == NULL || firstchunk) {
-        uid = palloc(1, 10);
+        uid = (uint8_t*)palloc(1, 10);
         if (uid == nullptr) goto OUT;
     }
 
@@ -1836,7 +1836,7 @@ OUT:
             bar |= ((uint16_t)(found[m] & 1) << j++);
         }
 
-        uint8_t *tmp = palloc(1, 480 + 10);
+        uint8_t *tmp = (uint8_t*)palloc(1, 480 + 10);
         palloc_copy(tmp, k_sector, sectorcnt * sizeof(sector_t));
         num_to_bytes(foo, 8, tmp + 480);
         tmp[488] = bar & 0xFF;
@@ -1989,7 +1989,7 @@ void MifareChkKeys_file(uint8_t *fn) {
 
     int changed = rdv40_spiffs_lazy_mount();
     uint32_t size = size_in_spiffs((char *)fn);
-    uint8_t *mem = palloc(1, size);
+    uint8_t *mem = (uint8_t*)palloc(1, size);
 
     rdv40_spiffs_read_as_filetype((char *)fn, mem, size, RDV40_SPIFFS_SAFETY_SAFE);
 
@@ -2035,8 +2035,8 @@ void MifarePersonalizeUID(uint8_t keyType, uint8_t perso_option, uint64_t key) {
             break;
         }
 
-        uint8_t receivedAnswer[MAX_FRAME_SIZE];
-        uint8_t receivedAnswerPar[MAX_PARITY_SIZE];
+        uint8_t receivedAnswer[MIFARE_MAX_FRAME_SIZE];
+        uint8_t receivedAnswerPar[MIFARE_MAX_PARITY_SIZE];
         int len = mifare_sendcmd_short(pcs, true, MIFARE_EV1_PERSONAL_UID, perso_option, receivedAnswer, receivedAnswerPar, NULL);
         if (len != 1 || receivedAnswer[0] != CARD_ACK) {
             if (g_dbglevel >= DBG_ERROR) Dbprintf("Cmd Error: %02x", receivedAnswer[0]);
@@ -2085,7 +2085,7 @@ void MifareEMemGet(uint8_t blockno, uint8_t blockcnt) {
         return;
     }
 
-    uint8_t *buf = palloc(1, size);
+    uint8_t *buf = (uint8_t*)palloc(1, size);
 
     emlGetMem(buf, blockno, blockcnt); // data, block num, blocks count (max 4)
 
@@ -2279,8 +2279,8 @@ void MifareCSetBlock(uint32_t arg0, uint32_t arg1, uint8_t *datain) {
     uint8_t data[18] = {0x00};
     uint32_t cuid = 0;
 
-    uint8_t receivedAnswer[MAX_FRAME_SIZE] = {0x00};
-    uint8_t receivedAnswerPar[MAX_PARITY_SIZE] = {0x00};
+    uint8_t receivedAnswer[MIFARE_MAX_FRAME_SIZE] = {0x00};
+    uint8_t receivedAnswerPar[MIFARE_MAX_PARITY_SIZE] = {0x00};
 
     if (workFlags & MAGIC_INIT) {
         LED_A_ON();
@@ -2392,9 +2392,9 @@ void MifareCGetBlock(uint32_t arg0, uint32_t arg1, uint8_t *datain) {
     bool is1b = false;
 
     // variables
-    uint8_t data[MAX_FRAME_SIZE];
-    uint8_t receivedAnswer[MAX_FRAME_SIZE] = {0x00};
-    uint8_t receivedAnswerPar[MAX_PARITY_SIZE] = {0x00};
+    uint8_t data[MIFARE_MAX_FRAME_SIZE];
+    uint8_t receivedAnswer[MIFARE_MAX_FRAME_SIZE] = {0x00};
+    uint8_t receivedAnswerPar[MIFARE_MAX_PARITY_SIZE] = {0x00};
 
     palloc_set(data, 0x00, sizeof(data));
 
@@ -2433,7 +2433,7 @@ void MifareCGetBlock(uint32_t arg0, uint32_t arg1, uint8_t *datain) {
         }
 
         // read block
-        if ((mifare_sendcmd_short(NULL, CRYPT_NONE, ISO14443A_CMD_READBLOCK, blockNo, receivedAnswer, receivedAnswerPar, NULL) != MAX_FRAME_SIZE)) {
+        if ((mifare_sendcmd_short(NULL, CRYPT_NONE, ISO14443A_CMD_READBLOCK, blockNo, receivedAnswer, receivedAnswerPar, NULL) != MIFARE_MAX_FRAME_SIZE)) {
             if (g_dbglevel >= DBG_ERROR) Dbprintf("read block send command error");
             errormsg = 0;
             break;
@@ -2472,6 +2472,19 @@ static void mf_reset_card(void) {
 }
 
 void MifareCIdent(bool is_mfc, uint8_t keytype, uint8_t *key) {
+    uint8_t *par = (uint8_t*)palloc(1, MAX_PARITY_SIZE);
+    uint8_t *buf = (uint8_t*)palloc(1, PM3_CMD_DATA_SIZE);
+    uint8_t *uid = (uint8_t*)palloc(1, 10);
+
+    if(par == nullptr || buf == nullptr || uid == nullptr) {
+        Dbprintf("Unable to allocate memory, aborting...");
+        reply_ng(CMD_HF_MIFARE_CIDENT, PM3_EMALLOC, nullptr, 0);
+        if(par != nullptr) palloc_free(par);
+        if(buf != nullptr) palloc_free(buf);
+        if(uid != nullptr) palloc_free(uid);
+        return;
+    }
+
     // variables
     uint8_t rec[1] = {0x00};
     uint8_t recpar[1] = {0x00};
@@ -2484,9 +2497,6 @@ void MifareCIdent(bool is_mfc, uint8_t keytype, uint8_t *key) {
     uint8_t superGen1[9] = {0x0A, 0x00, 0x00, 0xA6, 0xB0, 0x00, 0x10, 0x14, 0x1D};
     bool isGen2 = false;
 
-    uint8_t *par = palloc(1, MAX_PARITY_SIZE);
-    uint8_t *buf = palloc(1, PM3_CMD_DATA_SIZE);
-    uint8_t *uid = palloc(1, 10);
     uint16_t flag = MAGIC_FLAG_NONE;
     uint32_t cuid = 0;
     int res = 0;
@@ -2687,7 +2697,7 @@ void MifareHasStaticNonce(void) {
     // variables
     int retval = PM3_SUCCESS;
     uint32_t nt = 0;
-    uint8_t *uid = palloc(1, 10);
+    uint8_t *uid = (uint8_t*)palloc(1, 10);
 
     palloc_set(uid, 0x00, 10);
 
@@ -2828,10 +2838,10 @@ void OnErrorMagic(uint8_t reason) {
     OnSuccessMagic();
 }
 
-int DoGen3Cmd(uint8_t *cmd, uint8_t cmd_len) {
+int DoGen3Cmd(uint8_t *cmd, size_t cmd_len) {
     int retval = PM3_SUCCESS;
-    uint8_t *par = palloc(1, MAX_PARITY_SIZE);
-    uint8_t *buf = palloc(1, PM3_CMD_DATA_SIZE);
+    uint8_t *par = (uint8_t*)palloc(1, MAX_PARITY_SIZE);
+    uint8_t *buf = (uint8_t*)palloc(1, PM3_CMD_DATA_SIZE);
 
     LED_B_ON();
     uint32_t save_iso14a_timeout = iso14a_get_timeout();
@@ -2857,8 +2867,8 @@ int DoGen3Cmd(uint8_t *cmd, uint8_t cmd_len) {
 void MifareGen3UID(uint8_t uidlen, uint8_t *uid) {
     int retval = PM3_SUCCESS;
     uint8_t uid_cmd[5] = { 0x90, 0xfb, 0xcc, 0xcc, 0x07 };
-    uint8_t *old_uid = palloc(1, 10);
-    uint8_t *cmd = palloc(1, sizeof(uid_cmd) + uidlen + 2);
+    uint8_t *old_uid = (uint8_t*)palloc(1, 10);
+    uint8_t *cmd = (uint8_t*)palloc(1, sizeof(uid_cmd) + uidlen + 2);
     iso14a_card_select_t *card_info = (iso14a_card_select_t *) palloc(1, sizeof(iso14a_card_select_t));
 
     LEDsoff();
@@ -2895,7 +2905,7 @@ void MifareGen3Blk(uint8_t block_len, uint8_t *block) {
 
     int retval = PM3_SUCCESS;
     uint8_t block_cmd[5] = { 0x90, 0xf0, 0xcc, 0xcc, 0x10 };
-    uint8_t *cmd = palloc(1, sizeof(block_cmd) + MAX_FRAME_SIZE);
+    uint8_t *cmd = (uint8_t*)palloc(1, sizeof(block_cmd) + MIFARE_MAX_FRAME_SIZE);
     iso14a_card_select_t *card_info = (iso14a_card_select_t *) palloc(1, sizeof(iso14a_card_select_t));
 
     LEDsoff();
@@ -2910,7 +2920,7 @@ void MifareGen3Blk(uint8_t block_len, uint8_t *block) {
 
     bool doReselect = false;
     if (block_len < MIFARE_BLOCK_SIZE) {
-        if ((mifare_sendcmd_short(NULL, CRYPT_NONE, ISO14443A_CMD_READBLOCK, 0, &cmd[sizeof(block_cmd)], NULL, NULL) != MAX_FRAME_SIZE)) {
+        if ((mifare_sendcmd_short(NULL, CRYPT_NONE, ISO14443A_CMD_READBLOCK, 0, &cmd[sizeof(block_cmd)], NULL, NULL) != MIFARE_MAX_FRAME_SIZE)) {
             if (g_dbglevel >= DBG_ERROR) Dbprintf("Read manufacturer block failed");
             retval = PM3_ESOFT;
             goto OUT;
@@ -2944,7 +2954,7 @@ void MifareGen3Blk(uint8_t block_len, uint8_t *block) {
             }
         }
 
-        retval = DoGen3Cmd(cmd, sizeof(block_cmd) + MAX_FRAME_SIZE);
+        retval = DoGen3Cmd(cmd, (sizeof(block_cmd) + MIFARE_MAX_FRAME_SIZE));
     }
 
 OUT:
@@ -2985,13 +2995,13 @@ void MifareG4ReadBlk(uint8_t blockno, uint8_t *pwd, uint8_t workFlags) {
     int res = 0;
     int retval = PM3_SUCCESS;
 
-    uint8_t *buf = palloc(1, PM3_CMD_DATA_SIZE);
+    uint8_t *buf = (uint8_t*)palloc(1, PM3_CMD_DATA_SIZE);
     if (buf == NULL) {
         retval = PM3_EMALLOC;
         goto OUT;
     }
 
-    uint8_t *par = palloc(1, MAX_PARITY_SIZE);
+    uint8_t *par = (uint8_t*)palloc(1, MAX_PARITY_SIZE);
     if (par == NULL) {
         retval = PM3_EMALLOC;
         goto OUT;
@@ -3059,8 +3069,9 @@ void MifareG4WriteBlk(uint8_t blockno, uint8_t *pwd, uint8_t *data, uint8_t work
     int res = 0;
     int retval = PM3_SUCCESS;
 
-    uint8_t *buf = palloc(1, PM3_CMD_DATA_SIZE);
-    if (buf == NULL) {
+    uint8_t *buf = (uint8_t*)palloc(1, PM3_CMD_DATA_SIZE);
+    uint8_t *par = (uint8_t*)palloc(1, MAX_PARITY_SIZE);
+    if (buf == nullptr || par == nullptr) {
         retval = PM3_EMALLOC;
         goto OUT;
     }
@@ -3068,12 +3079,6 @@ void MifareG4WriteBlk(uint8_t blockno, uint8_t *pwd, uint8_t *data, uint8_t work
     // check args
     if (data == NULL) {
         retval = PM3_EINVARG;
-        goto OUT;
-    }
-
-    uint8_t *par = palloc(1, MAX_PARITY_SIZE);
-    if (par == NULL) {
-        retval = PM3_EMALLOC;
         goto OUT;
     }
 
@@ -3132,8 +3137,8 @@ OUT:
         stop_tracing();
     }
 
-    palloc_free(buf);
-    palloc_free(par);
+    if(buf != nullptr) palloc_free(buf);
+    if(par != nullptr) palloc_free(par);
 }
 
 void MifareSetMod(uint8_t *datain) {
@@ -3143,14 +3148,14 @@ void MifareSetMod(uint8_t *datain) {
 
     // variables
     uint16_t isOK = PM3_EUNDEF;
-    uint8_t *uid = palloc(1, 10);
+    uint8_t *uid = (uint8_t*)palloc(1, 10);
 
     uint32_t cuid = 0;
     struct Crypto1State mpcs = {0, 0};
     struct Crypto1State *pcs = &mpcs;
 
-    uint8_t *buf = palloc(1, MAX_FRAME_SIZE);
-    uint8_t *par = palloc(1, MAX_PARITY_SIZE);
+    uint8_t *buf = (uint8_t*)palloc(1, MIFARE_MAX_FRAME_SIZE);
+    uint8_t *par = (uint8_t*)palloc(1, MIFARE_MAX_PARITY_SIZE);
 
     LEDsoff();
     iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);

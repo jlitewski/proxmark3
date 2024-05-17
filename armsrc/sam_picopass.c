@@ -120,7 +120,7 @@ int sam_picopass_get_pacs(void) {
     int res;
     uint32_t eof_time = 0;
 
-    uint8_t *resp = palloc(1, ISO7816_MAX_FRAME);
+    uint8_t *resp = (uint8_t*)palloc(1, ISO7816_MAX_FRAME);
 
     if(resp == nullptr) {
         res = PM3_EMALLOC;
@@ -221,9 +221,10 @@ int sam_picopass_get_pacs(void) {
     // SAM comms
     // -----------------------------------------------------------------------------
     size_t sam_len = 1; // Set this to 1 as a flag for palloc_free()
-    uint8_t *sam_apdu = palloc(1, ISO7816_MAX_FRAME);
+    uint8_t *sam_apdu = (uint8_t*)palloc(1, ISO7816_MAX_FRAME);
 
     if(sam_apdu == nullptr) {
+        if(resp != nullptr) palloc_free(resp);
         res = PM3_EMALLOC;
         goto out;
     }
@@ -438,7 +439,7 @@ int sam_picopass_get_pacs(void) {
     }
 
     // c164000000bd098a07 030506951f9a00 9000
-    uint8_t *pacs = palloc(1, resp[8]);
+    uint8_t *pacs = (uint8_t*)palloc(1, resp[8]);
 
     if(pacs == nullptr) {
         res = PM3_EMALLOC;
@@ -453,13 +454,14 @@ int sam_picopass_get_pacs(void) {
         goto off;
     }
 
+    if(resp != nullptr) palloc_free(resp);
+    if(sam_apdu != nullptr) palloc_free(sam_apdu);
+
 out:
     reply_ng(CMD_HF_SAM_PICOPASS, res, NULL, 0);
 
 off:
     switch_off();
-    if(resp_len != 1) palloc_free(resp);
-    if(sam_len  != 1) palloc_free(sam_apdu);
     return res;
 }
 

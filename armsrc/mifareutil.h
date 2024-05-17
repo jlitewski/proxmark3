@@ -23,6 +23,10 @@
 #include "common.h"
 #include "crapto1/crapto1.h"
 
+// Mifare unique defines
+#define MIFARE_MAX_FRAME_SIZE 18 // biggest Mifare frame is answer to a read (one block = 16 Bytes) + 2 Bytes CRC
+#define MIFARE_MAX_PARITY_SIZE 3 // need 18 parity bits for the 18 Byte above. 3 Bytes are enough to store these
+
 // mifare authentication
 #define CRYPT_NONE    0
 #define CRYPT_ALL     1

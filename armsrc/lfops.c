@@ -380,7 +380,7 @@ void loadT55xxConfig(void) {
         return;
     }
 
-    uint8_t *buf = palloc(1, T55XX_CONFIG_LEN);
+    uint8_t *buf = (uint8_t*)palloc(1, T55XX_CONFIG_LEN);
 
     if(buf == nullptr) return;
 

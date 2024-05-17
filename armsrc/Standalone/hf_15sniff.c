@@ -118,7 +118,7 @@ void RunMod(void) {
     if (trace_len > 0) {
         Dbprintf("[!] Trace length (bytes) = %u", trace_len);
 
-        uint8_t *trace_buffer = BigBuf_get_addr();
+        uint8_t *trace_buffer = (uint8_t*)get_current_trace();
         if (!exists_in_spiffs(HF_15693SNIFF_LOGFILE)) {
             rdv40_spiffs_write(
                 HF_15693SNIFF_LOGFILE, trace_buffer, trace_len, RDV40_SPIFFS_SAFETY_SAFE);
