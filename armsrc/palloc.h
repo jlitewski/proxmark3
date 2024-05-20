@@ -22,7 +22,7 @@
 #ifndef PALLOC_H__
 #define PALLOC_H__
 
-#include "common.h"
+#include "util.h"
 
 //-----------------------------------------------------------------------------
 // Palloc (Proxmark ALLOCator) provides bare metal access to the memory
@@ -49,9 +49,9 @@ void palloc_set(void *ptr, const uint16_t value, uint16_t len);
 bool palloc_free(void *ptr);
 bool palloc_freeEX(void *ptr, bool verbose);
 
-int8_t palloc_free_blocks(void);
-int8_t palloc_used_blocks(void);
-int8_t palloc_fresh_blocks(void);
+int palloc_free_blocks(void);
+int palloc_used_blocks(void);
+int palloc_fresh_blocks(void);
 size_t palloc_sram_left(void);
 void palloc_compact_heap(void);
 bool palloc_heap_integrity(void);
@@ -68,17 +68,17 @@ uint32_t palloc_sram_size(void);
 typedef struct { // General purpose 8-bit buffer
     uint16_t size;
     uint8_t *data; // Pass this into `palloc_free()` to free the buffer
-} buffer8u_t;
+} PACKED buffer8u_t;
 
 typedef struct { // General purpose 16-bit buffer
     uint16_t size;
     uint16_t *data; // Pass this into `palloc_free()` to free the buffer
-} buffer16u_t;
+} PACKED buffer16u_t;
 
 typedef struct { // General purpose 32-bit buffer
     uint16_t size;
     uint32_t *data; // Pass this into `palloc_free()` to free the buffer
-} buffer32u_t;
+} PACKED buffer32u_t;
 
 buffer8u_t  palloc_buffer8(uint16_t numElement);
 buffer16u_t palloc_buffer16(uint16_t numElement);
@@ -95,7 +95,7 @@ typedef struct {
     int16_t max; // -1 is no data, max data size is ~2.3k bytes
     uint8_t bit; // 0 through 8
     uint8_t *data;
-} fpga_queue_t;
+} PACKED fpga_queue_t;
 
 fpga_queue_t *get_fpga_queue(void);
 void reset_fpga_queue(void);

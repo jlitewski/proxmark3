@@ -43,11 +43,6 @@
  */
 #define nullptr NULL
 
-/**
- * @brief Memory Pointer that will be the correct size for the memory we use.
- */
-typedef unsigned short memptr_t;
-
 // PM3 share path relative to executable when installed
 #define PM3_SHARE_RELPATH    ".." PATHSEP "share" PATHSEP "proxmark3" PATHSEP
 

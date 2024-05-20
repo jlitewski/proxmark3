@@ -38,8 +38,8 @@ TAR = tar
 TARFLAGS ?= -v --ignore-failed-read -r
 TARFLAGS += -C .. -f
 CROSS ?= arm-none-eabi-
-CC ?= gcc
-CXX ?= g++
+CC ?= cc
+CXX ?= c++
 SH = sh
 BASH = bash
 PERL = perl
@@ -123,9 +123,9 @@ ifeq ($(DEBUG_ARM),1)
 endif
 # Next ones are activated only if SANITIZE=1
 ifeq ($(SANITIZE),1)
-  DEFCFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
-  DEFCXXFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
-  DEFLDFLAGS += -g -fsanitize=address
+  DEFCFLAGS += -g -fsanitize=undefined,address -fno-omit-frame-pointer
+  DEFCXXFLAGS += -g -fsanitize=undefined,address -fno-omit-frame-pointer
+  DEFLDFLAGS += -g -fsanitize=undefined,address
 endif
 # Some more warnings we want as errors:
 DEFCFLAGS += -Wbad-function-cast -Wredundant-decls -Wmissing-prototypes -Wchar-subscripts -Wshadow -Wundef -Wwrite-strings -Wunused -Wuninitialized -Wpointer-arith -Winline -Wformat -Wformat-security -Winit-self -Wmissing-include-dirs -Wnested-externs -Wmissing-declarations -Wempty-body -Wignored-qualifiers -Wmissing-field-initializers -Wtype-limits -Wold-style-definition

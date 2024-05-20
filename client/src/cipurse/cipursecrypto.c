@@ -233,8 +233,7 @@ static uint16_t CipurseCComputeMICCRC(const uint8_t *data, size_t len) {
 
 void CipurseCGenerateMIC(uint8_t *data, size_t datalen, uint8_t *mic) {
     size_t plen = 0;
-    uint8_t pdata[datalen + CIPURSE_MIC_LENGTH];
-    memset(pdata, 0, sizeof(pdata));
+    uint8_t *pdata = calloc(1, datalen + CIPURSE_MIC_LENGTH);
 
     // 0x00 padding
     memcpy(pdata, data, datalen);
@@ -255,6 +254,9 @@ void CipurseCGenerateMIC(uint8_t *data, size_t datalen, uint8_t *mic) {
     }
 
     uint16_t crc2 = CipurseCComputeMICCRC(pdata, plen);
+
+    free(pdata);
+    
     if (mic != NULL) {
         mic[0] = crc2 >> 8;
         mic[1] = crc2 & 0xff;

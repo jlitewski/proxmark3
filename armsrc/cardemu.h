@@ -19,7 +19,7 @@
 #ifndef CARDEMU_H__
 #define CARDEMU_H__
 
-#include "common.h"
+#include "util.h"
 #include "palloc.h"
 
 #define CARD_MEMORY_SIZE 4096 // 4Kb should be a good size

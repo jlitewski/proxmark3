@@ -67,10 +67,6 @@
 #include "sam_seos.h"
 #include "sam_mfc.h"
 
-#ifdef WITH_LCD
-#include "LCD_disabled.h"
-#endif
-
 #ifdef WITH_SMARTCARD
 #include "i2c.h"
 #endif

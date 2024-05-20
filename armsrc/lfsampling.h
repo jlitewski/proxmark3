@@ -16,7 +16,7 @@
 #ifndef __LFSAMPLING_H
 #define __LFSAMPLING_H
 
-#include "common.h"
+#include "util.h"
 #include "pm3_cmd.h"
 
 typedef struct {

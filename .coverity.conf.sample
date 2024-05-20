@@ -4,9 +4,9 @@ COVTOKEN=aAbBcCdDeEfFgGhHiIjJkK
 COVBINDIR="/opt/cov-analysis-linux64-2020.09/bin"
 # Nickname included in scan description:
 NICKNAME=myself
-HOSTCC=gcc-10
-HOSTCXX=g++-10
-HOSTLD=g++-10
+HOSTCC=cc
+HOSTCXX=c++
+HOSTLD=c++
 
 # Do not change it:
 COVDIR=cov-int

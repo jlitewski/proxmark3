@@ -498,7 +498,7 @@ void add_temporary_marker(uint32_t position, const char *label) {
         markerLabel[30] = '\0';
     }
 
-    strncpy(g_TempMarkers[g_TempMarkerSize].label, markerLabel, 30);
+    strncpy(g_TempMarkers[g_TempMarkerSize].label, markerLabel, 29);
     g_TempMarkerSize++;
 
     memset(markerLabel, 0x00, strlen(label));

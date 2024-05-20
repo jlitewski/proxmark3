@@ -22,6 +22,11 @@
 
 #include "common.h"
 
+/**
+ * @brief Memory Pointer that will be the correct size for the memory we use.
+ */
+typedef unsigned short memptr_t;
+
 // PRIx64 definition missing with gcc-arm-none-eabi v8?
 #ifndef PRIx64
 #define PRIx64 "llx"

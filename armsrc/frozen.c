@@ -979,10 +979,10 @@ static void json_scanf_cb(void *callback_data, const char *name,
         case 'H': {
 #if JSON_ENABLE_HEX
             char **dst = (char **) info->user_data;
-            int i, len = token->len / 2;
+            int len = token->len / 2;
             *(int *) info->target = len;
             if ((*dst = (char *) malloc(len + 1)) != NULL) {
-                for (i = 0; i < len; i++) {
+                for (int i = 0; i < len; i++) {
                     (*dst)[i] = hexdec(token->ptr + 2 * i);
                 }
                 (*dst)[len] = '\0';

@@ -22,7 +22,7 @@
 #ifndef TRACER_H__
 #define TRACER_H__
 
-#include "common.h"
+#include "util.h"
 
 //-----------------------------------------------------------------------------
 // Tracer is the next iteration of the Proxmark Tracing functions.

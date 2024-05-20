@@ -1250,11 +1250,11 @@ static int selectHitagS(const lf_hitag_data_t *packet, uint8_t *tx, size_t sizeo
 
     //check which memorysize this tag has
     if ((conf_pages[0] & 0x3) == 0x00) {
-        tag.max_page = 32 / 32;
+        tag.max_page = 1; // Since 32 / 32 == 1
     } else if ((conf_pages[0] & 0x3) == 0x1) {
-        tag.max_page = 256 / 32;
+        tag.max_page = 8; // Since 256 / 32 == 8
     } else if ((conf_pages[0] & 0x3) == 0x2) {
-        tag.max_page = 2048 / 32;
+        tag.max_page = 64; // Since 2048 / 32 == 64
     }
 
     conf_pages[1] = rx[1];

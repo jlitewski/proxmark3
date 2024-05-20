@@ -22,8 +22,13 @@
 //==============================================================================
 #include "palloc.h"
 
-#include "util.h"    // nbytes
+#ifndef offsetof
+#define offsetof(type, field) ((size_t) &(((type *) 0)->field))
+#endif
+
 #include "dbprint.h" // logging
+#include "proxmark3_arm.h" // LED control
+#include "ticks.h"
 #include "pm3_cmd.h" // return defines
 
 // Word size alignment
@@ -42,20 +47,20 @@ extern uint32_t _stack_start[], __bss_end__[];
 #define MAX_BLOCKS 32 // 32 blocks should give us an overall overhead of 768 bytes
 
 typedef struct Block pBlock;
+typedef struct Heap pHeap;
 
-struct Block {
-    void *address; // The memory address this block points to
-    pBlock *next;  // The next block in the list, or nullptr if there is none
+struct PACKED Block {
     int16_t size;  // The size of the data at `address`
+    void *address; // The memory address this block points to
+    struct Block *next;  // The next block in the list, or nullptr if there is none
 };
 
-typedef struct {
-    bool init;     // Flag for if the heap was initialized
+struct PACKED Heap {
+    pBlock *fresh; // Fresh (never used) Blocks List
     pBlock *free;  // Free (previously used) Blocks List
     pBlock *used;  // Currently used Blocks List
-    pBlock *fresh; // Fresh (never used) Blocks List
     size_t top;    // Top free address
-} pHeap;
+};
 
 /**
  * @brief The FPGA Queue
@@ -84,25 +89,27 @@ static size_t free_space = 0;
 void palloc_init(void) {
     // Set up the heap
     heap = (pHeap*)(_stack_start - __bss_end__);
-    heap->init = false; // Signal that we haven't finished initializing yet
     heap->free = nullptr;
     heap->used = nullptr;
-    heap->fresh = (pBlock*)(heap + 1);
-    heap->top = (size_t)(heap->fresh + MAX_BLOCKS);
+    heap->fresh = (pBlock*)(heap + sizeof(memptr_t));
+    heap->top = (size_t)(heap->fresh + (MAX_BLOCKS * sizeof(memptr_t)));
 
     // Set up the fresh blocks to use
     pBlock *block = heap->fresh;
     uint8_t i = (MAX_BLOCKS - 1);
     while(i--) {
-        block->next = block + 1;
+        LED_D_INV();
+        SpinDelay(100);
+        block->next = (pBlock*)(block + sizeof(memptr_t));
+        block->size = 0;
         block++;
     }
 
     // Calculate the amount of free space we have in the heap
     free_space = (MEM_USABLE - OVERHEAD);
 
+    block->size = 0;
     block->next = nullptr; // Set the last next block to nullptr to signal end of list
-    heap->init = true; // Signal that we have initialized the heap
 }
 
 /**
@@ -254,7 +261,7 @@ static pBlock *allocate_block(size_t alloc) {
  * @return the address of the block of memory, or nullptr
  */
 memptr_t *palloc(uint16_t numElement, const uint16_t size) {
-    if(((heap == NULL) || !(heap->init))) return false; // Can't allocate memory if we haven't initialized any
+    if(heap == nullptr) return false; // Can't allocate memory if we haven't initialized any
 
     size_t orig = numElement;
     numElement *= size;
@@ -350,7 +357,7 @@ bool palloc_free(void *ptr) {
  * @return false otherwise
  */
 bool palloc_freeEX(void *ptr, bool verbose) {
-    if(((heap == NULL) || !(heap->init))) return false; // Can't free memory if we haven't initialized any
+    if(heap == NULL) return false; // Can't free memory if we haven't initialized any
 
     pBlock *blk = heap->used;
     pBlock *prev = nullptr;
@@ -384,14 +391,24 @@ bool palloc_freeEX(void *ptr, bool verbose) {
  * @param ptr The pointer of the Block container to count
  * @return The amount of blocks in that container (`int8_t`) or -1 for uninitialized heap
  */
-static int8_t count_blocks(pBlock *ptr) {
-    if(((heap == NULL) || !(heap->init))) return -1; // Can't count blocks if we don't have any
-    int8_t count = 0;
+static int count_blocks(pBlock *ptr) {
+    if(heap == nullptr) return -1;
+    Dbprintf("Got here");
 
-    while(ptr != nullptr) {
+    int count = 0;
+
+    while(count < MAX_BLOCK_SIZE) {
         count++;
-        ptr = ptr->next;
+
+        pBlock *blk = ptr->next;
+        if(blk == nullptr) break;
+
+        Dbprintf("count: %i", count);
+
+        ptr = blk->next;
     }
+
+    Dbprintf("count: %i", count);
 
     return count;
 }
@@ -402,7 +419,7 @@ static int8_t count_blocks(pBlock *ptr) {
  * 
  * @return The number of free blocks in the Heap, or -1 if the heap hasn't been initialized
  */
-int8_t palloc_free_blocks(void) {
+int palloc_free_blocks(void) {
     return count_blocks(heap->free);
 }
 
@@ -411,7 +428,7 @@ int8_t palloc_free_blocks(void) {
  * 
  * @return The number of used Blocks in the Heap, or -1 if the heap hasn't been initialized
  */
-int8_t palloc_used_blocks(void) {
+int palloc_used_blocks(void) {
     return count_blocks(heap->used);
 }
 
@@ -420,7 +437,7 @@ int8_t palloc_used_blocks(void) {
  * 
  * @return The number of fresh Blocks in the Heap, or -1 if the heap hasn't been initialized
  */
-int8_t palloc_fresh_blocks(void) {
+int palloc_fresh_blocks(void) {
     return count_blocks(heap->fresh);
 }
 
@@ -439,7 +456,7 @@ size_t palloc_sram_left(void) {
  * dire situations, it might be useful to manually do it.
  */
 void palloc_compact_heap(void) {
-    if(((heap == NULL) || !(heap->init))) return; // Sanity checking
+    if(heap == nullptr) return; // Sanity checking
 
     compact_heap();
 }
@@ -451,21 +468,30 @@ void palloc_compact_heap(void) {
  * @return `false` otherwise
  */
 bool palloc_heap_integrity(void) {
-    return (MAX_BLOCKS == palloc_free_blocks() + palloc_fresh_blocks() + palloc_used_blocks());
+    int count = 0;
+
+    Dbprintf("Counting Fresh blocks... (Heap offset: %u)", offsetof(pHeap, fresh));
+    count += palloc_fresh_blocks();
+    Dbprintf("Counting Free blocks.... (Heap offset: %u)", offsetof(pHeap, free));
+    //count += palloc_free_blocks();
+    Dbprintf("Counting Used blocks.... (Heap offset: %u)", offsetof(pHeap, used));
+    //count += palloc_used_blocks();
+
+    return MAX_BLOCKS == count;
 }
 
 void palloc_status(void) {
     Dbprintf("--- " _CYAN_("Memory") " -----------------");
-    Dbprintf(" - Usuable:................ "_CYAN_("%d"), MEM_USABLE);
-    Dbprintf(" - Free:................... "_CYAN_("%d"), palloc_sram_left());
-    Dbprintf(" - Heap Status:............ %s",
-        (palloc_heap_integrity() ? _GREEN_("OK") : _RED_("INTEGRITY ISSUES"))
-    );
+    Dbprintf(" - Heap Top:............... "_YELLOW_("0x%x"), heap->top);
+    Dbprintf(" - Usable:................. "_YELLOW_("%d"), MEM_USABLE);
+    Dbprintf(" - Free:................... "_YELLOW_("%d"), palloc_sram_left());
+    Dbprintf(" - Heap Initialized:....... %s", (heap != nullptr ? _GREEN_("YES") : _RED_("NO")));
+    Dbprintf(" - Heap Status:............ %s", (palloc_heap_integrity() ? _GREEN_("OK") : _RED_("INTEGRITY ISSUES")));
 
     Dbprintf("--- " _CYAN_("Blocks") " -----------------");
-    Dbprintf(" - Fresh:.................. "_CYAN_("%d"), palloc_fresh_blocks());
-    Dbprintf(" - Used:................... "_CYAN_("%d"), palloc_used_blocks());
-    Dbprintf(" - Free:................... "_CYAN_("%d"), palloc_free_blocks());
+    Dbprintf(" - Fresh:.................. "_YELLOW_("%d"), palloc_fresh_blocks());
+    Dbprintf(" - Used:................... "_YELLOW_("%d"), palloc_used_blocks());
+    Dbprintf(" - Free:................... "_YELLOW_("%d"), palloc_free_blocks());
 }
 
 uint32_t palloc_sram_size() {
@@ -481,7 +507,7 @@ uint32_t palloc_sram_size() {
 buffer8u_t palloc_buffer8(uint16_t numElement) {
     buffer8u_t buffer = { .data = nullptr, .size = 0 }; // initialize a "empty" buffer
 
-    if(((heap == NULL) || !(heap->init)) || numElement > MAX_BLOCK_SIZE) return buffer; // Sanity checking
+    if(heap == nullptr || numElement > MAX_BLOCK_SIZE) return buffer; // Sanity checking
 
     if(numElement & ALIGN_MASK) { // Make sure we align our sizes
         numElement = (numElement + ALIGN_BYTES - 1) & ~ALIGN_MASK;
@@ -510,7 +536,7 @@ buffer16u_t palloc_buffer16(uint16_t numElement) {
     buffer16u_t buffer = { .data = nullptr, .size = 0 }; // initialize a "empty" buffer
     size_t alloc = numElement * sizeof(uint16_t); // Adjust for the buffer type
 
-    if(((heap == NULL) || !(heap->init)) || alloc > MAX_BLOCK_SIZE) return buffer; // Sanity checking
+    if(heap == nullptr || alloc > MAX_BLOCK_SIZE) return buffer; // Sanity checking
 
     if(alloc & ALIGN_MASK) { // Make sure we align our sizes
         alloc = (alloc + ALIGN_BYTES - 1) & ~ALIGN_MASK;
@@ -539,7 +565,7 @@ buffer32u_t palloc_buffer32(uint16_t numElement) {
     buffer32u_t buffer = { .data = nullptr, .size = 0 }; // initialize a "empty" buffer
     size_t alloc = numElement * sizeof(uint32_t); // Adjust for the buffer type
 
-    if(((heap == NULL) || !(heap->init)) || alloc > MAX_BLOCK_SIZE) return buffer; // Sanity checking
+    if(heap == nullptr || alloc > MAX_BLOCK_SIZE) return buffer; // Sanity checking
 
     if(alloc & ALIGN_MASK) { // Make sure we align our sizes
         alloc = (alloc + ALIGN_BYTES - 1) & ~ALIGN_MASK;
