@@ -36,7 +36,7 @@
 #define ALIGN_MASK (0xFFFF + 1 - ALIGN_BYTES)
 
 // The values set by the linker for what we have as bounds of memory to use
-extern uint32_t _stack_start[], __bss_end__[];
+extern uint32_t _stack_start[], __bss_start__[], __bss_end__[];
 
 // Memory defines
 #define MEM_SIZE 65536 // Total memory size (in bytes) of the Atmel SAM7S series MCU we use
@@ -50,9 +50,9 @@ typedef struct Block pBlock;
 typedef struct Heap pHeap;
 
 struct PACKED Block {
-    int16_t size;  // The size of the data at `address`
     void *address; // The memory address this block points to
-    struct Block *next;  // The next block in the list, or nullptr if there is none
+    int16_t size;  // The size of the data at `address`
+    pBlock *next;  // The next block in the list, or nullptr if there is none
 };
 
 struct PACKED Heap {
@@ -88,19 +88,17 @@ static size_t free_space = 0;
  */
 void palloc_init(void) {
     // Set up the heap
-    heap = (pHeap*)(_stack_start - __bss_end__);
+    heap = (pHeap*)(__bss_start__);
     heap->free = nullptr;
     heap->used = nullptr;
-    heap->fresh = (pBlock*)(heap + sizeof(memptr_t));
-    heap->top = (size_t)(heap->fresh + (MAX_BLOCKS * sizeof(memptr_t)));
+    heap->fresh = (pBlock*)(heap + 1);
+    heap->top = (size_t)(heap->fresh + MAX_BLOCKS);
 
     // Set up the fresh blocks to use
     pBlock *block = heap->fresh;
-    uint8_t i = (MAX_BLOCKS - 1);
+    uint8_t i = (MAX_BLOCKS * 2) - 1;
     while(i--) {
-        LED_D_INV();
-        SpinDelay(100);
-        block->next = (pBlock*)(block + sizeof(memptr_t));
+        block->next = block + 1;
         block->size = 0;
         block++;
     }
@@ -393,22 +391,14 @@ bool palloc_freeEX(void *ptr, bool verbose) {
  */
 static int count_blocks(pBlock *ptr) {
     if(heap == nullptr) return -1;
-    Dbprintf("Got here");
 
     int count = 0;
 
-    while(count < MAX_BLOCK_SIZE) {
+    while(ptr != nullptr) {
         count++;
-
         pBlock *blk = ptr->next;
-        if(blk == nullptr) break;
-
-        Dbprintf("count: %i", count);
-
         ptr = blk->next;
     }
-
-    Dbprintf("count: %i", count);
 
     return count;
 }
@@ -470,12 +460,9 @@ void palloc_compact_heap(void) {
 bool palloc_heap_integrity(void) {
     int count = 0;
 
-    Dbprintf("Counting Fresh blocks... (Heap offset: %u)", offsetof(pHeap, fresh));
     count += palloc_fresh_blocks();
-    Dbprintf("Counting Free blocks.... (Heap offset: %u)", offsetof(pHeap, free));
-    //count += palloc_free_blocks();
-    Dbprintf("Counting Used blocks.... (Heap offset: %u)", offsetof(pHeap, used));
-    //count += palloc_used_blocks();
+    count += palloc_free_blocks();
+    count += palloc_used_blocks();
 
     return MAX_BLOCKS == count;
 }
