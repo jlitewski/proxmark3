@@ -829,7 +829,7 @@ int do_iclass_simulation(int simulationMode, uint8_t *reader_mac_buf) {
             // standard ISO15693 INVENTORY command. Ignore.
         } else {
             // Never seen this command before
-            if (g_dbglevel >= DBG_EXTENDED)
+            if (PRINT_EXTEND)
                 print_result("Unhandled command received ", resp->cmd, len);
         }
 
@@ -1171,7 +1171,7 @@ int do_iclass_simulation_nonsec(void) {
             // standard ISO15693 INVENTORY command. Ignore.
         } else {
             // Never seen this command before
-            if (g_dbglevel >= DBG_EXTENDED)
+            if (PRINT_EXTEND)
                 print_result("Unhandled command received ", resp->cmd, len);
         }
 

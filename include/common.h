@@ -82,6 +82,10 @@ struct version_information_t {
 #define DBG_DEBUG         3 // errors + info + debug messages
 #define DBG_EXTENDED      4 // errors + info + debug + breaking debug messages
 extern int g_dbglevel;
+#define PRINT_ERROR       (g_dbglevel >= DBG_ERROR)
+#define PRINT_INFO        (g_dbglevel >= DBG_INFO)
+#define PRINT_DEBUG       (g_dbglevel >= DBG_DEBUG)
+#define PRINT_EXTEND      (g_dbglevel >= DBG_EXTENDED)
 
 // tear-off
 extern uint16_t g_tearoff_delay_us;

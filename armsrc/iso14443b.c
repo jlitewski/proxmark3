@@ -477,7 +477,7 @@ static void iso14b_set_timeout(uint32_t timeout_etu) {
     }
 
     s_iso14b_timeout = ssp;
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         Dbprintf("ISO14443B Timeout set to %ld fwt", s_iso14b_timeout);
     }
 }
@@ -485,7 +485,7 @@ static void iso14b_set_timeout(uint32_t timeout_etu) {
 // keep track of FWT,  also updates the timeout
 static void iso14b_set_fwt(uint8_t fwt) {
     s_iso14b_fwt = fwt;
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         Dbprintf("ISO14443B FWT Timeout set to %ld fwt", s_iso14b_fwt);
     }
     iso14b_set_timeout(32 << fwt);
@@ -497,7 +497,7 @@ static void iso14b_set_maxframesize(uint16_t size) {
     }
 
     uart_14b_t.byteCntMax = size;
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         Dbprintf("ISO14443B Max frame size set to %d bytes", uart_14b_t.byteCntMax);
     }
 }
@@ -891,7 +891,7 @@ void SimulateIso14443bTag(const uint8_t *pupi) {
                     // - SLOT MARKER
                     // - ISO7816
                     // - emulate with a memory dump
-                    if (g_dbglevel >= DBG_DEBUG) {
+                    if (PRINT_DEBUG) {
                         Dbprintf("new cmd from reader: len=%d, cmdsRecvd=%d", len, cmdsReceived);
                     }
 
@@ -908,7 +908,7 @@ void SimulateIso14443bTag(const uint8_t *pupi) {
     }
 
     switch_off();
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         Dbprintf("Emulator stopped. Trace length: %d ", get_trace_length());
     }
 }
@@ -1080,19 +1080,19 @@ void Simulate_iso14443b_srx_tag(uint8_t *uid) {
                     // - SLOT MARKER
                     // - ISO7816
                     // - emulate with a memory dump
-                    if (g_dbglevel >= DBG_DEBUG)
+                    if (PRINT_DEBUG)
                         Dbprintf("new cmd from reader: len=%d, cmdsRecvd=%d", len, cmdsReceived);
 
                     // CRC Check
                     if (len >= 3) { // if crc exists
 
                         if (check_crc(CRC_14443_B, receivedCmd, len) == false) {
-                            if (g_dbglevel >= DBG_DEBUG) {
+                            if (PRINT_DEBUG) {
                                 DbpString("CRC fail");
                             }
                         }
                     } else {
-                        if (g_dbglevel >= DBG_DEBUG) {
+                        if (PRINT_DEBUG) {
                             DbpString("CRC ok");
                         }
                     }
@@ -1107,7 +1107,7 @@ void Simulate_iso14443b_srx_tag(uint8_t *uid) {
         ++cmdsReceived;
     }
 
-    if (g_dbglevel >= DBG_DEBUG)
+    if (PRINT_DEBUG)
         Dbprintf("Emulator stopped. Trace length: %d ", BigBuf_get_traceLen());
 
     switch_off(); //simulate
@@ -1928,7 +1928,7 @@ static int iso14443b_select_xrx_card(iso14b_card_select_t *card) {
         }
 
         if (4 == slot) {
-            if (g_dbglevel >= DBG_DEBUG) {
+            if (PRINT_DEBUG) {
                 DbpString("no answer to anticollision");
             }
             return PM3_ESOFT;
@@ -1939,7 +1939,7 @@ static int iso14443b_select_xrx_card(iso14b_card_select_t *card) {
         return PM3_ECARDEXCHANGE;
     }
 
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         Dbprintf("anticollision uid %llx", uid);
     }
 
@@ -2385,7 +2385,7 @@ void SniffIso14443b(void) {
 
     FpgaDownloadAndGo(FPGA_BITSTREAM_HF);
 
-    if (g_dbglevel >= DBG_INFO) {
+    if (PRINT_INFO) {
         DbpString("Press " _GREEN_("pm3 button") " to abort sniffing");
     }
 

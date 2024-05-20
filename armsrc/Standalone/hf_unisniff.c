@@ -191,7 +191,7 @@ void RunMod(void) {
 
     uint8_t default_sniff_protocol = sniff_protocol;
 
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         Dbprintf("Compile-time configured protocol... %s ( %u )", protocols[sniff_protocol], sniff_protocol);
     }
 
@@ -271,7 +271,7 @@ void RunMod(void) {
             token = strchr(d, '\n');
         }
 
-        if (g_dbglevel >= DBG_DEBUG) {
+        if (PRINT_DEBUG) {
             const char *save_modes[] = {"new", "append", "none"};
             Dbprintf("Run-time configured protocol.... %s ( %u )", protocols[sniff_protocol], sniff_protocol);
             Dbprintf("Run-time configured save_mode... %s ( %u )", save_modes[save_mode], sniff_protocol);

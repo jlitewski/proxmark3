@@ -96,7 +96,7 @@ void palloc_init(void) {
 
     // Set up the fresh blocks to use
     pBlock *block = heap->fresh;
-    uint8_t i = (MAX_BLOCKS * 2) - 1;
+    uint8_t i = MAX_BLOCKS - 1;
     while(i--) {
         block->next = block + 1;
         block->size = 0;
@@ -117,6 +117,7 @@ void palloc_init(void) {
  * @param to The block to end at
  */
 static void merge_blocks(pBlock *from, pBlock *to) {
+    if(PRINT_DEBUG) Dbprintf(" - Palloc: Merging blocks...");
     pBlock *scan;
 
     // Merge the Blocks together into the fresh list.
@@ -139,6 +140,7 @@ static void merge_blocks(pBlock *from, pBlock *to) {
  * @param blk The block to insert
  */
 static void insert_block(pBlock *blk) {
+    if(PRINT_DEBUG) Dbprintf(" - Palloc: Inserting block into heap...");
     pBlock *ptr = heap->free;
     pBlock *prev = nullptr;
 
@@ -159,6 +161,8 @@ static void insert_block(pBlock *blk) {
  * @brief Compress the blocks in the Heap to help deal with fragmentation
  */
 static void compact_heap(void) {
+    if(PRINT_DEBUG) Dbprintf(" - Palloc: Compacting heap...");
+
     pBlock *ptr = heap->free;
     pBlock *prev, *scan;
 
@@ -172,6 +176,7 @@ static void compact_heap(void) {
         }
 
         if(prev != ptr) { // We can merge blocks together. This DOESN'T check against the 32kb max size we have
+            if(PRINT_DEBUG) Dbprintf(" - Palloc: Merging blocks %x & %x...", ptr->address, prev->address);
             size_t newSize = ((size_t)prev->address - (size_t)ptr->address + prev->size);
             ptr->size = newSize;
             pBlock *next = prev->next;
@@ -183,6 +188,7 @@ static void compact_heap(void) {
 
         ptr = ptr->next;
     }
+    if(PRINT_DEBUG) Dbprintf(" - Palloc: Heap Compacted!");
 }
 
 /**
@@ -193,6 +199,7 @@ static void compact_heap(void) {
  * @return The pointer to the block of memory we allocated, or `nullptr` if we couldn't allocate the memory
  */
 static pBlock *allocate_block(size_t alloc) {
+    if(PRINT_DEBUG) Dbprintf(" - Palloc: Allocating block with size of %u", alloc);
     pBlock *ptr = heap->free;
     pBlock *prev = nullptr;
     size_t top = heap->top;
@@ -202,6 +209,7 @@ static pBlock *allocate_block(size_t alloc) {
         const bool isTop = ((size_t)ptr->address + ptr->size >= top);
 
         if(isTop || ptr->size >= alloc) {
+            if(PRINT_DEBUG) Dbprintf(" - Palloc: Found suitable block!");
             if(prev != nullptr) prev->next = ptr->next;
             else heap->free = ptr->next;
 
@@ -215,6 +223,7 @@ static pBlock *allocate_block(size_t alloc) {
                 size_t excess = ptr->size - alloc;
 
                 if(excess >= BLOCK_SPLIT_THRESHOLD) { // Split the block
+                    if(PRINT_DEBUG) Dbprintf(" - Palloc: Spliting block %x...", ptr->address);
                     ptr->size = alloc;
                     pBlock *split = heap->fresh;
                     heap->fresh = split->next;
@@ -227,12 +236,14 @@ static pBlock *allocate_block(size_t alloc) {
 
             return ptr;
         }
+
         prev = ptr;
         ptr = ptr->next;
     }
 
     // We didn't match any free blocks, try to get a fresh one
     if(heap->fresh != nullptr) {
+        if(PRINT_DEBUG) Dbprintf(" - Palloc: Using a fresh block for allocation...");
         ptr = heap->fresh;
         heap->fresh = ptr->next;
         ptr->address = (void*)top;
@@ -243,6 +254,8 @@ static pBlock *allocate_block(size_t alloc) {
 
         return ptr;
     }
+
+    if(PRINT_DEBUG) Dbprintf(" - Palloc: "_RED_("Unable to allocate a new block!"));
 
     // We were unable to get a block
     return nullptr;
@@ -259,7 +272,9 @@ static pBlock *allocate_block(size_t alloc) {
  * @return the address of the block of memory, or nullptr
  */
 memptr_t *palloc(uint16_t numElement, const uint16_t size) {
-    if(heap == nullptr) return false; // Can't allocate memory if we haven't initialized any
+    if(PRINT_DEBUG) Dbprintf(" - Palloc: Allocating memory... (size %u numElement %u)", size, numElement);
+
+    if(heap == nullptr) return nullptr; // Can't allocate memory if we haven't initialized any
 
     size_t orig = numElement;
     numElement *= size;
@@ -278,6 +293,8 @@ memptr_t *palloc(uint16_t numElement, const uint16_t size) {
             return blk->address;
         }
     }
+
+    if(PRINT_DEBUG) Dbprintf(" - Palloc: " _RED_("There was an issue with allocating memory!"));
 
     return nullptr; // There's something wrong with the size allocation, abort
 }
@@ -355,6 +372,7 @@ bool palloc_free(void *ptr) {
  * @return false otherwise
  */
 bool palloc_freeEX(void *ptr, bool verbose) {
+    if(PRINT_DEBUG) Dbprintf(" - Palloc: Freeing allocated memory at %x", ptr);
     if(heap == NULL) return false; // Can't free memory if we haven't initialized any
 
     pBlock *blk = heap->used;
@@ -373,12 +391,15 @@ bool palloc_freeEX(void *ptr, bool verbose) {
             compact_heap();   // Compact our free space to keep fragmentation low
             free_space += blk->size; // Add the amount of space back into our counter
 
+            if(PRINT_DEBUG) Dbprintf(" - Palloc: Memory Freed!");
             return true;
         }
 
         prev = blk;
         blk = blk->next;
     }
+
+    if(PRINT_DEBUG) Dbprintf(" - Palloc: "_YELLOW_("Couldn't find a block for this memory, are you sure it's ours?"));
 
     return false; // Couldn't find the address of this memory in our blocks
 }
@@ -458,24 +479,20 @@ void palloc_compact_heap(void) {
  * @return `false` otherwise
  */
 bool palloc_heap_integrity(void) {
-    int count = 0;
+    int count = palloc_used_blocks();
 
-    count += palloc_fresh_blocks();
-    count += palloc_free_blocks();
-    count += palloc_used_blocks();
-
-    return MAX_BLOCKS == count;
+    return count == 0;
 }
 
 void palloc_status(void) {
-    Dbprintf("--- " _CYAN_("Memory") " -----------------");
+    Dbprintf("--- " _CYAN_("Memory") " --------------------");
     Dbprintf(" - Heap Top:............... "_YELLOW_("0x%x"), heap->top);
     Dbprintf(" - Usable:................. "_YELLOW_("%d"), MEM_USABLE);
     Dbprintf(" - Free:................... "_YELLOW_("%d"), palloc_sram_left());
     Dbprintf(" - Heap Initialized:....... %s", (heap != nullptr ? _GREEN_("YES") : _RED_("NO")));
     Dbprintf(" - Heap Status:............ %s", (palloc_heap_integrity() ? _GREEN_("OK") : _RED_("INTEGRITY ISSUES")));
 
-    Dbprintf("--- " _CYAN_("Blocks") " -----------------");
+    Dbprintf("--- " _CYAN_("Blocks") " --------------------");
     Dbprintf(" - Fresh:.................. "_YELLOW_("%d"), palloc_fresh_blocks());
     Dbprintf(" - Used:................... "_YELLOW_("%d"), palloc_used_blocks());
     Dbprintf(" - Free:................... "_YELLOW_("%d"), palloc_free_blocks());

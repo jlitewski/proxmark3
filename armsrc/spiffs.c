@@ -81,7 +81,7 @@ static s32_t rdv40_spiffs_llerase(u32_t addr, u32_t size) {
         return 130;
     }
 
-    if (g_dbglevel >= DBG_DEBUG) Dbprintf("LLERASEDBG : Orig addr : %d\n", addr);
+    if (PRINT_DEBUG) Dbprintf("LLERASEDBG : Orig addr : %d\n", addr);
 
     uint8_t block, sector = 0;
     block = addr / RDV40_LLERASE_BLOCKSIZE;
@@ -89,13 +89,13 @@ static s32_t rdv40_spiffs_llerase(u32_t addr, u32_t size) {
         addr = addr - (block * RDV40_LLERASE_BLOCKSIZE);
     }
 
-    if (g_dbglevel >= DBG_DEBUG) Dbprintf("LLERASEDBG : Result addr : %d\n", addr);
+    if (PRINT_DEBUG) Dbprintf("LLERASEDBG : Result addr : %d\n", addr);
 
     sector = addr / SPIFFS_CFG_LOG_BLOCK_SZ;
     Flash_CheckBusy(BUSY_TIMEOUT);
     Flash_WriteEnable();
 
-    if (g_dbglevel >= DBG_DEBUG) Dbprintf("LLERASEDBG : block : %d, sector : %d \n", block, sector);
+    if (PRINT_DEBUG) Dbprintf("LLERASEDBG : block : %d, sector : %d \n", block, sector);
 
     uint8_t erased = Flash_Erase4k(block, sector);
     Flash_CheckBusy(BUSY_TIMEOUT);
@@ -284,7 +284,7 @@ static RDV40SpiFFSFileType filetype_in_spiffs(const char *filename) {
         }
     }
 
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         switch (filetype) {
             case RDV40_SPIFFS_FILETYPE_REAL:
                 Dbprintf("Filetype is " _YELLOW_("RDV40_SPIFFS_FILETYPE_REAL"));
@@ -540,12 +540,12 @@ int rdv40_spiffs_read_as_symlink(const char *filename, uint8_t *dst, uint32_t si
         char linkfilename[SPIFFS_OBJ_NAME_LEN];
         sprintf(linkfilename, "%s.lnk", filename);
 
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
         Dbprintf("Link real filename is " _YELLOW_("%s"), linkfilename);
 
         read_from_spiffs((char *)linkfilename, (uint8_t *)linkdest, SPIFFS_OBJ_NAME_LEN);
 
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("Symlink destination is " _YELLOW_("%s"), linkdest);
 
             read_from_spiffs((char *)linkdest, (uint8_t *)dst, size);

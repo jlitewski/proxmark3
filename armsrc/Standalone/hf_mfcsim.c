@@ -69,7 +69,7 @@ static bool fill_eml_from_file(char *dumpfile) {
     }
 
     //read and load dump file
-    if (g_dbglevel >= DBG_INFO) {
+    if (PRINT_INFO) {
         Dbprintf("Found dump file... `" _YELLOW_("%s") "`", dumpfile);
         Dbprintf("Uploading to emulator memory...");
     }

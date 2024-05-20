@@ -271,7 +271,7 @@ static uint8_t felica_select_card(felica_card_select_t *card) {
     // 3. wrong crc.  residue is 0, hence if crc is a value it failed.
     if (check_crc(CRC_FELICA, FelicaFrame.framebytes + 2, FelicaFrame.len - 2) == false) {
 
-        if (g_dbglevel >= DBG_DEBUG) {
+        if (PRINT_DEBUG) {
             Dbprintf("Error: CRC check failed!");
             Dbhexdump(FelicaFrame.len - 2, FelicaFrame.framebytes + 2, 0);
         }
@@ -288,7 +288,7 @@ static uint8_t felica_select_card(felica_card_select_t *card) {
         memcpy(card->uid,    card->IDm + 2, 6);
         memcpy(card->iccode, card->PMm,     2);
         memcpy(card->mrt,    card->PMm + 2, 6);
-        if (g_dbglevel >= DBG_DEBUG) {
+        if (PRINT_DEBUG) {
             Dbprintf("Received Frame: ");
             Dbhexdump(FelicaFrame.len, FelicaFrame.framebytes, 0);
         }
@@ -434,7 +434,7 @@ static void TransmitFor18092_AsReader(const uint8_t *frame, uint16_t len, const 
 // or return TRUE when command is captured
 bool WaitForFelicaReply(uint16_t maxbytes) {
 
-//    if (g_dbglevel >= DBG_DEBUG) { Dbprintf("WaitForFelicaReply Start"); }
+//    if (PRINT_DEBUG) { Dbprintf("WaitForFelicaReply Start"); }
 
     uint32_t c = 0;
 
@@ -476,7 +476,7 @@ bool WaitForFelicaReply(uint16_t maxbytes) {
 
             } else if (c++ > timeout && (FelicaFrame.state == STATE_UNSYNCD || FelicaFrame.state == STATE_TRYING_SYNC)) {
 
-//                if (g_dbglevel >= DBG_DEBUG) Dbprintf("Error: Timeout! STATE_UNSYNCD");
+//                if (PRINT_DEBUG) Dbprintf("Error: Timeout! STATE_UNSYNCD");
 
                 stop_tracing();
                 return false;
@@ -592,7 +592,7 @@ void felica_sendraw(const PacketCommandNG *c) {
             }
         }
         
-        if (g_dbglevel >= DBG_DEBUG) {
+        if (PRINT_DEBUG) {
             Dbprintf("Transmit Frame (no CRC shown):");
             Dbhexdump(len, buf, 0);
             Dbprintf("Buffer Length: %i", buf[2] + 4);
@@ -601,7 +601,7 @@ void felica_sendraw(const PacketCommandNG *c) {
         TransmitFor18092_AsReader(buf, buf[2] + 4, NULL, 1, 0);
         arg0 = WaitForFelicaReply(1024);
 
-        if (g_dbglevel >= DBG_DEBUG) {
+        if (PRINT_DEBUG) {
             Dbprintf("Received Frame Code: %d", arg0);
             Dbhexdump(FelicaFrame.len, FelicaFrame.framebytes, 0);
         };

@@ -322,7 +322,7 @@ uint32_t DoAcquisition(uint8_t decimation, uint8_t bits_per_sample, bool avg, in
     sample_size <<= 3; // sample size in bits
     sample_size /= bits_per_sample; // sample count
 
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         printSamples();
     }
 
@@ -612,7 +612,7 @@ uint8_t *doT55x7Acquisition(size_t sample_size, bool ledcontrol) {
 
     uint16_t checker = 0;
 
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         Dbprintf("doT55x7Acquisition - after init");
         print_stack_usage();
     }

@@ -80,7 +80,12 @@
 #include "spiffs.h"
 #endif
 
+#ifdef DEBUG_ARM
+int g_dbglevel = DBG_DEBUG;
+#else
 int g_dbglevel = DBG_ERROR;
+#endif
+
 uint8_t g_trigger = 0;
 bool g_hf_field_active = false;
 extern uint32_t _stack_start[], _stack_end[];
@@ -249,7 +254,8 @@ static uint32_t MeasureAntennaTuningLfData(void) {
 void print_stack_usage(void) {
     for (uint32_t *p = _stack_start; ; ++p) {
         if (*p != 0xdeadbeef) {
-            Dbprintf("  Max stack usage......... %d / %d bytes", (size_t)(_stack_end) - (size_t)(p), (size_t)_stack_end - (size_t)_stack_start);
+            Dbprintf("--- " _CYAN_("Stack") " ---------------------");
+            Dbprintf(" - Usage:........ %d / %d bytes", (size_t)(_stack_end) - (size_t)(p), (size_t)_stack_end - (size_t)_stack_start);
             break;
         }
     }
@@ -398,6 +404,7 @@ static void printConnSpeed(uint32_t wait) {
 **/
 static void SendStatus(uint32_t wait) {
     palloc_status();
+    print_stack_usage();
     Fpga_print_status();
 #ifdef WITH_FLASH
     Flashmem_print_status();
@@ -415,7 +422,6 @@ static void SendStatus(uint32_t wait) {
     printConnSpeed(wait);
     DbpString(_CYAN_("Various"));
 
-    print_stack_usage();
     print_debug_level();
 
     fpga_queue_t *fpga_queue = get_fpga_queue();
@@ -2581,13 +2587,13 @@ static void PacketReceived(PacketCommandNG *packet) {
             uint8_t filename[32];
             uint8_t *pfilename = packet->data.asBytes;
             memcpy(filename, pfilename, SPIFFS_OBJ_NAME_LEN);
-            if (g_dbglevel >= DBG_DEBUG) Dbprintf("Filename received for spiffs dump : %s", filename);
+            if (PRINT_DEBUG) Dbprintf("Filename received for spiffs dump : %s", filename);
 
             uint32_t size = packet->oldarg[1];
 
             uint8_t *buff = (uint8_t*)palloc(1, size);
             if (buff == NULL) {
-                if (g_dbglevel >= DBG_DEBUG) Dbprintf("Could not allocate buffer");
+                if (PRINT_DEBUG) Dbprintf("Could not allocate buffer");
                 // Trigger a finish downloading signal with an PM3_EMALLOC
                 reply_ng(CMD_SPIFFS_DOWNLOAD, PM3_EMALLOC, NULL, 0);
             } else {
@@ -2614,7 +2620,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             uint8_t filename[32];
             uint8_t *pfilename = packet->data.asBytes;
             memcpy(filename, pfilename, SPIFFS_OBJ_NAME_LEN);
-            if (g_dbglevel >= DBG_DEBUG) {
+            if (PRINT_DEBUG) {
                 Dbprintf("Filename received for spiffs STAT : %s", filename);
             }
 
@@ -2637,7 +2643,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
 
-            if (g_dbglevel >= DBG_DEBUG) {
+            if (PRINT_DEBUG) {
                 Dbprintf("Filename received for spiffs REMOVE : %s", payload->fn);
             }
 
@@ -2656,7 +2662,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
 
-            if (g_dbglevel >= DBG_DEBUG) {
+            if (PRINT_DEBUG) {
                 Dbprintf("SPIFFS RENAME");
                 Dbprintf("Source........ %s", payload->src);
                 Dbprintf("Destination... %s", payload->dest);
@@ -2676,7 +2682,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
 
-            if (g_dbglevel >= DBG_DEBUG) {
+            if (PRINT_DEBUG) {
                 Dbprintf("SPIFFS COPY");
                 Dbprintf("Source........ %s", payload->src);
                 Dbprintf("Destination... %s", payload->dest);
@@ -2691,7 +2697,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             flashmem_write_t *payload = (flashmem_write_t *)packet->data.asBytes;
 
-            if (g_dbglevel >= DBG_DEBUG) {
+            if (PRINT_DEBUG) {
                 Dbprintf("SPIFFS WRITE, dest `%s` with APPEND set to: %c", payload->fn, payload->append ? 'Y' : 'N');
             }
 

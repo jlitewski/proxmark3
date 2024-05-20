@@ -2191,7 +2191,7 @@ void T55xx_ChkPwds(uint8_t flags, bool ledcontrol) {
 
     baseline_faulty >>= 5;
 
-    if (g_dbglevel >= DBG_DEBUG)
+    if (PRINT_DEBUG)
         Dbprintf("Baseline " _YELLOW_("%llu"), baseline_faulty);
 
     uint8_t *pwds = (uint8_t*)get_emulator_address();
@@ -2254,7 +2254,7 @@ void T55xx_ChkPwds(uint8_t flags, bool ledcontrol) {
         int64_t tmp_dist = (baseline_faulty - sum);
         curr = ABS(tmp_dist);
 
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("%08x has distance " _YELLOW_("%llu"), pwd, curr);
 
         if (curr > prev) {

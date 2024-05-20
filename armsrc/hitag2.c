@@ -36,7 +36,7 @@
 #define clear_bit(data, i) *(data + (i/8)) &= ~(1 << (7-(i % 8)))
 #define flip_bit(data, i)  *(data + (i/8)) ^= (1 << (7-(i % 8)))
 
-#define DBG  if (g_dbglevel >= DBG_EXTENDED)
+#define DBG  if (PRINT_EXTEND)
 
 // Successful crypto auth
 static bool bCrypto;

@@ -118,7 +118,7 @@ else
 endif
 
 ifeq ($(DEBUG_ARM),1)
-  APP_CFLAGS += -g
+  APP_CFLAGS += -g -DDEBUG_ARM
   SKIP_COMPRESSION=1
 endif
 # Next ones are activated only if SANITIZE=1

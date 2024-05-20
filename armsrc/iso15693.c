@@ -1665,7 +1665,7 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
 
     FpgaDownloadAndGo(FPGA_BITSTREAM_HF_15);
 
-    if (g_dbglevel >= DBG_INFO) {
+    if (PRINT_INFO) {
         DbpString("Press " _GREEN_("pm3 button") " to abort sniffing");
     }
     start_tracing();
@@ -2054,7 +2054,7 @@ static void DbdecodeIso15693Answer(int len, uint8_t *d) {
         else
             strncat(status, "[!] crc ( " _RED_("fail") " )", DBD15STATLEN - strlen(status));
 
-        if (g_dbglevel >= DBG_ERROR) Dbprintf("%s", status);
+        if (PRINT_ERROR) Dbprintf("%s", status);
     }
 }
 
@@ -2114,7 +2114,7 @@ void ReaderIso15693(iso15_card_select_t *p_card) {
                 p_card->uidlen = 8;
             }
 
-            if (g_dbglevel >= DBG_EXTENDED) {
+            if (PRINT_EXTEND) {
                 Dbprintf("[+] UID = %02X%02X%02X%02X%02X%02X%02X%02X",
                          uid[0], uid[1], uid[2], uid[3],
                          uid[4], uid[5], uid[5], uid[6]
@@ -2127,7 +2127,7 @@ void ReaderIso15693(iso15_card_select_t *p_card) {
             // asbytes = uid.
             reply_ng(CMD_HF_ISO15693_READER, PM3_SUCCESS, uid, sizeof(uid));
 
-            if (g_dbglevel >= DBG_EXTENDED) {
+            if (PRINT_EXTEND) {
                 Dbprintf("[+] %d bytes read from IDENTIFY request:", recvlen);
                 DbdecodeIso15693Answer(recvlen, answer);
                 Dbhexdump(recvlen, answer, true);
@@ -2227,7 +2227,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
 
     LED_A_ON();
 
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         Dbprintf("ISO-15963 Simulating uid: %02X%02X%02X%02X%02X%02X%02X%02X,  %u bytes/blocks x %u blocks"
                  , tag->uid[7]
                  , tag->uid[6]
@@ -2298,7 +2298,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                 break;
         }
 
-        if (g_dbglevel >= DBG_DEBUG) {
+        if (PRINT_DEBUG) {
             Dbprintf("%d bytes read from reader:", cmd_len);
             Dbhexdump(cmd_len, cmd, false);
         }
@@ -2313,13 +2313,13 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
             if (((crc & 0xff) != cmd[cmd_len - 2]) || ((crc >> 8) != cmd[cmd_len - 1])) {
                 crc = CalculateCrc15(cmd, ++cmd_len - 2); // if crc end with 00 00
                 if (((crc & 0xff) != cmd[cmd_len - 2]) || ((crc >> 8) != cmd[cmd_len - 1])) {
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("CrcFail!, expected CRC=%02X%02X", crc & 0xff, crc >> 8);
+                    if (PRINT_DEBUG) Dbprintf("CrcFail!, expected CRC=%02X%02X", crc & 0xff, crc >> 8);
                     continue;
-                } else if (g_dbglevel >= DBG_DEBUG)
+                } else if (PRINT_DEBUG)
                     Dbprintf("CrcOK");
-            } else if (g_dbglevel >= DBG_DEBUG)
+            } else if (PRINT_DEBUG)
                 Dbprintf("CrcOK");
-        } else if (g_dbglevel >= DBG_DEBUG)
+        } else if (PRINT_DEBUG)
             Dbprintf("CrcOK");
 
         cmd_len -= 2; // remove the CRC from the cmd
@@ -2328,7 +2328,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
         tag->expectFast = ((cmd[0] & ISO15_REQ_DATARATE_HIGH) == ISO15_REQ_DATARATE_HIGH);
         tag->expectFsk = ((cmd[0] & ISO15_REQ_SUBCARRIER_TWO) == ISO15_REQ_SUBCARRIER_TWO);
 
-        if (g_dbglevel >= DBG_DEBUG) {
+        if (PRINT_DEBUG) {
             if (tag->expectFsk)
                 Dbprintf("ISO15_REQ_SUBCARRIER_TWO support is currently experimental!");
             if ((cmd[0] & ISO15_REQ_PROTOCOL_EXT) == ISO15_REQ_PROTOCOL_EXT)
@@ -2343,7 +2343,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
 
             // TODO: support colision avoidances
 
-            if (g_dbglevel >= DBG_DEBUG) {
+            if (PRINT_DEBUG) {
                 Dbprintf("Inventory req");
                 if ((cmd[0] & ISO15_REQINV_SLOT1) == ISO15_REQINV_SLOT1)
                     Dbprintf("ISO15_REQINV_SLOT1/SLOT16 not supported!");
@@ -2394,7 +2394,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
             recvLen = 10;
         } else {
             if ((cmd[0] & ISO15_REQ_SELECT) == ISO15_REQ_SELECT) {
-                if (g_dbglevel >= DBG_DEBUG) Dbprintf("Selected Request");
+                if (PRINT_DEBUG) Dbprintf("Selected Request");
                 if (tag->state != TAG_STATE_SELECTED)
                     continue; // drop selected request if not selected
                 tag->state = TAG_STATE_READY; // Select flag set if already selected : unselect
@@ -2402,40 +2402,40 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
 
             cmdCpt = 2;
             if ((cmd[0] & ISO15_REQ_ADDRESS) == ISO15_REQ_ADDRESS) {
-                if (g_dbglevel >= DBG_DEBUG) Dbprintf("Addressed Request");
+                if (PRINT_DEBUG) Dbprintf("Addressed Request");
                 if (cmd_len < cmdCpt + 8)
                     continue;
                 if (memcmp(&cmd[cmdCpt], tag->uid, 8) != 0) {
                     if (cmd_len < cmdCpt + 9 ||  memcmp(&cmd[cmdCpt + 1], tag->uid, 8) != 0) {
                         // check uid even if manifacturer byte is present
-                        if (g_dbglevel >= DBG_DEBUG) Dbprintf("Address don't match tag uid");
+                        if (PRINT_DEBUG) Dbprintf("Address don't match tag uid");
                         if (cmd[1] == ISO15693_SELECT)
                             tag->state = TAG_STATE_READY; // we are not anymore the selected TAG
                         continue; // drop addressed request with other uid
                     }
                     cmdCpt++;
                 }
-                if (g_dbglevel >= DBG_DEBUG) Dbprintf("Address match tag uid");
+                if (PRINT_DEBUG) Dbprintf("Address match tag uid");
                 cmdCpt += 8;
             } else if (tag->state == TAG_STATE_SILENCED) {
-                if (g_dbglevel >= DBG_DEBUG) Dbprintf("Unaddressed request in quiet state: drop");
+                if (PRINT_DEBUG) Dbprintf("Unaddressed request in quiet state: drop");
                 continue; // drop unadressed request in quiet state
             }
 
             switch (cmd[1]) {
                 case ISO15693_INVENTORY:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("Inventory cmd");
+                    if (PRINT_DEBUG) Dbprintf("Inventory cmd");
                     recv[0] = ISO15_NOERROR;
                     recv[1] = tag->dsfid;
                     palloc_copy(&recv[2], tag->uid, 8);
                     recvLen = 10;
                     break;
                 case ISO15693_STAYQUIET:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("StayQuiet cmd");
+                    if (PRINT_DEBUG) Dbprintf("StayQuiet cmd");
                     tag->state = TAG_STATE_SILENCED;
                     break;
                 case ISO15693_READBLOCK:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("ReadBlock cmd");
+                    if (PRINT_DEBUG) Dbprintf("ReadBlock cmd");
                     pageNum = cmd[cmdCpt++];
                     if (pageNum >= tag->pagesCount)
                         error = ISO15_ERROR_BLOCK_UNAVAILABLE;
@@ -2452,7 +2452,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     }
                     break;
                 case ISO15693_WRITEBLOCK:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("WriteBlock cmd");
+                    if (PRINT_DEBUG) Dbprintf("WriteBlock cmd");
                     pageNum = cmd[cmdCpt++];
                     if (pageNum >= tag->pagesCount)
                         error = ISO15_ERROR_BLOCK_UNAVAILABLE;
@@ -2464,7 +2464,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     }
                     break;
                 case ISO15693_LOCKBLOCK:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("LockBlock cmd");
+                    if (PRINT_DEBUG) Dbprintf("LockBlock cmd");
                     pageNum = cmd[cmdCpt++];
                     if (pageNum >= tag->pagesCount)
                         error = ISO15_ERROR_BLOCK_UNAVAILABLE;
@@ -2477,7 +2477,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     }
                     break;
                 case ISO15693_READ_MULTI_BLOCK:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("ReadMultiBlock cmd");
+                    if (PRINT_DEBUG) Dbprintf("ReadMultiBlock cmd");
                     pageNum = cmd[cmdCpt++];
                     nbPages = cmd[cmdCpt++];
                     if (pageNum + nbPages >= tag->pagesCount)
@@ -2496,7 +2496,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     }
                     break;
                 case ISO15693_WRITE_AFI:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("WriteAFI cmd");
+                    if (PRINT_DEBUG) Dbprintf("WriteAFI cmd");
                     if (tag->afiLock)
                         error = ISO15_ERROR_BLOCK_LOCKED;
                     else {
@@ -2506,7 +2506,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     }
                     break;
                 case ISO15693_LOCK_AFI:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("LockAFI cmd");
+                    if (PRINT_DEBUG) Dbprintf("LockAFI cmd");
                     if (tag->afiLock)
                         error = ISO15_ERROR_BLOCK_LOCKED_ALREADY;
                     else {
@@ -2516,7 +2516,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     }
                     break;
                 case ISO15693_WRITE_DSFID:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("WriteDSFID cmd");
+                    if (PRINT_DEBUG) Dbprintf("WriteDSFID cmd");
                     if (tag->dsfidLock)
                         error = ISO15_ERROR_BLOCK_LOCKED;
                     else {
@@ -2526,7 +2526,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     }
                     break;
                 case ISO15693_LOCK_DSFID:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("LockDSFID cmd");
+                    if (PRINT_DEBUG) Dbprintf("LockDSFID cmd");
                     if (tag->dsfidLock)
                         error = ISO15_ERROR_BLOCK_LOCKED_ALREADY;
                     else {
@@ -2536,19 +2536,19 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     }
                     break;
                 case ISO15693_SELECT:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("Select cmd");
+                    if (PRINT_DEBUG) Dbprintf("Select cmd");
                     tag->state = TAG_STATE_SELECTED;
                     recv[0] = ISO15_NOERROR;
                     recvLen = 1;
                     break;
                 case ISO15693_RESET_TO_READY:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("ResetToReady cmd");
+                    if (PRINT_DEBUG) Dbprintf("ResetToReady cmd");
                     tag->state = TAG_STATE_READY;
                     recv[0] = ISO15_NOERROR;
                     recvLen = 1;
                     break;
                 case ISO15693_GET_SYSTEM_INFO:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("GetSystemInfo cmd");
+                    if (PRINT_DEBUG) Dbprintf("GetSystemInfo cmd");
                     recv[0] = ISO15_NOERROR;
                     recv[1] = 0x0f; // sysinfo contain all info
                     palloc_copy(&recv[2], tag->uid, 8);
@@ -2560,7 +2560,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     recvLen = 15;
                     break;
                 case ISO15693_READ_MULTI_SECSTATUS:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("ReadMultiSecStatus cmd");
+                    if (PRINT_DEBUG) Dbprintf("ReadMultiSecStatus cmd");
                     pageNum = cmd[cmdCpt++];
                     nbPages = cmd[cmdCpt++];
                     if (pageNum + nbPages >= tag->pagesCount)
@@ -2573,7 +2573,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     }
                     break;
                 case ISO15693_GET_RANDOM_NUMBER:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("GetRandomNumber cmd");
+                    if (PRINT_DEBUG) Dbprintf("GetRandomNumber cmd");
                     tag->random[0] = (uint8_t)(reader_eof_time) ^ 0xFF; // poor random number
                     tag->random[1] = (uint8_t)(reader_eof_time >> 8) ^ 0xFF;
                     recv[0] = ISO15_NOERROR;
@@ -2582,7 +2582,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     recvLen = 3;
                     break;
                 case ISO15693_SET_PASSWORD:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("SetPassword cmd");
+                    if (PRINT_DEBUG) Dbprintf("SetPassword cmd");
                     if (cmd_len > cmdCpt + 5)
                         cmdCpt++; // skip manifacturer code
                     if (cmd_len > cmdCpt + 4) {
@@ -2598,14 +2598,14 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                     recvLen = 1;
                     break;
                 case ISO15693_ENABLE_PRIVACY:
-                    if (g_dbglevel >= DBG_DEBUG) Dbprintf("EnablePrivacy cmd");
+                    if (PRINT_DEBUG) Dbprintf("EnablePrivacy cmd");
                     // not realy entering privacy mode
                     // just return NOERROR
                     recv[0] = ISO15_NOERROR;
                     recvLen = 1;
                     break;
                 default:
-                    if (g_dbglevel >= DBG_DEBUG)
+                    if (PRINT_DEBUG)
                         Dbprintf("ISO15693 CMD 0x%2X not supported", cmd[1]);
 
                     error = ISO15_ERROR_CMD_NOT_SUP;
@@ -2617,7 +2617,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
                 recv[1] = error;
                 recvLen = 2;
                 error = 0;
-                if (g_dbglevel >= DBG_DEBUG)
+                if (PRINT_DEBUG)
                     Dbprintf("ERROR 0x%2X in received request", error);
             }
         }
@@ -2630,7 +2630,7 @@ void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
             uint32_t response_time = reader_eof_time + DELAY_ISO15693_VCD_TO_VICC_SIM;
 
             if (tag->expectFsk) { // Not suppoted yet
-                if (g_dbglevel >= DBG_DEBUG) Dbprintf("ERROR: FSK answers are not supported yet");
+                if (PRINT_DEBUG) Dbprintf("ERROR: FSK answers are not supported yet");
                 //TransmitTo15693ReaderFSK(queue->buf,queue->max, &response_time, 0, !tag->expectFast);
             } else
                 TransmitTo15693Reader(queue->data, queue->max, &response_time, 0, !tag->expectFast);

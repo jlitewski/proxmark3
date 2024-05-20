@@ -627,7 +627,7 @@ static int login(uint32_t password) {
             return PM3_SUCCESS;
 
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("error in command request");
     }
 
@@ -808,7 +808,7 @@ static int reset(void) {
             return PM3_SUCCESS;
 
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("error in command request");
     }
 
@@ -835,7 +835,7 @@ int standard_read(int *now, uint32_t *words) {
         *now -= fwr;
 
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("didn't find a listen window");
     }
 
@@ -868,7 +868,7 @@ static int selective_read(uint32_t addresses, uint32_t *words) {
                     return status;
 
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("error in command request");
     }
 
@@ -997,7 +997,7 @@ static int write(uint32_t word, uint32_t addresses) {
             }
         }
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("error in command request");
     }
 
@@ -1046,7 +1046,7 @@ static int write_password(uint32_t password, uint32_t new_password) {
             }
         }
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("error in command request");
     }
 

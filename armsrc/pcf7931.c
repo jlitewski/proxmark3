@@ -124,7 +124,7 @@ size_t DemodPCF7931(uint8_t **outBlocks, bool ledcontrol) {
                 // Error
                 if (++warnings > 10) {
 
-                    if (g_dbglevel >= DBG_EXTENDED) {
+                    if (PRINT_EXTEND) {
                         Dbprintf("Error: too many detection errors, aborting");
                     }
 
@@ -240,7 +240,7 @@ void ReadPCF7931(bool ledcontrol) {
         // exit if no block is received
         if (errors >= 10 && found_blocks == 0 && single_blocks_cnt == 0) {
 
-            if (g_dbglevel >= DBG_INFO)
+            if (PRINT_INFO)
                 Dbprintf("[!!] Error, no tag or bad tag");
 
             return;
@@ -248,7 +248,7 @@ void ReadPCF7931(bool ledcontrol) {
         // exit if too many errors during reading
         if (tries > 50 && (2 * errors > tries)) {
 
-            if (g_dbglevel >= DBG_INFO) {
+            if (PRINT_INFO) {
                 Dbprintf("[!!] Error reading the tag, only partial content");
             }
 
@@ -280,7 +280,7 @@ void ReadPCF7931(bool ledcontrol) {
             continue;
         }
 
-        if (g_dbglevel >= DBG_EXTENDED)
+        if (PRINT_EXTEND)
             Dbprintf("(dbg) got %d blocks (%d/%d found) (%d tries, %d errors)", n, found_blocks, (max_blocks == 0 ? found_blocks : max_blocks), tries, errors);
 
         for (i = 0; i < n; ++i) {
@@ -344,7 +344,7 @@ void ReadPCF7931(bool ledcontrol) {
         }
         ++tries;
         if (BUTTON_PRESS()) {
-            if (g_dbglevel >= DBG_EXTENDED)
+            if (PRINT_EXTEND)
                 Dbprintf("Button pressed, stopping.");
 
             goto end;
@@ -459,7 +459,7 @@ static void RealWritePCF7931(uint8_t *pass, uint16_t init_delay, int32_t l, int3
  */
 void WritePCF7931(uint8_t pass1, uint8_t pass2, uint8_t pass3, uint8_t pass4, uint8_t pass5, uint8_t pass6, uint8_t pass7, uint16_t init_delay, int32_t l, int32_t p, uint8_t address, uint8_t byte, uint8_t data, bool ledcontrol) {
 
-    if (g_dbglevel >= DBG_INFO) {
+    if (PRINT_INFO) {
         Dbprintf("Initialization delay : %d us", init_delay);
         Dbprintf("Offsets : %d us on the low pulses width, %d us on the low pulses positions", l, p);
     }
@@ -482,7 +482,7 @@ void WritePCF7931(uint8_t pass1, uint8_t pass2, uint8_t pass3, uint8_t pass4, ui
 void SendCmdPCF7931(const uint32_t *tab, bool ledcontrol) {
     uint16_t u = 0, tempo = 0;
 
-    if (g_dbglevel >= DBG_INFO) {
+    if (PRINT_INFO) {
         Dbprintf("Sending data frame...");
     }
 
