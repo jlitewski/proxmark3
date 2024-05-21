@@ -401,7 +401,7 @@ bool I2C_WriteCmd(uint8_t device_cmd, uint8_t device_address) {
 
     if (_break) {
 
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
 
         return false;
     }
@@ -436,7 +436,7 @@ bool I2C_WriteByte(uint8_t data, uint8_t device_cmd, uint8_t device_address) {
 
     I2C_Stop();
     if (_break) {
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
         return false;
     }
     return true;
@@ -479,7 +479,7 @@ bool I2C_BufferWrite(const uint8_t *data, uint16_t len, uint8_t device_cmd, uint
 
     I2C_Stop();
     if (_break) {
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
         return false;
     }
     return true;
@@ -530,7 +530,7 @@ int16_t I2C_BufferRead(uint8_t *data, uint16_t len, uint8_t device_cmd, uint8_t 
 
     if (_break) {
         I2C_Stop();
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
         return 0;
     }
 
@@ -641,7 +641,7 @@ int16_t I2C_ReadFW(uint8_t *data, uint8_t len, uint8_t msb, uint8_t lsb, uint8_t
 
     if (_break) {
         I2C_Stop();
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
         return 0;
     }
 
@@ -713,7 +713,7 @@ bool I2C_WriteFW(const uint8_t *data, uint8_t len, uint8_t msb, uint8_t lsb, uin
     I2C_Stop();
 
     if (_break) {
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
         return false;
     }
     return true;
@@ -826,7 +826,7 @@ bool GetATR(smart_card_atr_t *card_ptr, bool verbose) {
                 chksum ^= card_ptr->atr[i];
 
             if (chksum) {
-                if (g_dbglevel > 2) DbpString("Wrong ATR checksum");
+                if (PRINT_DEBUG) DbpString("Wrong ATR checksum");
             }
         }
     }
@@ -905,7 +905,7 @@ void SmartCardRaw(const smart_card_raw_t *p) {
                        I2C_DEVICE_ADDRESS_MAIN
                    );
 
-        if (res == false && g_dbglevel > 3) {
+        if (res == false && PRINT_EXTEND) {
             DbpString(I2C_ERROR);
             reply_ng(CMD_SMART_RAW, PM3_ESOFT, NULL, 0);
             goto OUT;

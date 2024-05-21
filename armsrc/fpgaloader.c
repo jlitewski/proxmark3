@@ -613,7 +613,7 @@ int FpgaGetCurrent(void) {
  * If needed, it'll also disable the SSC DMA and optionally log a message
  */
 void switch_off(void) {
-    if (g_dbglevel > 3) {
+    if (PRINT_EXTEND) {
         Dbprintf("switch_off");
     }
 

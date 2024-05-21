@@ -188,6 +188,7 @@ static void compact_heap(void) {
 
         ptr = ptr->next;
     }
+
     if(PRINT_DEBUG) Dbprintf(" - Palloc: Heap Compacted!");
 }
 
@@ -255,7 +256,7 @@ static pBlock *allocate_block(size_t alloc) {
         return ptr;
     }
 
-    if(PRINT_DEBUG) Dbprintf(" - Palloc: "_RED_("Unable to allocate a new block!"));
+    if(PRINT_ERROR) Dbprintf(" - Palloc: "_RED_("Unable to allocate a new block!"));
 
     // We were unable to get a block
     return nullptr;
@@ -275,27 +276,32 @@ memptr_t *palloc(uint16_t numElement, const uint16_t size) {
     if(PRINT_DEBUG) Dbprintf(" - Palloc: Allocating memory... (size %u numElement %u)", size, numElement);
 
     if(heap == nullptr) return nullptr; // Can't allocate memory if we haven't initialized any
+    
+    size_t allocSize = numElement * size;
 
-    size_t orig = numElement;
-    numElement *= size;
-
-    if(numElement & ALIGN_MASK) { // Make sure we align our sizes
-        numElement = (numElement + ALIGN_BYTES - 1) & ~ALIGN_MASK;
+    if(allocSize & ALIGN_MASK) { // Make sure we align our sizes
+        allocSize += (allocSize + ALIGN_BYTES - 1) & ~ALIGN_MASK;
     }
 
-    if((numElement > free_space)) return nullptr; // We would overflow if we attempted to allocate this memory
-    else if(numElement / size == orig) { // Sanity check to make sure the math maths
-        pBlock *blk = allocate_block(numElement);
+    if(PRINT_DEBUG) Dbprintf("Allocation size: %u", allocSize);
 
-        if(blk != nullptr) {
-            palloc_set(blk->address, 0, blk->size); // Zero the memory
-            free_space -= blk->size; // Remove the space we took up with this allocation
-            return blk->address;
-        }
+    if((allocSize > MAX_BLOCK_SIZE) || (allocSize > free_space)) { // We would overflow if we attempted to allocate this memory
+        if(PRINT_ERROR) Dbprintf(" - Palloc: "_RED_("Allocation size is too big!") " (%u)", allocSize);
+        return nullptr;
+    } else if(allocSize < (numElement * size)) { // Sanity check to make sure we are allocating enough memory
+        if(PRINT_ERROR) Dbprintf(" - Palloc: "_RED_("Allocation sanity check failed!") " (%u < %u * %u)", allocSize, numElement, size);
+        return nullptr;
     }
 
-    if(PRINT_DEBUG) Dbprintf(" - Palloc: " _RED_("There was an issue with allocating memory!"));
+    pBlock *blk = allocate_block(allocSize);
 
+    if(blk != nullptr) {
+        palloc_set(blk->address, 0, blk->size); // Zero the memory
+        free_space -= blk->size; // Remove the space we took up with this allocation
+        return blk->address;
+    }
+
+    if(PRINT_ERROR) Dbprintf(" - Palloc: " _RED_("There was an issue with allocating memory!"));
     return nullptr; // There's something wrong with the size allocation, abort
 }
 

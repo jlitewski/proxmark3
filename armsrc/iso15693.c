@@ -1007,13 +1007,13 @@ int GetIso15693AnswerFromTag(uint8_t *response, uint16_t max_len, uint16_t timeo
     buffer16u_t dma = palloc_buffer16(DMA_BUFFER_SIZE);
 
     if(dma.data == nullptr) {
-        if (g_dbglevel > DBG_ERROR) Dbprintf("Memory Allocation failed. Exiting");
+        if (PRINT_ERROR) Dbprintf("Memory Allocation failed. Exiting");
         return PM3_EMALLOC;
     }
 
     // Setup and start DMA.
     if (FpgaSetupSscDma((uint8_t *) dma.data, DMA_BUFFER_SIZE) == false) {
-        if (g_dbglevel > DBG_ERROR) Dbprintf("FpgaSetupSscDma failed. Exiting");
+        if (PRINT_ERROR) Dbprintf("FpgaSetupSscDma failed. Exiting");
         palloc_free(dma.data);
         return PM3_EINIT;
     }
@@ -1497,7 +1497,7 @@ int GetIso15693CommandFromReader(uint8_t *received, size_t max_len, uint32_t *eo
     DecodeReader_t *dr = (DecodeReader_t*)palloc(1, sizeof(DecodeReader_t));
 
     if(dr == nullptr) {
-        if (g_dbglevel > DBG_ERROR) Dbprintf("Memory Allocation failed. Exiting");
+        if (PRINT_ERROR) Dbprintf("Memory Allocation failed. Exiting");
         return PM3_EMALLOC;
     }
 
@@ -1518,13 +1518,13 @@ int GetIso15693CommandFromReader(uint8_t *received, size_t max_len, uint32_t *eo
     buffer8u_t dma = palloc_buffer8(DMA_BUFFER_SIZE);
 
     if(dma.data == nullptr) {
-        if (g_dbglevel > DBG_ERROR) Dbprintf("Memory Allocation failed. Exiting");
+        if (PRINT_ERROR) Dbprintf("Memory Allocation failed. Exiting");
         palloc_free(dr);
         return PM3_EMALLOC;
     }
 
     if (FpgaSetupSscDma(dma.data, DMA_BUFFER_SIZE) == false) {
-        if (g_dbglevel > DBG_ERROR) Dbprintf("FpgaSetupSscDma failed. Exiting");
+        if (PRINT_ERROR) Dbprintf("FpgaSetupSscDma failed. Exiting");
         return -4;
     }
     uint8_t *upTo = dma.data;
@@ -1695,14 +1695,14 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
     buffer16u_t dma = palloc_buffer16(DMA_BUFFER_SIZE);
 
     if(dma.data == nullptr) {
-        if (g_dbglevel > DBG_ERROR) DbpString("Memory Allocation failed. Exiting");
+        if (PRINT_ERROR) DbpString("Memory Allocation failed. Exiting");
         switch_off();
         return;
     }
 
     // Setup and start DMA.
     if (FpgaSetupSscDma((uint8_t *) dma.data, DMA_BUFFER_SIZE) == false) {
-        if (g_dbglevel > DBG_ERROR) DbpString("FpgaSetupSscDma failed. Exiting");
+        if (PRINT_ERROR) DbpString("FpgaSetupSscDma failed. Exiting");
         palloc_free(dma.data);
         switch_off();
         return;
@@ -1872,7 +1872,7 @@ void SniffIso15693(uint8_t jam_search_len, uint8_t *jam_search_string, bool icla
     palloc_free(dma.data);
 
     DbpString("");
-    if (g_dbglevel > DBG_ERROR) {
+    if (PRINT_INFO) {
         DbpString(_CYAN_("Sniff statistics"));
         DbpString("=================================");
         Dbprintf("DecodeTag State........ %d", dtag.state);
@@ -2073,7 +2073,7 @@ void ReaderIso15693(iso15_card_select_t *p_card) {
     uint8_t *answer = (uint8_t*)palloc(1, ISO15693_MAX_RESPONSE_LENGTH);
 
     if(answer == nullptr) {
-        if (g_dbglevel > DBG_ERROR) DbpString("Memory Allocation failed. Exiting");
+        if (PRINT_ERROR) DbpString("Memory Allocation failed. Exiting");
         reply_ng(CMD_HF_ISO15693_READER, PM3_EMALLOC, nullptr, 0);
         return;
     }

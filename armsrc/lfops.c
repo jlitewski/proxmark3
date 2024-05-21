@@ -361,7 +361,7 @@ void setT55xxConfig(uint8_t arg0, const t55xx_configurations_t *c) {
     // write new
     res = Flash_Write(T55XX_CONFIG_OFFSET, buf, T55XX_CONFIG_LEN);
 
-    if (res == T55XX_CONFIG_LEN && g_dbglevel > 1) {
+    if (res == T55XX_CONFIG_LEN && PRINT_INFO) {
         DbpString("T55XX Config save " _GREEN_("success"));
     }
 
@@ -403,7 +403,7 @@ void loadT55xxConfig(void) {
         palloc_copy((uint8_t *)&T55xx_Timing, buf, T55XX_CONFIG_LEN);
 
     if (isok == T55XX_CONFIG_LEN) {
-        if (g_dbglevel > 1) DbpString("T55XX Config load success");
+        if (PRINT_INFO) DbpString("T55XX Config load success");
     }
 
     palloc_free(buf);
@@ -1943,7 +1943,7 @@ void T55xxDangerousRawTest(const uint8_t *data, bool ledcontrol) {
     for (uint8_t i = 0; i < c->bitlen; i++)
         len = T55xx_SetBits(bs, len, c->data[i], 1, sizeof(bs));
 
-    if (g_dbglevel > 1) {
+    if (PRINT_INFO) {
         Dbprintf("LEN %i, TIMING %i", len, c->time);
         for (uint8_t i = 0; i < len; i++) {
             uint8_t sendbits = (bs[BITSTREAM_BYTE(i)] >> BITSTREAM_BIT(i));

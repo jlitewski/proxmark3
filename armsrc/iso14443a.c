@@ -714,7 +714,7 @@ void RAMFUNC SniffIso14443a(uint8_t param) {
 
     // Setup and start DMA.
     if (FpgaSetupSscDma(queue->data, QUEUE_BUFFER_SIZE) == false) {
-        if (g_dbglevel > 1) Dbprintf("FpgaSetupSscDma failed. Exiting");
+        if (PRINT_ERROR) Dbprintf("FpgaSetupSscDma failed. Exiting");
         palloc_free(receivedCmd);
         palloc_free(receivedCmdPar);
         palloc_free(receivedResp);

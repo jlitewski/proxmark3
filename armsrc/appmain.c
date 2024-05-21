@@ -784,13 +784,13 @@ void ListenReaderField(uint8_t limit) {
     }
 }
 static void PacketReceived(PacketCommandNG *packet) {
-    /*
+#ifdef DEBUG_ARM
     if (packet->ng) {
-        Dbprintf("received NG frame with %d bytes payload, with command: 0x%04x", packet->length, cmd);
+        Dbprintf(_BRIGHT_BLUE_("DEBUG: received NG frame with %d bytes payload, with command: 0x%04x"), packet->length, packet->cmd);
     } else {
-        Dbprintf("received OLD frame of %d bytes, with command: 0x%04x and args: %d %d %d", packet->length, packet->cmd, packet->oldarg[0], packet->oldarg[1], packet->oldarg[2]);
+        Dbprintf(_BRIGHT_BLUE_("DEBUG: received OLD frame of %d bytes, with command: 0x%04x and args: %d %d %d"), packet->length, packet->cmd, packet->oldarg[0], packet->oldarg[1], packet->oldarg[2]);
     }
-    */
+#endif
 
     switch (packet->cmd) {
         case CMD_BREAK_LOOP:
@@ -3043,8 +3043,10 @@ void  __attribute__((noreturn)) AppMain(void) {
     // against device such as http://www.hobbytronics.co.uk/usb-host-board-v2
     // In other words, keep the interval between usb_enable() and the main loop as short as possible.
     // (AT91F_CDC_Enumerate() will be called in the main loop)
+    LED_D_ON();
     usb_disable();
     usb_enable();
+    LED_D_OFF();
 
     for (;;) {
         WDT_HIT();
@@ -3065,6 +3067,7 @@ void  __attribute__((noreturn)) AppMain(void) {
         if (ret == PM3_SUCCESS) {
             PacketReceived(&rx);
         } else if (ret != PM3_ENODATA) {
+            // TODO Since the device now throws PM3_EMALLOC, we gotta account for that
 
             Dbprintf("Error in frame reception: %d %s", ret, (ret == PM3_EIO) ? "PM3_EIO" : "");
             // TODO if error, shall we resync ?

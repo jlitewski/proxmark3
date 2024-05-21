@@ -63,6 +63,7 @@
 #define FULLIMAGE_SUBDIR     "armsrc" PATHSEP "obj" PATHSEP
 
 #define PACKED __attribute__((packed))
+#define ALIGNED(x) __attribute__((aligned(x)))
 
 #define VERSION_INFORMATION_MAGIC 0x56334d50 // "PM3V"
 struct version_information_t {

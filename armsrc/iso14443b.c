@@ -1335,7 +1335,7 @@ static int Get14443bAnswerFromTag(uint8_t *response, uint16_t max_len, uint32_t 
     }
 
     if (FpgaSetupSscDma((uint8_t *) dma.data, DMA_BUFFER_SIZE) == false) {
-        if (g_dbglevel > DBG_ERROR) Dbprintf("FpgaSetupSscDma failed. Exiting");
+        if (PRINT_ERROR) Dbprintf("FpgaSetupSscDma failed. Exiting");
         return PM3_EMALLOC;
     }
 
@@ -2416,14 +2416,14 @@ void SniffIso14443b(void) {
     buffer16u_t dma = palloc_buffer16(DMA_BUFFER_SIZE);
 
     if(dma.data == nullptr) {
-        if (g_dbglevel > DBG_ERROR) DbpString("Memory Allocation failed. Exiting");
+        if (PRINT_ERROR) DbpString("Memory Allocation failed. Exiting");
         switch_off();
         return;
     }
 
     // Setup and start DMA.
     if (!FpgaSetupSscDma((uint8_t *) dma.data, DMA_BUFFER_SIZE)) {
-        if (g_dbglevel > DBG_ERROR) DbpString("FpgaSetupSscDma failed. Exiting");
+        if (PRINT_ERROR) DbpString("FpgaSetupSscDma failed. Exiting");
         switch_off();
         palloc_free(dma.data);
         return;

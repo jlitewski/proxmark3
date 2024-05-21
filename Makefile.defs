@@ -107,6 +107,13 @@ ifeq ($(USE_MACPORTS),1)
   MACPORTS_PREFIX ?= /opt/local
 endif
 
+# If DEBUG_ARM is set, we want to build the client in debug mode as well
+ifeq ($(DEBUG_ARM),1)
+  DEBUG=1
+  APP_CFLAGS += -g -DDEBUG_ARM
+  SKIP_COMPRESSION=1
+endif
+
 ifeq ($(DEBUG),1)
   DEFCXXFLAGS = -g -O0 -pipe
   DEFCFLAGS = -g -O0 -fstrict-aliasing -pipe
@@ -117,10 +124,6 @@ else
   DEFLDFLAGS =
 endif
 
-ifeq ($(DEBUG_ARM),1)
-  APP_CFLAGS += -g -DDEBUG_ARM
-  SKIP_COMPRESSION=1
-endif
 # Next ones are activated only if SANITIZE=1
 ifeq ($(SANITIZE),1)
   DEFCFLAGS += -g -fsanitize=undefined,address -fno-omit-frame-pointer
