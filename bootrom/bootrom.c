@@ -25,7 +25,6 @@
 #endif
 
 #include "proxmark3_arm.h"
-#define DEBUG 0
 
 common_area_t g_common_area __attribute__((section(".commonarea")));
 uint32_t start_addr, end_addr;
@@ -56,7 +55,7 @@ static int reply_old(uint64_t cmd, uint64_t arg0, uint64_t arg1, uint64_t arg2, 
     return usb_write((uint8_t *)&txcmd, sizeof(PacketResponseOLD));
 }
 
-#if DEBUG
+#ifdef DEBUG_ARM
 static void DbpString(char *str) {
     uint8_t len = 0;
     while (str[len] != 0x00)

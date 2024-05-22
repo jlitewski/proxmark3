@@ -777,10 +777,9 @@ static int RAMFUNC Handle15693FSKSamplesFromTag(uint8_t freq, DecodeTagFSK_t *De
             } else if (FREQ_IS_424(freq) && !MAX_COUNT(DecodeTag->count, recv_speed)) // still in SOF at 424
                 DecodeTag->count++;
             else { // SOF failed, roll back
-#ifdef DEBUG
-                if (DEBUG)
+                if (PRINT_ERROR)
                     Dbprintf("SOF_424 failed: freq=%d, count=%d, recv_speed=%d", freq, DecodeTag->count, recv_speed);
-#endif
+                
                 DecodeTag->state = STATE_FSK_BEFORE_SOF;
             }
             break;
@@ -792,10 +791,9 @@ static int RAMFUNC Handle15693FSKSamplesFromTag(uint8_t freq, DecodeTagFSK_t *De
             } else if (FREQ_IS_484(freq) && !MAX_COUNT(DecodeTag->count, recv_speed)) // still in SOF_END_484
                 DecodeTag->count++;
             else { // SOF failed, roll back
-#ifdef DEBUG
-                if (DEBUG)
+                if (PRINT_ERROR)
                     Dbprintf("SOF_END_484 failed: freq=%d, count=%d, recv_speed=%d", freq, DecodeTag->count, recv_speed);
-#endif
+
                 DecodeTag->state = STATE_FSK_BEFORE_SOF;
             }
             break;
@@ -815,10 +813,9 @@ static int RAMFUNC Handle15693FSKSamplesFromTag(uint8_t freq, DecodeTagFSK_t *De
             } else if (FREQ_IS_424(freq) && !MAX_COUNT(DecodeTag->count, recv_speed)) // still in SOF_END_424
                 DecodeTag->count++;
             else { // SOF failed, roll back
-#ifdef DEBUG
-                if (DEBUG)
+                if (PRINT_ERROR)
                     Dbprintf("SOF_END_424 failed: freq=%d, count=%d, recv_speed=%d", freq, DecodeTag->count, recv_speed);
-#endif
+
                 DecodeTag->state = STATE_FSK_BEFORE_SOF;
             }
             break;
@@ -874,18 +871,16 @@ static int RAMFUNC Handle15693FSKSamplesFromTag(uint8_t freq, DecodeTagFSK_t *De
             else if (FREQ_IS_484(freq) && DecodeTag->lastBit == LOGIC0_PART2 &&
                      SEOF_COUNT(DecodeTag->count, recv_speed)) {
                 // EOF has started
-#ifdef DEBUG
-                if (DEBUG)
+                if (PRINT_DEBUG)
                     Dbprintf("RECEIVING_DATA_424->EOF: freq=%d, count=%d, recv_speed=%d, lastbit=%d, state=%d", freq, DecodeTag->count, recv_speed, DecodeTag->lastBit, DecodeTag->state);
-#endif
+                
                 DecodeTag->count = 1;
                 DecodeTag->state = STATE_FSK_EOF;
                 LED_C_OFF();
             } else { // error
-#ifdef DEBUG
-                if (DEBUG)
+                if (PRINT_ERROR)
                     Dbprintf("RECEIVING_DATA_424 error: freq=%d, count=%d, recv_speed=%d, lastbit=%d, state=%d", freq, DecodeTag->count, recv_speed, DecodeTag->lastBit, DecodeTag->state);
-#endif
+                
                 DecodeTag->state = STATE_FSK_ERROR;
                 LED_C_OFF();
                 return true;
@@ -937,10 +932,9 @@ static int RAMFUNC Handle15693FSKSamplesFromTag(uint8_t freq, DecodeTagFSK_t *De
             } else if (FREQ_IS_484(freq) && !MAX_COUNT(DecodeTag->count, recv_speed)) // still at 484
                 DecodeTag->count++;
             else { // error
-#ifdef DEBUG
-                if (DEBUG)
+                if (PRINT_ERROR)
                     Dbprintf("RECEIVING_DATA_484 error: freq=%d, count=%d, recv_speed=%d, lastbit=%d, state=%d", freq, DecodeTag->count, recv_speed, DecodeTag->lastBit, DecodeTag->state);
-#endif
+                
                 LED_C_OFF();
                 DecodeTag->state = STATE_FSK_ERROR;
                 return true;
@@ -953,20 +947,18 @@ static int RAMFUNC Handle15693FSKSamplesFromTag(uint8_t freq, DecodeTagFSK_t *De
                 if (SEOF_COUNT(DecodeTag->count, recv_speed))
                     return true; // end of the transmission
             } else { // error
-#ifdef DEBUG
-                if (DEBUG)
+                if (PRINT_ERROR)
                     Dbprintf("EOF error: freq=%d, count=%d, recv_speed=%d", freq, DecodeTag->count, recv_speed);
-#endif
+                
                 DecodeTag->state = STATE_FSK_ERROR;
                 return true;
             }
             break;
         case STATE_FSK_ERROR:
             LED_C_OFF();
-#ifdef DEBUG
-            if (DEBUG)
+            if (PRINT_ERROR)
                 Dbprintf("FSK error: freq=%d, count=%d, recv_speed=%d", freq, DecodeTag->count, recv_speed);
-#endif
+            
             return true; // error
             break;
     }

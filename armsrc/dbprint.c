@@ -13,40 +13,40 @@
 // GNU General Public License for more details.
 //
 // See LICENSE.txt for the text of the license.
-//-----------------------------------------------------------------------------
+//=============================================================================
+// Debug print functions, to go out over USB, to the usual PC-side client.
+//=============================================================================
 
 #include "dbprint.h"
 
 #include "cmd.h"
 #include "printf.h"
 
-#define DEBUG 1
 #define DEBUG_MAX_MSG_SIZE  200
-//=============================================================================
-// Debug print functions, to go out over USB, to the usual PC-side client.
-//=============================================================================
 
 void DbpStringEx(uint32_t flags, const char *src, size_t srclen) {
-#if DEBUG
+#if DEBUG_ARM
     struct {
         uint16_t flag;
         uint8_t buf[DEBUG_MAX_MSG_SIZE];
     } PACKED data;
+
     data.flag = flags;
     uint16_t len = MIN(srclen, sizeof(data.buf));
     memcpy(data.buf, src, len);
+
     reply_ng(CMD_DEBUG_PRINT_STRING, PM3_SUCCESS, (uint8_t *)&data, sizeof(data.flag) + len);
 #endif
 }
 
 void DbpString(const char *str) {
-#if DEBUG
+#if DEBUG_ARM
     DbpStringEx(FLAG_LOG, str, strlen(str));
 #endif
 }
 
 void DbprintfEx(uint32_t flags, const char *fmt, ...) {
-#if DEBUG
+#if DEBUG_ARM
     // should probably limit size here; oh well, let's just use a big buffer
     char s[DEBUG_MAX_MSG_SIZE] = {0x00};
     va_list ap;
@@ -59,7 +59,7 @@ void DbprintfEx(uint32_t flags, const char *fmt, ...) {
 }
 
 void Dbprintf(const char *fmt, ...) {
-#if DEBUG
+#if DEBUG_ARM
     // should probably limit size here; oh well, let's just use a big buffer
     char output_string[DEBUG_MAX_MSG_SIZE] = {0x00};
     va_list ap;
@@ -74,7 +74,7 @@ void Dbprintf(const char *fmt, ...) {
 
 // prints HEX & ASCII
 void Dbhexdump(int len, const uint8_t *d, bool bAsci) {
-#if DEBUG
+#if DEBUG_ARM
     char ascii[17];
 
     while (len > 0) {
@@ -123,13 +123,14 @@ void print_result(const char *name, const uint8_t *d, size_t n) {
             sprintf(sp, "%02x ", p[0]);
             sp += 3;
         }
+
         Dbprintf("[%s: %02d/%02d] %s", name, p - d, n, s);
     }
 }
 
 // Prints message and hexdump
 void print_dbg(char *msg, uint8_t *d, uint16_t n) {
-    if (g_dbglevel == DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         print_result(msg, d, n);
     }
 }

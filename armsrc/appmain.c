@@ -20,53 +20,51 @@
 //-----------------------------------------------------------------------------
 #include "appmain.h"
 
-#include "clocks.h"
-#include "usb_cdc.h"
-#include "proxmark3_arm.h"
-#include "dbprint.h"
-#include "pmflash.h"
-#include "fpga.h"
-#include "fpgaloader.h"
-#include "printf.h"
-#include "legicrf.h"
-#include "palloc.h"
-#include "tracer.h"
 #include "cardemu.h"
-#include "iclass_cmd.h"
-#include "hfops.h"
-#include "iso14443a.h"
-#include "iso14443b.h"
-#include "iso15693.h"
-#include "thinfilm.h"
-#include "felica.h"
-#include "hitag2.h"
-#include "hitag2_crack.h"
-#include "hitagS.h"
-#include "em4x50.h"
-#include "em4x70.h"
-#include "iclass.h"
-#include "legicrfsim.h"
-#include "epa.h"
-#include "hfsnoop.h"
-#include "lfops.h"
-#include "lfsampling.h"
-#include "lfzx.h"
-#include "mifarecmd.h"
-#include "mifaredesfire.h"
-#include "mifaresim.h"
-#include "pcf7931.h"
-#include "Standalone/standalone.h"
-#include "util.h"
-#include "ticks.h"
+#include "cmd.h"
+#include "clocks.h"
 #include "commonutil.h"
 #include "crc16.h"
-#include "protocols.h"
+#include "dbprint.h"
+#include "fpga.h"
+#include "fpgaloader.h"
+#include "lfsampling.h"
 #include "mifareutil.h"
-#include "sam_picopass.h"
-#include "sam_seos.h"
-#include "sam_mfc.h"
+#include "palloc.h"
+#include "printf.h"
+#include "protocols.h"
+#include "proxmark3_arm.h"
+#include "ticks.h"
+#include "tracer.h"
+#include "usb_cdc.h"
+#include "util.h"
+
+#include "Standalone/standalone.h"
+
+#ifdef WITH_GENERAL_HF
+#include "hfops.h"
+#endif
+
+#ifdef WITH_ZX8211
+#include "lfzx.h"
+#endif
+
+#ifdef WITH_EM4x50
+#include "em4x50.h"
+#endif
+
+#ifdef WITH_EM4x70
+#include "em4x70.h"
+#endif
+
+#ifdef WITH_HITAG
+#include "hitagS.h"
+#include "hitag2.h"
+#include "hitag2_crack.h"
+#endif
 
 #ifdef WITH_SMARTCARD
+#include "sam_picopass.h"
 #include "i2c.h"
 #endif
 
@@ -74,9 +72,52 @@
 #include "usart.h"
 #endif
 
+#ifdef WITH_ICLASS
+#include "iclass.h"
+#endif
+
+#ifdef WITH_FELICA
+#include "felica.h"
+#endif
+
 #ifdef WITH_FLASH
+#include "pmflash.h"
 #include "flashmem.h"
 #include "spiffs.h"
+#endif
+
+#ifdef WITH_ISO15693
+#include "iso15693.h"
+#endif
+
+#ifdef WITH_ISO14443a
+#include "iso14443a.h"
+#include "epa.h"
+#include "mifarecmd.h"
+#include "mifaresim.h"
+#include "mifaredesfire.h"
+#endif
+
+#ifdef WITH_ISO14443b
+#include "iso14443b.h"
+#endif
+
+#ifdef WITH_NFCBARCODE
+#include "thinfilm.h"
+#endif
+
+#ifdef WITH_LEGICRF
+#include "legicrf.h"
+#include "legicrfsim.h"
+#endif
+
+#if defined(WITH_HFSNIFF) || defined(WITH_HFPLOT)
+#include "hfsnoop.h"
+#endif
+
+#ifdef WITH_LF
+#include "lfops.h"
+#include "pcf7931.h"
 #endif
 
 #ifdef DEBUG_ARM
@@ -311,6 +352,7 @@ static void SendVersion(void) {
             strncat(VersionString, "\n ", sizeof(VersionString) - strlen(VersionString) - 1);
         }
     }
+
 #ifndef WITH_NO_COMPRESSION
     // Send Chip ID and used flash memory
     uint32_t text_and_rodata_section_size = (uint32_t)__data_src_start__ - (uint32_t)_flash_start;
@@ -788,14 +830,6 @@ void ListenReaderField(uint8_t limit) {
     }
 }
 static void PacketReceived(PacketCommandNG *packet) {
-#ifdef DEBUG_ARM
-    if (packet->ng) {
-        Dbprintf(_BRIGHT_BLUE_("DEBUG: received NG frame with %d bytes payload, with command: 0x%04x"), packet->length, packet->cmd);
-    } else {
-        Dbprintf(_BRIGHT_BLUE_("DEBUG: received OLD frame of %d bytes, with command: 0x%04x and args: %d %d %d"), packet->length, packet->cmd, packet->oldarg[0], packet->oldarg[1], packet->oldarg[2]);
-    }
-#endif
-
     switch (packet->cmd) {
         case CMD_BREAK_LOOP:
             break;
@@ -1139,7 +1173,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             Cotag(payload->mode, true);
             break;
         }
-#endif
+#endif // WITH_LF
 
 #ifdef WITH_HITAG
         case CMD_LF_HITAG_SNIFF: { // Eavesdrop Hitag tag, args = type
@@ -2007,7 +2041,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             MifareHasStaticEncryptedNonce(payload->block_no, payload->key_type, payload->key);
             break;
         }
-#endif
+#endif // WITH_ISO14443a
 
 #ifdef WITH_NFCBARCODE
         case CMD_HF_THINFILM_READ: {
@@ -3073,8 +3107,6 @@ void  __attribute__((noreturn)) AppMain(void) {
         if (ret == PM3_SUCCESS) {
             PacketReceived(&rx);
         } else if (ret != PM3_ENODATA) {
-            // TODO Since the device now throws PM3_EMALLOC, we gotta account for that
-
             Dbprintf("Error in frame reception: %d %s", ret, (ret == PM3_EIO) ? "PM3_EIO" : "");
             // TODO if error, shall we resync ?
         }
