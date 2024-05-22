@@ -39,8 +39,9 @@
 extern uint32_t _stack_start[], __bss_start__[], __bss_end__[];
 
 // Memory defines
-#define MEM_SIZE 65536 // Total memory size (in bytes) of the Atmel SAM7S series MCU we use
+#define MEM_SIZE   65536 // Total memory size (in bytes) of the Atmel SAM7S series MCU we use
 #define MEM_USABLE ((size_t)_stack_start - (size_t)__bss_end__) // The memory (in bytes) we can use
+#define MEM_GUARD  32 // Guard size at the top of the heap
 
 // Block configuration
 #define BLOCK_SPLIT_THRESHOLD 16
@@ -88,11 +89,11 @@ static size_t free_space = 0;
  */
 void palloc_init(void) {
     // Set up the heap
-    heap = (pHeap*)(__bss_start__);
+    heap = (pHeap*)(__bss_end__);
     heap->free = nullptr;
     heap->used = nullptr;
     heap->fresh = (pBlock*)(heap + 1);
-    heap->top = (size_t)(heap->fresh + MAX_BLOCKS);
+    heap->top = (size_t)(heap->fresh + (MAX_BLOCKS * 1));
 
     // Set up the fresh blocks to use
     pBlock *block = heap->fresh;
@@ -279,11 +280,7 @@ memptr_t *palloc(uint16_t numElement, const uint16_t size) {
     
     size_t allocSize = numElement * size;
 
-    if(allocSize & ALIGN_MASK) { // Make sure we align our sizes
-        allocSize += (allocSize + ALIGN_BYTES - 1) & ~ALIGN_MASK;
-    }
-
-    if(PRINT_DEBUG) Dbprintf("Allocation size: %u", allocSize);
+    if(PRINT_DEBUG) Dbprintf(" - - Alloc size: %u", allocSize);
 
     if((allocSize > MAX_BLOCK_SIZE) || (allocSize > free_space)) { // We would overflow if we attempted to allocate this memory
         if(PRINT_ERROR) Dbprintf(" - Palloc: "_RED_("Allocation size is too big!") " (%u)", allocSize);
@@ -298,6 +295,7 @@ memptr_t *palloc(uint16_t numElement, const uint16_t size) {
     if(blk != nullptr) {
         palloc_set(blk->address, 0, blk->size); // Zero the memory
         free_space -= blk->size; // Remove the space we took up with this allocation
+        if(PRINT_DEBUG) Dbprintf(" - Palloc: Allocated block of memory at %x with size of %u", blk->address, blk->size);
         return blk->address;
     }
 

@@ -46,7 +46,6 @@
 #include "em4x70.h"
 #include "iclass.h"
 #include "legicrfsim.h"
-//#include "cryptorfsim.h"
 #include "epa.h"
 #include "hfsnoop.h"
 #include "lfops.h"
@@ -241,9 +240,7 @@ static void MeasureAntennaTuning(void) {
 
 // Measure HF in milliVolt
 static uint16_t MeasureAntennaTuningHfData(void) {
-
     return (MAX_ADC_HF_VOLTAGE * SumAdc(ADC_CHAN_HF, 32)) >> 15;
-
 }
 
 // Measure LF in milliVolt
@@ -261,7 +258,7 @@ void print_stack_usage(void) {
     }
 }
 
-void ReadMem(int addr) {
+void ReadMem(size_t addr) {
     const uint8_t *data = ((uint8_t *)addr);
 
     Dbprintf("%x: %02x %02x %02x %02x %02x %02x %02x %02x", addr, data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
@@ -377,6 +374,13 @@ static void printConnSpeed(uint32_t wait) {
     Dbprintf("  Sending packets to client...");
 
     uint8_t *test_data = (uint8_t*)palloc(2, PM3_CMD_DATA_SIZE);
+
+    if(test_data == nullptr) {
+        Dbprintf("  " _RED_("Error allocating data for speed test!"));
+        reply_ng(CMD_DOWNLOADED_TRACE, PM3_EMALLOC, nullptr, 0);
+        return;
+    }
+
     uint32_t start_time = GetTickCount();
     uint32_t delta_time = 0;
     uint32_t bytes_transferred = 0;
@@ -388,6 +392,7 @@ static void printConnSpeed(uint32_t wait) {
         bytes_transferred += PM3_CMD_DATA_SIZE;
         delta_time = GetTickCountDelta(start_time);
     }
+
     LED_B_OFF();
 
     Dbprintf("  Time elapsed................... %dms", delta_time);
@@ -421,7 +426,6 @@ static void SendStatus(uint32_t wait) {
 #endif
     printConnSpeed(wait);
     DbpString(_CYAN_("Various"));
-
     print_debug_level();
 
     fpga_queue_t *fpga_queue = get_fpga_queue();
@@ -448,7 +452,7 @@ static void SendStatus(uint32_t wait) {
     Flashmem_print_info();
 #endif
     DbpString("");
-    reply_ng(CMD_STATUS, PM3_SUCCESS, NULL, 0);
+    reply_ng(CMD_STATUS, PM3_SUCCESS, nullptr, 0);
 }
 
 static void SendCapabilities(void) {
@@ -809,12 +813,11 @@ static void PacketReceived(PacketCommandNG *packet) {
             reply_ng(CMD_SET_FPGAMODE, PM3_EINVARG, NULL, 0);
             break;
         }
-        // emulator
         case CMD_SET_DBGMODE: {
             g_dbglevel = packet->data.asBytes[0];
             if (packet->length == 1 || packet->data.asBytes[1] != 0)
                 print_debug_level();
-            reply_ng(CMD_SET_DBGMODE, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_SET_DBGMODE, PM3_SUCCESS, nullptr, 0);
             break;
         }
         case CMD_GET_DBGMODE: {
@@ -827,8 +830,11 @@ static void PacketReceived(PacketCommandNG *packet) {
                 bool on;
                 bool off;
             } PACKED;
+
             struct p *payload = (struct p *)packet->data.asBytes;
+
             if (payload->on && payload->off) {
+                if(PRINT_DEBUG) Dbprintf(" - CMD_SET_TEAROFF: Cannot have both 'on' and 'off' set at the same time!");
                 reply_ng(CMD_SET_TEAROFF, PM3_EINVARG, NULL, 0);
             }
 
@@ -843,6 +849,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             if (payload->delay_us > 0) {
                 g_tearoff_delay_us = payload->delay_us;
             }
+
             reply_ng(CMD_SET_TEAROFF, PM3_SUCCESS, NULL, 0);
             break;
         }
@@ -2937,32 +2944,31 @@ static void PacketReceived(PacketCommandNG *packet) {
             reply_ng(CMD_PING, PM3_SUCCESS, packet->data.asBytes, packet->length);
             break;
         }
+        case CMD_START_FLASH: {
+            if (g_common_area.flags.bootrom_present) {
+                g_common_area.command = COMMON_AREA_COMMAND_ENTER_FLASH_MODE;
+            }
+
+            // This should flow into the following section, since the code was identical before
+        }
         case CMD_FINISH_WRITE:
         case CMD_HARDWARE_RESET: {
             usb_disable();
 
             // (iceman) why this wait?
-            SpinDelay(1000);
+            SpinDelay(100); // Reduced wait to 100ms from 1000ms
             AT91C_BASE_RSTC->RSTC_RCR = RST_CONTROL_KEY | AT91C_RSTC_PROCRST;
             // We're going to reset, and the bootrom will take control.
             for (;;) {}
             break;
         }
-        case CMD_START_FLASH: {
-            if (g_common_area.flags.bootrom_present) {
-                g_common_area.command = COMMON_AREA_COMMAND_ENTER_FLASH_MODE;
-            }
-            usb_disable();
-            AT91C_BASE_RSTC->RSTC_RCR = RST_CONTROL_KEY | AT91C_RSTC_PROCRST;
-            // We're going to flash, and the bootrom will take control.
-            for (;;) {}
-            break;
-        }
         case CMD_DEVICE_INFO: {
             uint32_t dev_info = DEVICE_INFO_FLAG_OSIMAGE_PRESENT | DEVICE_INFO_FLAG_CURRENT_MODE_OS;
+
             if (g_common_area.flags.bootrom_present) {
                 dev_info |= DEVICE_INFO_FLAG_BOOTROM_PRESENT;
             }
+
             reply_old(CMD_DEVICE_INFO, dev_info, 0, 0, 0, 0);
             break;
         }
@@ -3052,8 +3058,8 @@ void  __attribute__((noreturn)) AppMain(void) {
         WDT_HIT();
 
         if (*_stack_start != 0xdeadbeef) {
-            Dbprintf("DEBUG: increase stack size, currently " _YELLOW_("%d") " bytes", (uint32_t)_stack_end - (uint32_t)_stack_start);
-            Dbprintf("Stack overflow detected");
+            if(PRINT_DEBUG) Dbprintf("DEBUG: increase stack size, currently " _YELLOW_("%d") " bytes", (uint32_t)_stack_end - (uint32_t)_stack_start);
+            Dbprintf(_BACK_BRIGHT_RED_("Stack overflow detected!"));
             Dbprintf("--> Unplug your device now! <--");
             hf_field_off();
             while (1);
