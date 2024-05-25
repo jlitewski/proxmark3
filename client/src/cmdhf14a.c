@@ -2008,7 +2008,7 @@ static void get_compact_tlv(uint8_t *d, uint8_t n) {
 
 int infoHF14A(bool verbose, bool do_nack_test, bool do_aid_search) {
 
-    uint8_t dbg_curr = DBG_NONE;
+    uint8_t dbg_curr = DEBUG_NONE;
     if (getDeviceDebugLevel(&dbg_curr) != PM3_SUCCESS) {
         return PM3_EFAILED;
     }
@@ -2557,7 +2557,7 @@ int infoHF14A(bool verbose, bool do_nack_test, bool do_aid_search) {
         }
     }
 
-    if (setDeviceDebugLevel(verbose ? DBG_INFO : DBG_NONE, false) != PM3_SUCCESS) {
+    if (setDeviceDebugLevel(verbose ? DEBUG_INFO : DEBUG_NONE, false) != PM3_SUCCESS) {
         return PM3_EFAILED;
     }
 

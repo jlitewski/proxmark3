@@ -19,6 +19,8 @@
 //-----------------------------------------------------------------------------
 #include "fpgaloader.h"
 
+#include "at91sam7s512.h"
+#include "config_gpio.h"
 #include "proxmark3_arm.h"
 #include "appmain.h"
 #include "palloc.h"
@@ -45,7 +47,7 @@ static uint8_t downloaded_bitstream = 0;
 // this is where the bitstreams are located in memory:
 extern uint32_t _binary_obj_fpga_all_bit_z_start[], _binary_obj_fpga_all_bit_z_end[];
 
-static uint8_t *fpga_image_ptr = NULL;
+static uint8_t *fpga_image_ptr = nullptr;
 static uint32_t uncompressed_bytes_cnt;
 
 //-----------------------------------------------------------------------------
@@ -186,7 +188,7 @@ void FpgaSetupSsc(uint16_t fpga_mode) {
 // ourselves, not to another buffer).
 //-----------------------------------------------------------------------------
 bool FpgaSetupSscDma(uint8_t *buf, uint16_t len) {
-    if (buf == NULL) return false;
+    if (buf == nullptr) return false;
 
     FpgaDisableSscDma();
     AT91C_BASE_PDC_SSC->PDC_RPR = (size_t)buf;  // transfer to this memory address
@@ -248,7 +250,7 @@ static bool reset_fpga_stream(int bitstream_version, lz4_streamp_t compressed_fp
     compressed_fpga_stream->next_in = (char *)_binary_obj_fpga_all_bit_z_start;
     compressed_fpga_stream->avail_in = (uint32_t)_binary_obj_fpga_all_bit_z_end - (uint32_t)_binary_obj_fpga_all_bit_z_start;
 
-    int res = LZ4_setStreamDecode(compressed_fpga_stream->lz4StreamDecode, NULL, 0);
+    int res = LZ4_setStreamDecode(compressed_fpga_stream->lz4StreamDecode, nullptr, 0);
     if (res == 0)
         return false;
 
@@ -477,19 +479,19 @@ static bool FpgaConfCurrentMode(int bitstream_version) {
 // Check which FPGA image is currently loaded (if any). If necessary
 // decompress and load the correct (HF or LF) image to the FPGA
 //----------------------------------------------------------------------------
-void FpgaDownloadAndGo(uint8_t bitstream_version) {
+int8_t FpgaDownloadAndGo(uint8_t bitstream_version) {
 
     // check whether or not the bitstream is already loaded
     if (downloaded_bitstream == bitstream_version) {
         FpgaEnableTracing();
-        return;
+        return PM3_SUCCESS;
     }
 
 #if defined XC3
     // If we can change image version
     // direct return.
     if (FpgaConfCurrentMode(bitstream_version)) {
-        return;
+        return PM3_SUCCESS;
     }
 #endif
 
@@ -497,16 +499,20 @@ void FpgaDownloadAndGo(uint8_t bitstream_version) {
     send_wtx(FPGA_LOAD_WAIT_TIME);
 
     // XXX Clear as much memory as we can, since this is a VERY memory intensive task
-    release_emuator();
-    release_trace();
+    if(has_emulator_data()) release_emuator();
+    if(has_trace_data()) release_trace();
 
     lz4_stream_t compressed_fpga_stream;
     LZ4_streamDecode_t lz4StreamDecode_body = {{ 0 }};
     compressed_fpga_stream.lz4StreamDecode = &lz4StreamDecode_body;
-    uint8_t *output_buffer = (uint8_t*)palloc(1, FPGA_RING_BUFFER_BYTES); // XXX This might be an issue...
+
+    uint8_t *output_buffer = (uint8_t*)palloc(1, FPGA_RING_BUFFER_BYTES);
+    if(output_buffer == nullptr) {
+        return PM3_EMALLOC;
+    }
 
     if (!reset_fpga_stream(bitstream_version, &compressed_fpga_stream, output_buffer))
-        return;
+        return PM3_SUCCESS;
 
     uint32_t bitstream_length;
     if (bitparse_find_section(bitstream_version, 'e', &bitstream_length, &compressed_fpga_stream, output_buffer)) {
@@ -525,6 +531,8 @@ void FpgaDownloadAndGo(uint8_t bitstream_version) {
 
     // free eventually allocated BigBuf memory
     palloc_free(output_buffer);
+
+    return PM3_SUCCESS;
 }
 
 //-----------------------------------------------------------------------------

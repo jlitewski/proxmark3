@@ -19,13 +19,18 @@
 
 #include "dbprint.h"
 
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+
+#include "common.h"
 #include "cmd.h"
 #include "printf.h"
 
 #define DEBUG_MAX_MSG_SIZE  200
 
 void DbpStringEx(uint32_t flags, const char *src, size_t srclen) {
-#if DEBUG_ARM
+#ifdef DEBUG_ARM
     struct {
         uint16_t flag;
         uint8_t buf[DEBUG_MAX_MSG_SIZE];
@@ -40,13 +45,13 @@ void DbpStringEx(uint32_t flags, const char *src, size_t srclen) {
 }
 
 void DbpString(const char *str) {
-#if DEBUG_ARM
+#ifdef DEBUG_ARM
     DbpStringEx(FLAG_LOG, str, strlen(str));
 #endif
 }
 
 void DbprintfEx(uint32_t flags, const char *fmt, ...) {
-#if DEBUG_ARM
+#ifdef DEBUG_ARM
     // should probably limit size here; oh well, let's just use a big buffer
     char s[DEBUG_MAX_MSG_SIZE] = {0x00};
     va_list ap;
@@ -59,7 +64,7 @@ void DbprintfEx(uint32_t flags, const char *fmt, ...) {
 }
 
 void Dbprintf(const char *fmt, ...) {
-#if DEBUG_ARM
+#ifdef DEBUG_ARM
     // should probably limit size here; oh well, let's just use a big buffer
     char output_string[DEBUG_MAX_MSG_SIZE] = {0x00};
     va_list ap;
@@ -74,7 +79,7 @@ void Dbprintf(const char *fmt, ...) {
 
 // prints HEX & ASCII
 void Dbhexdump(int len, const uint8_t *d, bool bAsci) {
-#if DEBUG_ARM
+#ifdef DEBUG_ARM
     char ascii[17];
 
     while (len > 0) {

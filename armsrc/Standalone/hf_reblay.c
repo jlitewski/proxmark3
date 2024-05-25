@@ -354,7 +354,7 @@ void RunMod() {
                         DbpString(_YELLOW_("!!") " Avoiding request - Bluetooth data already in memory!!");
                     }
                 } else {
-                    if (g_dbglevel == DBG_DEBUG) {
+                    if (PRINT_DEBUG) {
                         DbpString("[ "_YELLOW_("Card reader command") " ]");
                         Dbhexdump(len - 2, &receivedCmd[1], false);
                     }

@@ -188,7 +188,7 @@ static int saMifareCSetBlock(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_
 a particular sector. also no tracing no dbg */
 static int saMifareChkKeys(uint8_t blockNo, uint8_t keyType, bool clearTrace,
                            uint8_t keyCount, uint8_t *datain, uint64_t *key) {
-    g_dbglevel = DBG_NONE;
+    g_dbglevel = DEBUG_NONE;
     iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
     stop_tracing();
 
@@ -229,7 +229,7 @@ static int saMifareChkKeys(uint8_t blockNo, uint8_t keyType, bool clearTrace,
  * - tracing is falsed
  */
 static int saMifareECardLoad(uint32_t numofsectors, uint8_t keytype) {
-    g_dbglevel = DBG_NONE;
+    g_dbglevel = DEBUG_NONE;
 
     uint8_t numSectors = numofsectors;
     uint8_t keyType = keytype;

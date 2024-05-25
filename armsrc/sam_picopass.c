@@ -304,7 +304,7 @@ int sam_picopass_get_pacs(void) {
     iclass_calc_div_key(hdr.csn, legacy_aa1_key, div_key, false);
 
     uint8_t mac[4] = {0};
-    if (g_dbglevel == DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         uint8_t wb[16] = {0};
         palloc_copy(wb, hdr.epurse, sizeof(hdr.epurse));
         palloc_copy(wb + sizeof(hdr.epurse), nr_mac + 1, 4);

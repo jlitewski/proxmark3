@@ -17,6 +17,7 @@
 // Main code for the bootloader
 //-----------------------------------------------------------------------------
 
+#include "at91sam7s512.h"
 #include "clocks.h"
 #include "usb_cdc.h"
 
@@ -54,7 +55,7 @@ static int reply_old(uint64_t cmd, uint64_t arg0, uint64_t arg1, uint64_t arg2, 
     // Send frame and make sure all bytes are transmitted
     return usb_write((uint8_t *)&txcmd, sizeof(PacketResponseOLD));
 }
-
+/*
 #ifdef DEBUG_ARM
 static void DbpString(char *str) {
     uint8_t len = 0;
@@ -64,7 +65,7 @@ static void DbpString(char *str) {
     reply_old(CMD_DEBUG_PRINT_STRING, len, 0, 0, (uint8_t *)str, len);
 }
 #endif
-
+*/
 static void ConfigClocks(void) {
     // we are using a 16 MHz crystal as the basis for everything
     // slow clock runs at 32kHz typical regardless of crystal

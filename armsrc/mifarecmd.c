@@ -40,10 +40,11 @@
 #include "appmain.h"  // print_stack_usage
 
 #ifndef HARDNESTED_AUTHENTICATION_TIMEOUT
-# define HARDNESTED_AUTHENTICATION_TIMEOUT  848     // card times out 1ms after wrong authentication (according to NXP documentation)
+#define HARDNESTED_AUTHENTICATION_TIMEOUT  848     // card times out 1ms after wrong authentication (according to NXP documentation)
 #endif
+
 #ifndef HARDNESTED_PRE_AUTHENTICATION_LEADTIME
-# define HARDNESTED_PRE_AUTHENTICATION_LEADTIME 400 // some (non standard) cards need a pause after select before they are ready for first authentication
+#define HARDNESTED_PRE_AUTHENTICATION_LEADTIME 400 // some (non standard) cards need a pause after select before they are ready for first authentication
 #endif
 
 // send an incomplete dummy response in order to trigger the card's authentication failure timeout
@@ -1640,7 +1641,7 @@ void MifareChkKeys_fast(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_t *da
     }
 
     // clear debug level. We are expecting lots of authentication failures...
-    g_dbglevel = DBG_NONE;
+    g_dbglevel = NONE;
 
     // set check struct.
     chk_data.uid = uid;
@@ -1926,7 +1927,7 @@ void MifareChkKeys(uint8_t *datain, uint8_t reserved_mem) {
     if (clearTrace) release_trace();
 
     int oldbg = g_dbglevel;
-    g_dbglevel = DBG_NONE;
+    g_dbglevel = DEBUG_NONE;
 
     stop_tracing();
 

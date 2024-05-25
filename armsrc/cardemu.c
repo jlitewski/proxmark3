@@ -18,8 +18,15 @@
 
 #include "cardemu.h"
 
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "ansi.h"
+#include "common.h"
+#include "palloc.h"
 #include "pm3_cmd.h"
 #include "dbprint.h"
+#include "util.h"
 
 static bool is_emulating = false;
 static memptr_t *emu_addr = nullptr;
@@ -64,7 +71,7 @@ void release_emuator(void) {
         return;
     }
 
-    Dbprintf("Unable to release emulator, no memory to release.");
+    if(PRINT_ERROR) Dbprintf("Unable to release emulator, no memory to release.");
 }
 
 int set_emulator_memory(const uint8_t *data, uint16_t offset, uint16_t len) {
@@ -78,13 +85,13 @@ int set_emulator_memory(const uint8_t *data, uint16_t offset, uint16_t len) {
         return PM3_SUCCESS;
     }
 
-    Dbprintf(_RED_("Tried to set memory out of emulator bounds! %d > %d"), (offset + len), CARD_MEMORY_SIZE);
+    if(PRINT_ERROR) Dbprintf(_RED_("Tried to set memory out of emulator bounds! %d > %d"), (offset + len), CARD_MEMORY_SIZE);
     return PM3_EOUTOFBOUND;
 }
 
 int get_emulator_memory(uint8_t *out, uint16_t offset, uint16_t len) {
     if(emu_addr == nullptr) {
-        Dbprintf(_RED_("Unable to get emulator memory! No memory set!"));
+        if(PRINT_ERROR) Dbprintf(_RED_("Unable to get emulator memory! No memory set!"));
         return PM3_ENODATA;
     }
 
@@ -93,6 +100,6 @@ int get_emulator_memory(uint8_t *out, uint16_t offset, uint16_t len) {
         return PM3_SUCCESS;
     }
 
-    Dbprintf(_RED_("Tried to read memory out of emulator bounds! %d > %d"), (offset + len), CARD_MEMORY_SIZE);
+    if(PRINT_ERROR) Dbprintf(_RED_("Tried to read memory out of emulator bounds! %d > %d"), (offset + len), CARD_MEMORY_SIZE);
     return PM3_EOUTOFBOUND;
 }

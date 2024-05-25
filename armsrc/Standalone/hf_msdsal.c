@@ -442,7 +442,7 @@ void RunMod(void) {
                     p_response = &responses[RESP_INDEX_RATS];
 
                 } else {
-                    if (g_dbglevel == DBG_DEBUG) {
+                    if (PRINT_DEBUG) {
                         DbpString("[ "_YELLOW_("Card reader command") " ]");
                         Dbhexdump(len, receivedCmd, false);
                     }

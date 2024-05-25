@@ -136,7 +136,7 @@ void release_trace(void) {
         if(palloc_free(blk_addr)) {
             blk_addr = nullptr;
         } else {
-            Dbprintf(_RED_("Error releasing Tracer memory back to SRAM! Please unplug your Proxmark!"));
+            if(PRINT_ERROR) Dbprintf(_RED_("Error releasing Tracer memory back to SRAM! Please unplug your Proxmark!"));
         }
     }
 }
@@ -162,7 +162,7 @@ bool RAMFUNC log_trace(const uint8_t *trace, uint16_t len, uint32_t ts_start, ui
 
     // Check to make sure we won't overflow our block of memory
     if(TRACELOG_HDR_LEN + len + num_parity >= get_max_trace_length() - trace_len) {
-        Dbprintf(_RED_("Cannot trace anymore! Memory almost full!"));
+        if(PRINT_ERROR) Dbprintf(_RED_("Cannot trace anymore! Memory almost full!"));
         tracing = false;
         return false;
     }

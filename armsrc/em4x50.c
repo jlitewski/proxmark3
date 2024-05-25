@@ -15,20 +15,23 @@
 //-----------------------------------------------------------------------------
 // Low frequency EM4x50 commands
 //-----------------------------------------------------------------------------
+#include "em4x50.h"
 
 #include "fpgaloader.h"
 #include "ticks.h"
 #include "dbprint.h"
-#include "lfsampling.h"
 #include "lfadc.h"
 #include "lfdemod.h"
 #include "commonutil.h"
-#include "em4x50.h"
 #include "palloc.h"
+#include "pm3_cmd.h"
 #include "cardemu.h"
-#include "spiffs.h"
 #include "appmain.h" // tear
 #include "bruteforce.h"
+
+#ifdef WITH_FLASH
+#include "spiffs.h"
+#endif
 
 // Sam7s has several timers, we will use the source TIMER_CLOCK1 (aka AT91C_TC_CLKS_TIMER_DIV1_CLOCK)
 // TIMER_CLOCK1 = MCK/2, MCK is running at 48 MHz, Timer is running at 48/2 = 24 MHz

@@ -22,14 +22,9 @@
 //==============================================================================
 #include "palloc.h"
 
-#ifndef offsetof
-#define offsetof(type, field) ((size_t) &(((type *) 0)->field))
-#endif
-
+#include "proxmark3_arm.h"
 #include "dbprint.h" // logging
-#include "proxmark3_arm.h" // LED control
 #include "ticks.h"
-#include "pm3_cmd.h" // return defines
 
 // Word size alignment
 #define ALIGN_BYTES sizeof(uint32_t) // Word size of the Atmel SAM7S should be 4 bytes (32-bit)
@@ -41,7 +36,7 @@ extern uint32_t _stack_start[], __bss_start__[], __bss_end__[];
 // Memory defines
 #define MEM_SIZE   65536 // Total memory size (in bytes) of the Atmel SAM7S series MCU we use
 #define MEM_USABLE ((size_t)_stack_start - (size_t)__bss_end__) // The memory (in bytes) we can use
-#define MEM_GUARD  32 // Guard size at the top of the heap
+#define MEM_GUARD  64 // Guard size at the top of the heap
 
 // Block configuration
 #define BLOCK_SPLIT_THRESHOLD 16
@@ -60,7 +55,7 @@ struct PACKED Heap {
     pBlock *fresh; // Fresh (never used) Blocks List
     pBlock *free;  // Free (previously used) Blocks List
     pBlock *used;  // Currently used Blocks List
-    size_t top;    // Top free address
+    uint32_t top;    // Top free address
 };
 
 /**
@@ -89,16 +84,18 @@ static size_t free_space = 0;
  */
 void palloc_init(void) {
     // Set up the heap
-    heap = (pHeap*)(__bss_end__);
+    heap = (pHeap*)(__bss_end__ + MEM_GUARD);
     heap->free = nullptr;
     heap->used = nullptr;
     heap->fresh = (pBlock*)(heap + 1);
-    heap->top = (size_t)(heap->fresh + (MAX_BLOCKS * 1));
+    heap->top = (uint32_t)(heap->fresh + MAX_BLOCKS);
 
     // Set up the fresh blocks to use
     pBlock *block = heap->fresh;
     uint8_t i = MAX_BLOCKS - 1;
     while(i--) {
+        LED_A_INV();
+        SpinDelay(25);
         block->next = block + 1;
         block->size = 0;
         block++;
@@ -274,6 +271,7 @@ static pBlock *allocate_block(size_t alloc) {
  * @return the address of the block of memory, or nullptr
  */
 memptr_t *palloc(uint16_t numElement, const uint16_t size) {
+    LED_A_INV();
     if(PRINT_DEBUG) Dbprintf(" - Palloc: Allocating memory... (size %u numElement %u)", size, numElement);
 
     if(heap == nullptr) return nullptr; // Can't allocate memory if we haven't initialized any
@@ -296,6 +294,7 @@ memptr_t *palloc(uint16_t numElement, const uint16_t size) {
         palloc_set(blk->address, 0, blk->size); // Zero the memory
         free_space -= blk->size; // Remove the space we took up with this allocation
         if(PRINT_DEBUG) Dbprintf(" - Palloc: Allocated block of memory at %x with size of %u", blk->address, blk->size);
+        LED_A_INV();
         return blk->address;
     }
 

@@ -480,25 +480,25 @@ static int CmdDbg(const char *Cmd) {
         return PM3_EINVARG;
     }
 
-    uint8_t curr = DBG_NONE;
+    uint8_t curr = DEBUG_NONE;
     if (getDeviceDebugLevel(&curr) != PM3_SUCCESS)
         return PM3_EFAILED;
 
     const char *dbglvlstr;
     switch (curr) {
-        case DBG_NONE:
+        case DEBUG_NONE:
             dbglvlstr = "none";
             break;
-        case DBG_ERROR:
+        case DEBUG_ERROR:
             dbglvlstr = "error";
             break;
-        case DBG_INFO:
+        case DEBUG_INFO:
             dbglvlstr = "info";
             break;
-        case DBG_DEBUG:
+        case DEBUG_LITE:
             dbglvlstr = "debug";
             break;
-        case DBG_EXTENDED:
+        case DEBUG_FULL:
             dbglvlstr = "extended";
             break;
         default:

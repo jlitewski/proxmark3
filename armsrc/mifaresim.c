@@ -17,16 +17,6 @@
 // Mifare Classic Card Simulation
 //-----------------------------------------------------------------------------
 
-// Verbose Mode:
-// DBG_NONE          0
-// DBG_ERROR         1
-// DBG_INFO          2
-// DBG_DEBUG         3
-// DBG_EXTENDED      4
-
-//  /!\ Printing Debug message is disrupting emulation,
-//  Only use with caution during debugging
-
 #include "mifaresim.h"
 
 #include <inttypes.h>

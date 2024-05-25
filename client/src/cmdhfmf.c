@@ -9322,7 +9322,7 @@ static int CmdHF14AMfInfo(const char *Cmd) {
     bool verbose = arg_get_lit(ctx, 6);
     CLIParserFree(ctx);
 
-    uint8_t dbg_curr = DBG_NONE;
+    uint8_t dbg_curr = DEBUG_NONE;
     if (getDeviceDebugLevel(&dbg_curr) != PM3_SUCCESS) {
         return PM3_EFAILED;
     }
@@ -9371,7 +9371,7 @@ static int CmdHF14AMfInfo(const char *Cmd) {
     PrintAndLogEx(SUCCESS, "ATQA: " _GREEN_("%02X %02X"), card.atqa[1], card.atqa[0]);
     PrintAndLogEx(SUCCESS, " SAK: " _GREEN_("%02X [%" PRIu64 "]"), card.sak, resp.oldarg[0]);
 
-    if (setDeviceDebugLevel(verbose ? DBG_INFO : DBG_NONE, false) != PM3_SUCCESS) {
+    if (setDeviceDebugLevel(verbose ? DEBUG_INFO : DEBUG_NONE, false) != PM3_SUCCESS) {
         return PM3_EFAILED;
     }
 

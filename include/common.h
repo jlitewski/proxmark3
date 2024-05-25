@@ -77,16 +77,19 @@ struct version_information_t {
 } PACKED;
 
 // debug
-#define DBG_NONE          0 // no messages
-#define DBG_ERROR         1 // errors only
-#define DBG_INFO          2 // errors + info messages
-#define DBG_DEBUG         3 // errors + info + debug messages
-#define DBG_EXTENDED      4 // errors + info + debug + breaking debug messages
+typedef enum DebugLevel {
+    DEBUG_NONE     = 0, // no message output
+    DEBUG_ERROR    = 1, // error messages only
+    DEBUG_INFO     = 2, // errors + info messages
+    DEBUG_LITE     = 3, // errors + info + debug (not including timing breaking debug messages)
+    DEBUG_FULL     = 4  // errors + info + debug (including timing breaking debug messages)
+} debug_level;
+
 extern int g_dbglevel;
-#define PRINT_ERROR       (g_dbglevel >= DBG_ERROR)
-#define PRINT_INFO        (g_dbglevel >= DBG_INFO)
-#define PRINT_DEBUG       (g_dbglevel >= DBG_DEBUG)
-#define PRINT_EXTEND      (g_dbglevel >= DBG_EXTENDED)
+#define PRINT_ERROR       (g_dbglevel >= DEBUG_NONE)
+#define PRINT_INFO        (g_dbglevel >= DEBUG_INFO)
+#define PRINT_DEBUG       (g_dbglevel >= DEBUG_LITE)
+#define PRINT_EXTEND      (g_dbglevel >= DEBUG_FULL)
 
 // tear-off
 extern uint16_t g_tearoff_delay_us;
@@ -185,7 +188,6 @@ extern bool g_tearoff_enabled;
 #ifndef BYTES2UINT32_BE
 # define BYTES2UINT32_BE(x) (((x)[0] << 24) | ((x)[1] << 16) | ((x)[2] << 8) | ((x)[3]))
 #endif
-
 
 #define EVEN                        0
 #define ODD                         1

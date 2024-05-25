@@ -372,7 +372,7 @@ void RunMod(void) {
     Dbprintf(">>  HF Mifare ultra fast sniff/sim/clone  a.k.a VIGIKPWN Started  <<");
 
     // turn off all debugging.
-    g_dbglevel = DBG_NONE;
+    g_dbglevel = DEBUG_NONE;
 
     // add_schema(colin_Schemas, Noralsy, &colin_total_schemas);
     // add_schema(colin_Schemas, InfiHexact, &colin_total_schemas);

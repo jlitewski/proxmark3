@@ -14,14 +14,23 @@
 // See LICENSE.txt for the text of the license.
 //-----------------------------------------------------------------------------
 #include "cmd.h"
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "common.h"
 #include "usb_cdc.h"
-#include "usart.h"
 #include "crc16.h"
 #include "palloc.h"
+#include "pm3_cmd.h"
 
 #ifdef DEBUG_ARM
 #include "dbprint.h"
 #include "ansi.h"
+#endif
+
+#ifdef WITH_FPC_USART_HOST
+#include "usart.h"
 #endif
 
 // Flags to tell where to add CRC on sent replies

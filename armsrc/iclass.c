@@ -671,7 +671,7 @@ int do_iclass_simulation(int simulationMode, uint8_t *reader_mac_buf) {
 
                 if (simulationMode == ICLASS_SIM_MODE_EXIT_AFTER_MAC) {
 
-                    if (g_dbglevel ==  DBG_EXTENDED) {
+                    if (PRINT_EXTEND) {
                         Dbprintf("CSN: %02x %02x %02x %02x %02x %02x %02x %02x", csn[0], csn[1], csn[2], csn[3], csn[4], csn[5], csn[6], csn[7]);
                         Dbprintf("RDR:  (len=%02d): %02x %02x %02x %02x %02x %02x %02x %02x %02x", len,
                                  resp->cmd[0], resp->cmd[1], resp->cmd[2],

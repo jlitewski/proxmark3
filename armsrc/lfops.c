@@ -2317,7 +2317,7 @@ static void WriteT55xx(const uint32_t *blockdata, uint8_t startblock, uint8_t nu
 }
 
 static void WriteEM4x05(uint32_t *blockdata, uint8_t startblock, uint8_t numblocks, bool ledcontrol) {
-    if (g_dbglevel == DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         Dbprintf("# | data ( EM4x05 )");
         Dbprintf("--+----------------");
     }
@@ -2326,12 +2326,12 @@ static void WriteEM4x05(uint32_t *blockdata, uint8_t startblock, uint8_t numbloc
         if (i > 4) {
             blockdata[i - startblock] = reflect(blockdata[i - startblock], 32);
         }
-        if (g_dbglevel == DBG_DEBUG) {
+        if (PRINT_DEBUG) {
             Dbprintf("%i | %08x", i, blockdata[i - startblock]);
         }
     }
 
-    if (g_dbglevel == DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         Dbprintf("--+----------------");
     }
 

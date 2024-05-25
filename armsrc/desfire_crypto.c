@@ -24,19 +24,27 @@
  * May 2005
  */
 #include "desfire_crypto.h"
+
 #include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stddef.h>
+
+#include "../mbedtls/des.h"
+#include "../mbedtls/aes.h"
 #include "commonutil.h"
 #include "crc32.h"
 #include "crc.h"
 #include "crc16.h"        // crc16 ccitt
+#include "desfire.h"
 #include "printf.h"
 #include "iso14443a.h"
 #include "dbprint.h"
 #include "palloc.h"
 
 #ifndef AddCrc14A
-# define AddCrc14A(data, len) compute_crc(CRC_14443_A, (data), (len), (data)+(len), (data)+(len)+1)
+#define AddCrc14A(data, len) compute_crc(CRC_14443_A, (data), (len), (data)+(len), (data)+(len)+1)
 #endif
 
 static mbedtls_des_context ctx;
