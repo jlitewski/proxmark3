@@ -155,7 +155,10 @@ static int reply_ng_internal(uint16_t cmd, int16_t status, const uint8_t *data, 
 #endif
 
 #ifdef DEBUG_ARM
-    Dbprintf(_BACK_BRIGHT_BLUE_("[<--] Reply NG Packet (%d bytes payload, command 0x%04x)"), txBufferNGLen, cmd);
+    uint8_t upper = (cmd >> 8) & 0xFF;
+    if(upper != 0xF0) { // Filter out debug commands
+        Dbprintf(_BACK_BRIGHT_BLUE_("[<--] Reply NG Packet (%d bytes payload, command 0x%04x)"), txBufferNGLen, cmd);
+    }
 #endif
 
     return PM3_SUCCESS;

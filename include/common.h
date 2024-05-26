@@ -62,8 +62,10 @@
 #define BOOTROM_SUBDIR       "bootrom" PATHSEP "obj" PATHSEP
 #define FULLIMAGE_SUBDIR     "armsrc" PATHSEP "obj" PATHSEP
 
+#define RAMFUNC __attribute__((long_call, section(".ramfunc"), target("arch=armv4t")))
 #define PACKED __attribute__((packed))
 #define ALIGNED(x) __attribute__((aligned(x)))
+#define NO_OPT __attribute__((optimize("O0")))
 
 #define VERSION_INFORMATION_MAGIC 0x56334d50 // "PM3V"
 struct version_information_t {
@@ -85,11 +87,11 @@ typedef enum DebugLevel {
     DEBUG_FULL     = 4  // errors + info + debug (including timing breaking debug messages)
 } debug_level;
 
-extern int g_dbglevel;
-#define PRINT_ERROR       (g_dbglevel >= DEBUG_NONE)
-#define PRINT_INFO        (g_dbglevel >= DEBUG_INFO)
-#define PRINT_DEBUG       (g_dbglevel >= DEBUG_LITE)
-#define PRINT_EXTEND      (g_dbglevel >= DEBUG_FULL)
+extern debug_level g_dbglevel;
+#define PRINT_ERROR       (g_dbglevel > DEBUG_NONE)
+#define PRINT_INFO        (g_dbglevel > DEBUG_ERROR)
+#define PRINT_DEBUG       (g_dbglevel > DEBUG_INFO)
+#define PRINT_EXTEND      (g_dbglevel > DEBUG_LITE)
 
 // tear-off
 extern uint16_t g_tearoff_delay_us;
@@ -109,8 +111,6 @@ extern bool g_tearoff_enabled;
 #ifndef ABS
 # define ABS(a) ( ((a)<0) ? -(a) : (a) )
 #endif
-
-#define RAMFUNC __attribute__((long_call, section(".ramfunc"), target("arch=armv4t")))
 
 #ifndef ROTR
 # define ROTR(x,n) (((uintmax_t)(x) >> (n)) | ((uintmax_t)(x) << ((sizeof(x) * 8) - (n))))

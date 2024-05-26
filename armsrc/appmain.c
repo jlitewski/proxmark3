@@ -128,11 +128,7 @@
 #include "pcf7931.h"
 #endif
 
-#ifdef DEBUG_ARM
-int g_dbglevel = DEBUG_LITE;
-#else
-int g_dbglevel = DEBUG_ERROR;
-#endif
+debug_level g_dbglevel = DEBUG_NONE;
 
 uint8_t g_trigger = 0;
 bool g_hf_field_active = false;
@@ -398,25 +394,36 @@ static void TimingIntervalAcquisition(void) {
 }
 
 static void print_debug_level(void) {
-    char dbglvlstr[20] = {0};
-    switch (g_dbglevel) {
-        case DEBUG_NONE:
-            sprintf(dbglvlstr, "off");
-            break;
-        case DEBUG_ERROR:
-            sprintf(dbglvlstr, "error");
-            break;
-        case DEBUG_INFO:
-            sprintf(dbglvlstr, "info");
-            break;
-        case DEBUG_LITE:
-            sprintf(dbglvlstr, "debug");
-            break;
-        case DEBUG_FULL:
-            sprintf(dbglvlstr, "extended");
-            break;
+    char dbglvlstr[30] = {0};
+    int8_t dbglvl = -1;
+
+    if(g_dbglevel == DEBUG_NONE) {
+        sprintf(dbglvlstr, "none");
+        dbglvl = 0;
+        goto end_debug_search;
     }
-    Dbprintf("  Debug log level......... %d ( " _YELLOW_("%s")" )", g_dbglevel, dbglvlstr);
+    if(g_dbglevel == DEBUG_ERROR) {
+        sprintf(dbglvlstr, "error only");
+        dbglvl = 1;
+        goto end_debug_search;
+    }
+    if(g_dbglevel == DEBUG_INFO) {
+        sprintf(dbglvlstr, "error + info");
+        dbglvl = 2;
+        goto end_debug_search;
+    }
+    if(g_dbglevel == DEBUG_LITE) {
+        sprintf(dbglvlstr, "error + info + debug");
+        dbglvl = 3;
+        goto end_debug_search;
+    }
+    if(g_dbglevel == DEBUG_FULL) {
+        sprintf(dbglvlstr, "EXTREME DEBUGGING MODE");
+        dbglvl = 4;
+    }
+
+end_debug_search:
+    Dbprintf("  Debug logging mode ......... %d ( " _YELLOW_("%s")" )", dbglvl, dbglvlstr);
 }
 
 // measure the Connection Speed by sending SpeedTestBufferSize bytes to client and measuring the elapsed time.
@@ -483,6 +490,8 @@ static void SendStatus(uint32_t wait) {
     fpga_queue_t *fpga_queue = get_fpga_queue();
     Dbprintf("  FPGA Queue Size.............. %d", fpga_queue->max);
     Dbprintf("  FPGA Queue Max Size.......... %d", QUEUE_BUFFER_SIZE);
+    free_fpga_queue();
+
     while ((AT91C_BASE_PMC->PMC_MCFR & AT91C_CKGR_MAINRDY) == 0);       // Wait for MAINF value to become available...
     uint16_t mainf = AT91C_BASE_PMC->PMC_MCFR & AT91C_CKGR_MAINF;       // Get # main clocks within 16 slow clocks
     Dbprintf("  Slow clock.............. %d Hz", (16 * MAINCK) / mainf);
@@ -3025,7 +3034,14 @@ static void PacketReceived(PacketCommandNG *packet) {
 
 void  __attribute__((noreturn)) AppMain(void) {
     SpinDelay(100);
-    int old_debug_level = g_dbglevel;
+    
+#ifdef DEBUG_ARM
+    g_dbglevel = DEBUG_LITE;
+#else
+    g_dbglevel = DEBUG_ERROR;
+#endif
+
+    debug_level old_debug_level = g_dbglevel;
     g_dbglevel = DEBUG_NONE; // Disable debug while we boot up
 
     // Add stack canary

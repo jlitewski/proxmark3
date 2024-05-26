@@ -36,7 +36,7 @@ extern uint32_t _stack_start[], __bss_start__[], __bss_end__[];
 // Memory defines
 #define MEM_SIZE   65536 // Total memory size (in bytes) of the Atmel SAM7S series MCU we use
 #define MEM_USABLE ((size_t)_stack_start - (size_t)__bss_end__) // The memory (in bytes) we can use
-#define MEM_GUARD  64 // Guard size at the top of the heap
+#define MEM_GUARD  32 // Guard size at the top of the heap
 
 // Block configuration
 #define BLOCK_SPLIT_THRESHOLD 16
@@ -47,15 +47,25 @@ typedef struct Heap pHeap;
 
 struct PACKED Block {
     void *address; // The memory address this block points to
+    ALIGNED(4) pBlock *next;  // The next block in the list, or nullptr if there is none
     int16_t size;  // The size of the data at `address`
-    pBlock *next;  // The next block in the list, or nullptr if there is none
 };
 
+/**
+ * Heap Metadata is as follows: {uint32_t} 0x(flags)(used_count)(free_count)(fresh_count)
+ * * Flags store boolean states of various things (if a block was changed recently, for example)
+ * * used_count is the last stored count of used blocks
+ * * free_count is the last stored count of free blocks
+ * * fresh_count is the last stored count of fresh blocks
+ * 
+ * This metadata isn't exposed outside of palloc.
+ */
 struct PACKED Heap {
-    pBlock *fresh; // Fresh (never used) Blocks List
-    pBlock *free;  // Free (previously used) Blocks List
-    pBlock *used;  // Currently used Blocks List
-    uint32_t top;    // Top free address
+    ALIGNED(4) pBlock *fresh; // Fresh (never used) Blocks List
+    ALIGNED(4) pBlock *free;  // Free (previously used) Blocks List
+    ALIGNED(4) pBlock *used;  // Currently used Blocks List
+    uint32_t metadata;        // Heap metadata
+    uint32_t top;             // Top free address
 };
 
 /**
@@ -88,11 +98,12 @@ void palloc_init(void) {
     heap->free = nullptr;
     heap->used = nullptr;
     heap->fresh = (pBlock*)(heap + 1);
-    heap->top = (uint32_t)(heap->fresh + MAX_BLOCKS);
+    heap->top = (size_t)(heap + MAX_BLOCKS + 1);
 
     // Set up the fresh blocks to use
     pBlock *block = heap->fresh;
     uint8_t i = MAX_BLOCKS - 1;
+
     while(i--) {
         LED_A_INV();
         SpinDelay(25);
@@ -100,6 +111,9 @@ void palloc_init(void) {
         block->size = 0;
         block++;
     }
+
+    // Initialize the metadata. Set all the flags to 1, and 0 everything else out.
+    heap->metadata = 0xFF000000;
 
     // Calculate the amount of free space we have in the heap
     free_space = (MEM_USABLE - OVERHEAD);
@@ -109,7 +123,7 @@ void palloc_init(void) {
 }
 
 /**
- * @brief Merge the blocks inbetween `from` and `to` together into the fresh list
+ * @brief Merge the blocks inbetween `from` and `to` together into the fresh list.
  * 
  * @param from The block to strat from
  * @param to The block to end at
@@ -130,6 +144,9 @@ static void merge_blocks(pBlock *from, pBlock *to) {
         from->size = 0;
         from = scan;
     }
+
+    // Reset the heap metadata
+    heap->metadata = 0xFF000000;
 }
 
 /**
@@ -138,7 +155,7 @@ static void merge_blocks(pBlock *from, pBlock *to) {
  * @param blk The block to insert
  */
 static void insert_block(pBlock *blk) {
-    if(PRINT_DEBUG) Dbprintf(" - Palloc: Inserting block into heap...");
+    if(PRINT_EXTEND) Dbprintf(" - Palloc: Inserting block into heap...");
     pBlock *ptr = heap->free;
     pBlock *prev = nullptr;
 
@@ -174,7 +191,7 @@ static void compact_heap(void) {
         }
 
         if(prev != ptr) { // We can merge blocks together. This DOESN'T check against the 32kb max size we have
-            if(PRINT_DEBUG) Dbprintf(" - Palloc: Merging blocks %x & %x...", ptr->address, prev->address);
+            if(PRINT_EXTEND) Dbprintf(" - Palloc: Merging blocks 0x%4x & 0x%4x...", ptr->address, prev->address);
             size_t newSize = ((size_t)prev->address - (size_t)ptr->address + prev->size);
             ptr->size = newSize;
             pBlock *next = prev->next;
@@ -208,7 +225,7 @@ static pBlock *allocate_block(size_t alloc) {
         const bool isTop = ((size_t)ptr->address + ptr->size >= top);
 
         if(isTop || ptr->size >= alloc) {
-            if(PRINT_DEBUG) Dbprintf(" - Palloc: Found suitable block!");
+            if(PRINT_EXTEND) Dbprintf(" - Palloc: Found suitable block! (isTop = %s, blk->size = %d)", (isTop ? "true" : "false"), ptr->size);
             if(prev != nullptr) prev->next = ptr->next;
             else heap->free = ptr->next;
 
@@ -222,7 +239,7 @@ static pBlock *allocate_block(size_t alloc) {
                 size_t excess = ptr->size - alloc;
 
                 if(excess >= BLOCK_SPLIT_THRESHOLD) { // Split the block
-                    if(PRINT_DEBUG) Dbprintf(" - Palloc: Spliting block %x...", ptr->address);
+                    if(PRINT_EXTEND) Dbprintf(" - Palloc: Spliting block 0x%4x...", ptr->address);
                     ptr->size = alloc;
                     pBlock *split = heap->fresh;
                     heap->fresh = split->next;
@@ -242,7 +259,7 @@ static pBlock *allocate_block(size_t alloc) {
 
     // We didn't match any free blocks, try to get a fresh one
     if(heap->fresh != nullptr) {
-        if(PRINT_DEBUG) Dbprintf(" - Palloc: Using a fresh block for allocation...");
+        if(PRINT_EXTEND) Dbprintf(" - Palloc: Using a fresh block for allocation...");
         ptr = heap->fresh;
         heap->fresh = ptr->next;
         ptr->address = (void*)top;
@@ -271,14 +288,13 @@ static pBlock *allocate_block(size_t alloc) {
  * @return the address of the block of memory, or nullptr
  */
 memptr_t *palloc(uint16_t numElement, const uint16_t size) {
-    LED_A_INV();
     if(PRINT_DEBUG) Dbprintf(" - Palloc: Allocating memory... (size %u numElement %u)", size, numElement);
 
     if(heap == nullptr) return nullptr; // Can't allocate memory if we haven't initialized any
     
     size_t allocSize = numElement * size;
 
-    if(PRINT_DEBUG) Dbprintf(" - - Alloc size: %u", allocSize);
+    if(PRINT_EXTEND) Dbprintf(" - - Alloc size: %u", allocSize);
 
     if((allocSize > MAX_BLOCK_SIZE) || (allocSize > free_space)) { // We would overflow if we attempted to allocate this memory
         if(PRINT_ERROR) Dbprintf(" - Palloc: "_RED_("Allocation size is too big!") " (%u)", allocSize);
@@ -293,8 +309,8 @@ memptr_t *palloc(uint16_t numElement, const uint16_t size) {
     if(blk != nullptr) {
         palloc_set(blk->address, 0, blk->size); // Zero the memory
         free_space -= blk->size; // Remove the space we took up with this allocation
-        if(PRINT_DEBUG) Dbprintf(" - Palloc: Allocated block of memory at %x with size of %u", blk->address, blk->size);
-        LED_A_INV();
+        if(PRINT_DEBUG) Dbprintf(" - Palloc: Allocated block of memory at 0x%4x with size of %u", blk->address, blk->size);
+        heap->metadata = 0xFF000000;
         return blk->address;
     }
 
@@ -375,8 +391,8 @@ bool palloc_free(void *ptr) {
  * @return false otherwise
  */
 bool palloc_freeEX(void *ptr, bool verbose) {
-    if(PRINT_DEBUG) Dbprintf(" - Palloc: Freeing allocated memory at %x", ptr);
-    if(heap == NULL) return false; // Can't free memory if we haven't initialized any
+    if(PRINT_EXTEND) Dbprintf(" - Palloc: Freeing allocated memory at 0x%4x", ptr);
+    if(heap == nullptr) return false; // Can't free memory if we haven't initialized any
 
     pBlock *blk = heap->used;
     pBlock *prev = nullptr;
@@ -394,7 +410,8 @@ bool palloc_freeEX(void *ptr, bool verbose) {
             compact_heap();   // Compact our free space to keep fragmentation low
             free_space += blk->size; // Add the amount of space back into our counter
 
-            if(PRINT_DEBUG) Dbprintf(" - Palloc: Memory Freed!");
+            if(PRINT_DEBUG) Dbprintf(" - Palloc: Memory at 0x%4x Freed!", ptr);
+            heap->metadata = 0xFF000000;
             return true;
         }
 
@@ -402,7 +419,7 @@ bool palloc_freeEX(void *ptr, bool verbose) {
         blk = blk->next;
     }
 
-    if(PRINT_DEBUG) Dbprintf(" - Palloc: "_YELLOW_("Couldn't find a block for this memory, are you sure it's ours?"));
+    if(PRINT_INFO) Dbprintf(" - Palloc: "_YELLOW_("Couldn't find a block for this memory, are you sure it's ours?"));
 
     return false; // Couldn't find the address of this memory in our blocks
 }
@@ -421,8 +438,11 @@ static int count_blocks(pBlock *ptr) {
     while(ptr != nullptr) {
         count++;
         pBlock *blk = ptr->next;
+        if(blk == nullptr) break;
         ptr = blk->next;
     }
+
+    if(PRINT_EXTEND) Dbprintf("count = %d", count);
 
     return count;
 }
@@ -434,6 +454,7 @@ static int count_blocks(pBlock *ptr) {
  * @return The number of free blocks in the Heap, or -1 if the heap hasn't been initialized
  */
 int palloc_free_blocks(void) {
+    if(PRINT_EXTEND) Dbprintf("palloc_free_blocks");
     return count_blocks(heap->free);
 }
 
@@ -443,6 +464,7 @@ int palloc_free_blocks(void) {
  * @return The number of used Blocks in the Heap, or -1 if the heap hasn't been initialized
  */
 int palloc_used_blocks(void) {
+    if(PRINT_EXTEND) Dbprintf("palloc_used_blocks");
     return count_blocks(heap->used);
 }
 
@@ -452,6 +474,7 @@ int palloc_used_blocks(void) {
  * @return The number of fresh Blocks in the Heap, or -1 if the heap hasn't been initialized
  */
 int palloc_fresh_blocks(void) {
+    if(PRINT_EXTEND) Dbprintf("palloc_fresh_blocks");
     return count_blocks(heap->fresh);
 }
 
@@ -489,7 +512,7 @@ bool palloc_heap_integrity(void) {
 
 void palloc_status(void) {
     Dbprintf("--- " _CYAN_("Memory") " --------------------");
-    Dbprintf(" - Heap Top:............... "_YELLOW_("0x%x"), heap->top);
+    Dbprintf(" - Heap Top:............... "_YELLOW_("0x%4x"), heap->top);
     Dbprintf(" - Usable:................. "_YELLOW_("%d"), MEM_USABLE);
     Dbprintf(" - Free:................... "_YELLOW_("%d"), palloc_sram_left());
     Dbprintf(" - Heap Initialized:....... %s", (heap != nullptr ? _GREEN_("YES") : _RED_("NO")));
@@ -634,7 +657,7 @@ void free_fpga_queue(void) {
 void stuff_bit_in_queue(uint8_t bit) {
     if(fpgaQueue.data != nullptr) {
         if(fpgaQueue.max >= (QUEUE_BUFFER_SIZE - 1)) {
-            Dbprintf(_RED_("FPGA Queue Buffer Overflow!"));
+            if(PRINT_ERROR) Dbprintf(_RED_("FPGA Queue Buffer Overflow!"));
             return;
         }
 

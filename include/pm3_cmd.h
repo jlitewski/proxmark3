@@ -412,11 +412,12 @@ typedef struct {
 #define CMD_ACK                                                           0x00ff
 
 // For general mucking around
-#define CMD_DEBUG_PRINT_STRING                                            0x0100
-#define CMD_DEBUG_PRINT_INTEGERS                                          0x0101
-#define CMD_DEBUG_PRINT_BYTES                                             0x0102
-#define CMD_LCD_RESET                                                     0x0103
-#define CMD_LCD                                                           0x0104
+//#define CMD_DEBUG_PRINT_STRING                                            0x0100 // Redefined
+//#define CMD_DEBUG_PRINT_INTEGERS                                          0x0101 // Redefined
+//#define CMD_DEBUG_PRINT_BYTES                                             0x0102 // Redefined
+
+#define CMD_LCD_RESET                                                     0x0103 // Feature Removed
+#define CMD_LCD                                                           0x0104 // Feature Removed
 #define CMD_SRAM_CLEAR                                                    0x0105 // depreciated
 #define CMD_READ_MEM                                                      0x0106 // legacy
 #define CMD_READ_MEM_DOWNLOAD                                             0x010A
@@ -434,7 +435,7 @@ typedef struct {
 #define CMD_TIA                                                           0x0117
 #define CMD_BREAK_LOOP                                                    0x0118
 #define CMD_SET_TEAROFF                                                   0x0119
-#define CMD_GET_DBGMODE                                                   0x0120
+//#define CMD_GET_DBGMODE                                                   0x0120 // Redefined
 
 // RDV40, Flash memory operations
 #define CMD_FLASHMEM_WRITE                                                0x0121
@@ -735,8 +736,6 @@ typedef struct {
 // MFU_Ev1 Counter TearOff
 #define CMD_HF_MFU_COUNTER_TEAROFF                                        0x0741
 
-
-
 #define CMD_HF_SNIFF                                                      0x0800
 #define CMD_HF_PLOT                                                       0x0801
 
@@ -768,6 +767,12 @@ typedef struct {
 #define CMD_HF_SAM_PICOPASS                                               0x0900
 #define CMD_HF_SAM_SEOS                                                   0x0901
 #define CMD_HF_SAM_MFC                                                    0x0902
+
+// Debug Commands (0xF0xx)
+#define CMD_GET_DBGMODE                                                   0xF000
+#define CMD_DEBUG_PRINT_STRING                                            0xF010
+#define CMD_DEBUG_PRINT_INTEGERS                                          0xF011
+#define CMD_DEBUG_PRINT_BYTES                                             0xF012
 
 #define CMD_UNKNOWN                                                       0xFFFF
 

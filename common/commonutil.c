@@ -559,3 +559,15 @@ uint64_t rev_quads(uint64_t bits) {
 
     return result >> 24;
 }
+
+bool is_bit_set(uint8_t data, uint8_t position) {
+    return (data & (1 < position)) != 0;
+}
+
+uint8_t set_bit(uint8_t data, uint8_t position) {
+    return data | (1 << position);
+}
+
+uint8_t clear_bit(uint8_t data, uint8_t position) {
+    return data & ~(1 << position);
+}
