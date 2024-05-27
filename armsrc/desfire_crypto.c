@@ -24,19 +24,27 @@
  * May 2005
  */
 #include "desfire_crypto.h"
+
 #include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stddef.h>
+
+#include "../mbedtls/des.h"
+#include "../mbedtls/aes.h"
 #include "commonutil.h"
 #include "crc32.h"
 #include "crc.h"
 #include "crc16.h"        // crc16 ccitt
+#include "desfire.h"
 #include "printf.h"
 #include "iso14443a.h"
 #include "dbprint.h"
-#include "BigBuf.h"
+#include "palloc.h"
 
 #ifndef AddCrc14A
-# define AddCrc14A(data, len) compute_crc(CRC_14443_A, (data), (len), (data)+(len), (data)+(len)+1)
+#define AddCrc14A(data, len) compute_crc(CRC_14443_A, (data), (len), (data)+(len), (data)+(len)+1)
 #endif
 
 static mbedtls_des_context ctx;
@@ -77,14 +85,14 @@ void tdes_nxp_receive(const void *in, void *out, size_t length, const void *key,
     uint8_t *tout = (uint8_t *) out;
 
     while (length > 0) {
-        memcpy(temp, tin, 8);
+        palloc_copy(temp, tin, 8);
 
         mbedtls_des3_crypt_ecb(&ctx3, tin, tout);
 
         for (i = 0; i < 8; i++)
             tout[i] = (unsigned char)(tout[i] ^ iv[i]);
 
-        memcpy(iv, temp, 8);
+        palloc_copy(iv, temp, 8);
 
         tin  += 8;
         tout += 8;
@@ -110,7 +118,7 @@ void tdes_nxp_send(const void *in, void *out, size_t length, const void *key, un
 
         mbedtls_des3_crypt_ecb(&ctx3, tin, tout);
 
-        memcpy(iv, tout, 8);
+        palloc_copy(iv, tout, 8);
 
         tin  += 8;
         tout += 8;
@@ -140,7 +148,7 @@ void aes128_nxp_send(const void *in, void *out, size_t length, const void *key, 
 
 void Desfire_des_key_new(const uint8_t value[8], desfirekey_t key) {
     uint8_t data[8];
-    memcpy(data, value, 8);
+    palloc_copy(data, value, 8);
     for (int n = 0; n < 8; n++) {
         data[n] &= 0xFE;
     }
@@ -150,15 +158,15 @@ void Desfire_des_key_new(const uint8_t value[8], desfirekey_t key) {
 void Desfire_des_key_new_with_version(const uint8_t value[8], desfirekey_t key) {
     if (key != NULL) {
         key->type = T_DES;
-        memcpy(key->data, value, 8);
-        memcpy(key->data + 8, value, 8);
+        palloc_copy(key->data, value, 8);
+        palloc_copy(key->data + 8, value, 8);
         update_key_schedules(key);
     }
 }
 
 void Desfire_3des_key_new(const uint8_t value[16], desfirekey_t key) {
     uint8_t data[16];
-    memcpy(data, value, 16);
+    palloc_copy(data, value, 16);
     for (int n = 0; n < 8; n++) {
         data[n] &= 0xFE;
     }
@@ -171,14 +179,14 @@ void Desfire_3des_key_new(const uint8_t value[16], desfirekey_t key) {
 void Desfire_3des_key_new_with_version(const uint8_t value[16], desfirekey_t key) {
     if (key != NULL) {
         key->type = T_3DES;
-        memcpy(key->data, value, 16);
+        palloc_copy(key->data, value, 16);
         update_key_schedules(key);
     }
 }
 
 void Desfire_3k3des_key_new(const uint8_t value[24], desfirekey_t key) {
     uint8_t data[24];
-    memcpy(data, value, 24);
+    palloc_copy(data, value, 24);
     for (int n = 0; n < 8; n++) {
         data[n] &= 0xFE;
     }
@@ -188,7 +196,7 @@ void Desfire_3k3des_key_new(const uint8_t value[24], desfirekey_t key) {
 void Desfire_3k3des_key_new_with_version(const uint8_t value[24], desfirekey_t key) {
     if (key != NULL) {
         key->type = T_3K3DES;
-        memcpy(key->data, value, 24);
+        palloc_copy(key->data, value, 24);
         update_key_schedules(key);
     }
 }
@@ -200,7 +208,7 @@ void Desfire_aes_key_new(const uint8_t value[16], desfirekey_t key) {
 void Desfire_aes_key_new_with_version(const uint8_t value[16], uint8_t version, desfirekey_t key) {
 
     if (key != NULL) {
-        memcpy(key->data, value, 16);
+        palloc_copy(key->data, value, 16);
         key->type = T_AES;
         key->aes_version = version;
     }
@@ -236,31 +244,31 @@ void Desfire_session_key_new(const uint8_t rnda[], const uint8_t rndb[], desfire
 
     switch (authkey->type) {
         case T_DES:
-            memcpy(buffer, rnda, 4);
-            memcpy(buffer + 4, rndb, 4);
+            palloc_copy(buffer, rnda, 4);
+            palloc_copy(buffer + 4, rndb, 4);
             Desfire_des_key_new_with_version(buffer, key);
             break;
         case T_3DES:
-            memcpy(buffer, rnda, 4);
-            memcpy(buffer + 4, rndb, 4);
-            memcpy(buffer + 8, rnda + 4, 4);
-            memcpy(buffer + 12, rndb + 4, 4);
+            palloc_copy(buffer, rnda, 4);
+            palloc_copy(buffer + 4, rndb, 4);
+            palloc_copy(buffer + 8, rnda + 4, 4);
+            palloc_copy(buffer + 12, rndb + 4, 4);
             Desfire_3des_key_new_with_version(buffer, key);
             break;
         case T_3K3DES:
-            memcpy(buffer, rnda, 4);
-            memcpy(buffer + 4, rndb, 4);
-            memcpy(buffer + 8, rnda + 6, 4);
-            memcpy(buffer + 12, rndb + 6, 4);
-            memcpy(buffer + 16, rnda + 12, 4);
-            memcpy(buffer + 20, rndb + 12, 4);
+            palloc_copy(buffer, rnda, 4);
+            palloc_copy(buffer + 4, rndb, 4);
+            palloc_copy(buffer + 8, rnda + 6, 4);
+            palloc_copy(buffer + 12, rndb + 6, 4);
+            palloc_copy(buffer + 16, rnda + 12, 4);
+            palloc_copy(buffer + 20, rndb + 12, 4);
             Desfire_3k3des_key_new(buffer, key);
             break;
         case T_AES:
-            memcpy(buffer, rnda, 4);
-            memcpy(buffer + 4, rndb, 4);
-            memcpy(buffer + 8, rnda + 12, 4);
-            memcpy(buffer + 12, rndb + 12, 4);
+            palloc_copy(buffer, rnda, 4);
+            palloc_copy(buffer + 4, rndb, 4);
+            palloc_copy(buffer + 8, rnda + 12, 4);
+            palloc_copy(buffer + 12, rndb + 12, 4);
             Desfire_aes_key_new(buffer, key);
             break;
     }
@@ -279,18 +287,18 @@ void cmac_generate_subkeys(desfirekey_t key) {
     int kbs = key_block_size(key);
     const uint8_t R = (kbs == 8) ? 0x1B : 0x87;
 
-    uint8_t l[kbs];
-    memset(l, 0, kbs);
+    uint8_t l[kbs]; // FIXME Possible zero-length array here
+    palloc_set(l, 0, kbs);
 
     uint8_t ivect[kbs];
-    memset(ivect, 0, kbs);
+    palloc_set(ivect, 0, kbs);
 
     mifare_cypher_blocks_chained(NULL, key, ivect, l, kbs, MCD_RECEIVE, MCO_ENCYPHER);
 
     bool txor = false;
 
     // Used to compute CMAC on complete blocks
-    memcpy(key->cmac_sk1, l, kbs);
+    palloc_copy(key->cmac_sk1, l, kbs);
 
     txor = l[0] & 0x80;
 
@@ -301,7 +309,7 @@ void cmac_generate_subkeys(desfirekey_t key) {
     }
 
     // Used to compute CMAC on the last block if non-complete
-    memcpy(key->cmac_sk2, key->cmac_sk1, kbs);
+    palloc_copy(key->cmac_sk2, key->cmac_sk1, kbs);
 
     txor = key->cmac_sk1[0] & 0x80;
 
@@ -318,9 +326,9 @@ void cmac(const desfirekey_t key, uint8_t *ivect, const uint8_t *data, size_t le
         return;
     }
 
-    uint8_t *buffer = BigBuf_malloc(padded_data_length(len, kbs));
+    uint8_t *buffer = (uint8_t*)palloc(1, padded_data_length(len, kbs));
 
-    memcpy(buffer, data, len);
+    palloc_copy(buffer, data, len);
 
     if ((!len) || (len % kbs)) {
         buffer[len++] = 0x80;
@@ -334,8 +342,8 @@ void cmac(const desfirekey_t key, uint8_t *ivect, const uint8_t *data, size_t le
 
     mifare_cypher_blocks_chained(NULL, key, ivect, buffer, len, MCD_SEND, MCO_ENCYPHER);
 
-    memcpy(cmac, ivect, kbs);
-    //free(buffer);
+    palloc_copy(cmac, ivect, kbs);
+    palloc_free(buffer);
 }
 
 size_t key_block_size(const desfirekey_t key) {
@@ -450,16 +458,16 @@ void *mifare_cryto_preprocess_data(desfiretag_t tag, void *data, size_t *nbytes,
                     edl = padded_data_length(*nbytes - offset, key_block_size(DESFIRE(tag)->session_key)) + offset;
 
                     // Fill in the crypto buffer with data ...
-                    memcpy(res, data, *nbytes);
+                    palloc_copy(res, data, *nbytes);
                     // ... and 0 padding
-                    memset(res + *nbytes, 0, edl - *nbytes);
+                    palloc_set(res + *nbytes, 0, edl - *nbytes);
 
                     mifare_cypher_blocks_chained(tag, NULL, NULL, res + offset, edl - offset, MCD_SEND, MCO_ENCYPHER);
 
-                    memcpy(mac, res + edl - 8, 4);
+                    palloc_copy(mac, res + edl - 8, 4);
 
                     // Copy again provided data (was overwritten by mifare_cypher_blocks_chained)
-                    memcpy(res, data, *nbytes);
+                    palloc_copy(res, data, *nbytes);
 
                     if (!(communication_settings & MAC_COMMAND))
                         break;
@@ -467,7 +475,7 @@ void *mifare_cryto_preprocess_data(desfiretag_t tag, void *data, size_t *nbytes,
                     size_t bla = maced_data_length(DESFIRE(tag)->session_key, *nbytes - offset) + offset;
                     (void)bla++;
 
-                    memcpy(res + *nbytes, mac, 4);
+                    palloc_copy(res + *nbytes, mac, 4);
 
                     *nbytes += 4;
                     break;
@@ -479,8 +487,8 @@ void *mifare_cryto_preprocess_data(desfiretag_t tag, void *data, size_t *nbytes,
                     if (append_mac) {
                         size_t len = maced_data_length(key, *nbytes);
                         (void)++len;
-                        memcpy(res, data, *nbytes);
-                        memcpy(res + *nbytes, DESFIRE(tag)->cmac, DESFIRE_CMAC_LENGTH);
+                        palloc_copy(res, data, *nbytes);
+                        palloc_copy(res + *nbytes, DESFIRE(tag)->cmac, DESFIRE_CMAC_LENGTH);
                         *nbytes += DESFIRE_CMAC_LENGTH;
                     }
                     break;
@@ -508,7 +516,7 @@ void *mifare_cryto_preprocess_data(desfiretag_t tag, void *data, size_t *nbytes,
             edl = enciphered_data_length(tag, *nbytes - offset, communication_settings) + offset;
 
             // Fill in the crypto buffer with data ...
-            memcpy(res, data, *nbytes);
+            palloc_copy(res, data, *nbytes);
             if (!(communication_settings & NO_CRC)) {
                 // ... CRC ...
                 switch (DESFIRE(tag)->authentication_scheme) {
@@ -523,7 +531,7 @@ void *mifare_cryto_preprocess_data(desfiretag_t tag, void *data, size_t *nbytes,
                 }
             }
             // ... and padding
-            memset(res + *nbytes, 0, edl - *nbytes);
+            palloc_set(res + *nbytes, 0, edl - *nbytes);
 
             *nbytes = edl;
 
@@ -542,7 +550,7 @@ void *mifare_cryto_preprocess_data(desfiretag_t tag, void *data, size_t *nbytes,
 
 void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes, int communication_settings) {
     void *res = data;
-    void *edata = NULL;
+    void *edata = nullptr;
     uint8_t first_cmac_byte = 0x00;
 
     desfirekey_t key = DESFIRE(tag)->session_key;
@@ -576,10 +584,10 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
                         }
 
                         size_t edl = enciphered_data_length(tag, *nbytes - 1, communication_settings);
-                        edata = BigBuf_malloc(edl);
+                        edata = palloc(1, edl);
 
-                        memcpy(edata, data, *nbytes - 1);
-                        memset((uint8_t *)edata + *nbytes - 1, 0, edl - *nbytes + 1);
+                        palloc_copy(edata, data, *nbytes - 1);
+                        palloc_set((uint8_t *)edata + *nbytes - 1, 0, edl - *nbytes + 1);
 
                         mifare_cypher_blocks_chained(tag, NULL, NULL, edata, edl, MCD_SEND, MCO_ENCYPHER);
 
@@ -593,6 +601,7 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
                             *nbytes = -1;
                             res = NULL;
                         }
+
                     }
                     break;
                 case AS_NEW:
@@ -629,7 +638,7 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
                     break;
             }
 
-            free(edata);
+            palloc_free(edata);
 
             break;
         case MDCM_ENCIPHERED:
@@ -679,14 +688,14 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
                 case AS_NEW:
                     /* Move status between payload and CRC */
                     res = DESFIRE(tag)->crypto_buffer;
-                    memcpy(res, data, *nbytes);
+                    palloc_copy(res, data, *nbytes);
 
                     crc_pos = (*nbytes) - 16 - 3;
                     if (crc_pos < 0) {
                         /* Single block */
                         crc_pos = 0;
                     }
-                    memcpy((uint8_t *)res + crc_pos + 1, (uint8_t *)res + crc_pos, *nbytes - crc_pos);
+                    palloc_copy((uint8_t *)res + crc_pos + 1, (uint8_t *)res + crc_pos, *nbytes - crc_pos);
                     ((uint8_t *)res)[crc_pos] = 0x00;
                     crc_pos++;
                     *nbytes += 1;
@@ -700,9 +709,6 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
                     case AS_LEGACY:
                         AddCrc14A((uint8_t *)res, end_crc_pos);
                         end_crc_pos = crc_pos + 2;
-                        //
-
-
                         crc = crc_16;
                         break;
                     case AS_NEW:
@@ -760,6 +766,7 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
             break;
 
     }
+
     return res;
 }
 
@@ -769,7 +776,7 @@ void mifare_cypher_single_block(desfirekey_t key, uint8_t *data, uint8_t *ivect,
     if (direction == MCD_SEND) {
         xor(ivect, data, block_size);
     } else {
-        memcpy(ovect, data, block_size);
+        palloc_copy(ovect, data, block_size);
     }
 
     uint8_t edata[DESFIRE_MAX_CRYPTO_BLOCK_SIZE] = {0};
@@ -841,13 +848,13 @@ void mifare_cypher_single_block(desfirekey_t key, uint8_t *data, uint8_t *ivect,
             break;
     }
 
-    memcpy(data, edata, block_size);
+    palloc_copy(data, edata, block_size);
 
     if (direction == MCD_SEND) {
-        memcpy(ivect, data, block_size);
+        palloc_copy(ivect, data, block_size);
     } else {
         xor(ivect, data, block_size);
-        memcpy(ivect, ovect, block_size);
+        palloc_copy(ivect, ovect, block_size);
     }
 }
 
@@ -874,7 +881,7 @@ void mifare_cypher_blocks_chained(desfiretag_t tag, desfirekey_t key, uint8_t *i
 
         switch (DESFIRE(tag)->authentication_scheme) {
             case AS_LEGACY:
-                memset(ivect, 0, DESFIRE_MAX_CRYPTO_BLOCK_SIZE);
+                palloc_set(ivect, 0, DESFIRE_MAX_CRYPTO_BLOCK_SIZE);
                 break;
             case AS_NEW:
                 break;

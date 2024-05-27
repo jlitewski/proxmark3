@@ -24,7 +24,8 @@
 #include "dbprint.h"
 #include "ticks.h"
 #include "string.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "iso14443a.h"
 #include "protocols.h"
 #include "cmd.h"
@@ -175,8 +176,8 @@ void RunMod() {
 
         if (state == STATE_READ) {
             LED_A_ON();
-            clear_trace();
-            set_tracing(true);
+            release_trace();
+            start_tracing();
 
             iso14443a_setup(FPGA_HF_ISO14443A_READER_MOD);
             if (iso14443a_select_card(NULL, &card_a_info, NULL, true, 0, false)) {
@@ -263,12 +264,8 @@ void RunMod() {
             LED_A_OFF();
             LED_C_ON();
 
-            // free eventually allocated BigBuf memory but keep Emulator Memory
-            BigBuf_free_keep_EM();
-
             // 4 = ISO/IEC 14443-4 - javacard (JCOP)
             if (SimulateIso14443aInit(4, flags, data, &responses, &cuid, NULL, NULL, NULL) == false) {
-                BigBuf_free_keep_EM();
                 reply_ng(CMD_HF_MIFARE_SIMULATE, PM3_EINIT, NULL, 0);
                 DbpString(_RED_("Error initializing the emulation process!"));
                 SpinDelay(500);
@@ -292,8 +289,8 @@ void RunMod() {
             // Keep track of last terminal type command
             uint8_t prevcmd = 0x00;
 
-            clear_trace();
-            set_tracing(true);
+            release_trace();
+            start_tracing();
 
             for (;;) {
                 LED_B_OFF();
@@ -357,7 +354,7 @@ void RunMod() {
                         DbpString(_YELLOW_("!!") " Avoiding request - Bluetooth data already in memory!!");
                     }
                 } else {
-                    if (g_dbglevel == DBG_DEBUG) {
+                    if (PRINT_DEBUG) {
                         DbpString("[ "_YELLOW_("Card reader command") " ]");
                         Dbhexdump(len - 2, &receivedCmd[1], false);
                     }
@@ -422,8 +419,7 @@ void RunMod() {
             }
 
             switch_off();
-            set_tracing(false);
-            BigBuf_free_keep_EM();
+            stop_tracing();
             reply_ng(CMD_HF_MIFARE_SIMULATE, retval, NULL, 0);
         }
     }

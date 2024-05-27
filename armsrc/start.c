@@ -23,20 +23,18 @@
 
 #include "proxmark3_arm.h"
 #include "appmain.h"
-#ifndef WITH_NO_COMPRESSION
-#include "lz4.h"
-#endif
-#include "BigBuf.h"
-#include "string.h"
+#include "palloc.h"
 #include "ticks.h"
 
 extern common_area_t g_common_area;
 extern uint32_t __data_src_start__[], __data_start__[], __data_end__[], __bss_start__[], __bss_end__[];
 
 #ifndef WITH_NO_COMPRESSION
+#include "lz4.h"
+
 static void uncompress_data_section(void) {
     int avail_in;
-    memcpy(&avail_in, __data_src_start__, sizeof(int));
+    palloc_copy(&avail_in, __data_src_start__, sizeof(int));
     int avail_out = (uint32_t)__data_end__ - (uint32_t)__data_start__;  // uncompressed size. Correct.
     // uncompress data segment to RAM
     char *p = (char *)__data_src_start__;
@@ -61,7 +59,7 @@ void Vector(void) {
 
     if (g_common_area.magic != COMMON_AREA_MAGIC || g_common_area.version != 1) {
         /* Initialize common area */
-        memset(&g_common_area, 0, sizeof(g_common_area));
+        palloc_set(&g_common_area, 0, sizeof(g_common_area));
         g_common_area.magic = COMMON_AREA_MAGIC;
         g_common_area.version = 1;
     }
@@ -82,4 +80,4 @@ void Vector(void) {
 
     AppMain();
 }
-#endif
+#endif // __START_H

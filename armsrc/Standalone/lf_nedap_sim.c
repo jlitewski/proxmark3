@@ -24,7 +24,7 @@
 #include "util.h"
 #include "dbprint.h"
 #include "string.h"
-#include "BigBuf.h"
+#include "palloc.h"
 #include "crc16.h"
 
 #define MODULE_LONG_NAME    "LF Nedap simple simulator"
@@ -39,8 +39,8 @@ typedef struct _NEDAP_TAG {
 
 const NEDAP_TAG Tag = {.subType = 0x5, .customerCode = 0x123, .id = 42424, .bIsLong = 1};
 
-static int NedapPrepareBigBuffer(const NEDAP_TAG *pTag);
-static void biphaseSimBitInverted(uint8_t c, int *n, uint8_t *phase);
+static int NedapPrepareBigBuffer(const NEDAP_TAG *pTag, uint8_t *dest);
+static void biphaseSimBitInverted(uint8_t c, int *n, uint8_t *phase, uint8_t *dest);
 static void NedapGen(uint8_t subType, uint16_t customerCode, uint32_t id, bool isLong, uint8_t *data);
 static uint8_t isEven_64_63(const uint8_t *data);
 static inline uint32_t bitcount32(uint32_t a);
@@ -51,22 +51,27 @@ void ModInfo(void) {
 }
 
 void RunMod(void) {
-    int n;
-
     StandAloneMode();
 
+    uint8_t *buf = (uint8_t*)palloc(1, 4098); // 4Kb good?
+    if(buf == nullptr) {
+        Dbprintf("Unable to allocate memory, aborting...");
+        return;
+    }
+
+    int n;
     Dbprintf("[=] " MODULE_LONG_NAME " -- started");
     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
     Dbprintf("[=] NEDAP (%s) - ID: " _GREEN_("%05u") " subtype: " _GREEN_("%1u") " customer code: " _GREEN_("%u / 0x%03X"), Tag.bIsLong ? "128b" : "64b", Tag.id, Tag.subType, Tag.customerCode, Tag.customerCode);
 
-    n = NedapPrepareBigBuffer(&Tag);
+    n = NedapPrepareBigBuffer(&Tag, buf);
     do {
         WDT_HIT();
 
         if (data_available())
             break;
 
-        SimulateTagLowFrequency(n, 0, true);
+        SimulateTagLowFrequency(n, 0, true, buf);
 
     } while (BUTTON_HELD(1000) == BUTTON_NO_CLICK);
 
@@ -75,7 +80,7 @@ void RunMod(void) {
     LEDsoff();
 }
 
-static int NedapPrepareBigBuffer(const NEDAP_TAG *pTag) {
+static int NedapPrepareBigBuffer(const NEDAP_TAG *pTag,  uint8_t* dest) {
     int ret = 0;
     uint8_t data[16], bitStream[sizeof(data) * 8], phase = 0;
     uint16_t i, size = pTag->bIsLong ? sizeof(data) : (sizeof(data) / 2);
@@ -85,25 +90,23 @@ static int NedapPrepareBigBuffer(const NEDAP_TAG *pTag) {
     size <<= 3;
 
     for (i = 0; i < size; i++) {
-        biphaseSimBitInverted(!bitStream[i], &ret, &phase);
+        biphaseSimBitInverted(!bitStream[i], &ret, &phase, dest);
     }
     if (phase == 1) { //run a second set inverted to keep phase in check
         for (i = 0; i < size; i++) {
-            biphaseSimBitInverted(!bitStream[i], &ret, &phase);
+            biphaseSimBitInverted(!bitStream[i], &ret, &phase, dest);
         }
     }
 
     return ret;
 }
 
-static void biphaseSimBitInverted(uint8_t c, int *n, uint8_t *phase) {
-    uint8_t *dest = BigBuf_get_addr();
-
+static void biphaseSimBitInverted(uint8_t c, int *n, uint8_t *phase, uint8_t *dest) {
     if (c) {
-        memset(dest + (*n), c ^ 1 ^ *phase, 32);
-        memset(dest + (*n) + 32, c ^ *phase, 32);
+        palloc_set(dest + (*n), c ^ 1 ^ *phase, 32);
+        palloc_set(dest + (*n) + 32, c ^ *phase, 32);
     } else {
-        memset(dest + (*n), c ^ *phase, 64);
+        palloc_set(dest + (*n), c ^ *phase, 64);
         *phase ^= 1;
     }
     *n += 64;
@@ -175,7 +178,7 @@ static void NedapGen(uint8_t subType, uint16_t customerCode, uint32_t id, bool i
 
 static uint8_t isEven_64_63(const uint8_t *data) { // 8
     uint32_t tmp[2];
-    memcpy(tmp, data, 8);
+    palloc_copy(tmp, data, 8);
     return (bitcount32(tmp[0]) + (bitcount32(tmp[1] & 0xfeffffff))) & 1;
 }
 

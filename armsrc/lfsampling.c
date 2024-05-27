@@ -19,7 +19,8 @@
 #include "lfsampling.h"
 
 #include "proxmark3_arm.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "fpgaloader.h"
 #include "ticks.h"
 #include "dbprint.h"
@@ -56,6 +57,9 @@ static BitstreamOut_t data = {0, 0, 0};
 
 // internal struct to keep track of samples gathered
 static sampling_t samples = {0, 0, 0, 0};
+
+// 
+static memptr_t *mem_address = nullptr;
 
 void printLFConfig(void) {
     uint32_t d = config.divisor;
@@ -128,35 +132,31 @@ sample_config *getSamplingConfig(void) {
     return &config;
 }
 
-void initSampleBuffer(uint32_t *sample_size) {
-    initSampleBufferEx(sample_size, false);
-}
-
-void initSampleBufferEx(uint32_t *sample_size, bool use_malloc) {
-    if (sample_size == NULL) {
-        Dbprintf("initSampleBufferEx, param NULL");
-        return;
+int initSampleBuffer(uint32_t *sample_size) {
+    if (sample_size == nullptr) {
+        Dbprintf("initSampleBuffer, param nullptr");
+        return PM3_EINVARG;
     }
-    BigBuf_free_keep_EM();
 
-    // We can't erase the buffer now, it would drastically delay the acquisition
-    if (use_malloc) {
+    if(*sample_size >= palloc_sram_size() || *sample_size > palloc_sram_left()) {
+        Dbprintf("initSampleBuffer, not enough memory for samples");
+        return PM3_ELENGTH;
+    }
 
-        if (*sample_size == 0) {
-            *sample_size = BigBuf_max_traceLen();
-            data.buffer = BigBuf_get_addr();
+    if(mem_address != nullptr) { // Try to save time and not free/alloc a new block if `sample_size` can fit into the current block
+        if(samples.counter >= *sample_size) {
+            palloc_set(mem_address, 0, samples.counter);
         } else {
-            *sample_size = MIN(*sample_size, BigBuf_max_traceLen());
-            data.buffer = BigBuf_malloc(*sample_size);
+            palloc_free(mem_address);
+            mem_address = palloc(1, *sample_size);
         }
-
     } else {
-        if (*sample_size == 0) {
-            *sample_size = BigBuf_max_traceLen();
-        } else {
-            *sample_size = MIN(*sample_size, BigBuf_max_traceLen());
-        }
-        data.buffer = BigBuf_get_addr();
+        mem_address = palloc(1, *sample_size);
+    }
+
+    if(mem_address == nullptr) {
+        Dbprintf("initSampleBuffer, unable to allocate memory");
+        return PM3_EMALLOC;
     }
 
     // reset data stream
@@ -168,10 +168,33 @@ void initSampleBufferEx(uint32_t *sample_size, bool use_malloc) {
     samples.sum = 0;
     samples.counter = *sample_size;
     samples.total_saved = 0;
+
+    return PM3_SUCCESS;
 }
 
 uint32_t getSampleCounter(void) {
     return samples.total_saved;
+}
+
+memptr_t *get_sample_address(void) {
+    return mem_address;
+}
+
+void free_sample_buffer(void) {
+    if(mem_address != nullptr) {
+        palloc_free(mem_address);
+        mem_address = nullptr;
+
+        // reset data stream
+        data.numbits = 0;
+        data.position = 0;
+
+        // reset samples
+        samples.dec_counter = 0;
+        samples.sum = 0;
+        samples.counter = 0;
+        samples.total_saved = 0;
+    }
 }
 
 void logSampleSimple(uint8_t sample) {
@@ -180,7 +203,7 @@ void logSampleSimple(uint8_t sample) {
 
 void logSample(uint8_t sample, uint8_t decimation, uint8_t bits_per_sample, bool avg) {
 
-    if (!data.buffer) return;
+    if (!data.buffer || mem_address == nullptr) return;
 
     // keep track of total gather samples regardless how many was discarded.
     if (samples.counter-- == 0) return;
@@ -290,11 +313,16 @@ void LFSetupFPGAForADC(int divisor, bool reader_field) {
 uint32_t DoAcquisition(uint8_t decimation, uint8_t bits_per_sample, bool avg, int16_t trigger_threshold,
                        bool verbose, uint32_t sample_size, uint32_t cancel_after, int32_t samples_to_skip, bool ledcontrol) {
 
-    initSampleBuffer(&sample_size); // sample size in bytes
+    int ret = initSampleBuffer(&sample_size); // sample size in bytes
+    if(ret != PM3_SUCCESS) {
+        Dbprintf("There was an issue setting up the sample buffer!");
+        return ret;
+    }
+
     sample_size <<= 3; // sample size in bits
     sample_size /= bits_per_sample; // sample count
 
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         printSamples();
     }
 
@@ -368,6 +396,7 @@ uint32_t DoAcquisition(uint8_t decimation, uint8_t bits_per_sample, bool avg, in
         removeSignalOffset(data.buffer, samples.total_saved);
         computeSignalProperties(data.buffer, samples.total_saved);
     }
+
     return data.numbits;
 }
 
@@ -422,7 +451,6 @@ static uint32_t ReadLF(bool reader_field, bool verbose, uint32_t sample_size, bo
 * @return number of bits sampled
 **/
 uint32_t SampleLF(bool verbose, uint32_t sample_size, bool ledcontrol) {
-    BigBuf_Clear_ext(false);
     return ReadLF(true, verbose, sample_size, ledcontrol);
 }
 
@@ -463,7 +491,6 @@ int ReadLF_realtime(bool reader_field) {
         return return_value;
     }
 
-    BigBuf_Clear_ext(false);
     LFSetupFPGAForADC(config.divisor, reader_field);
 
     while (BUTTON_PRESS() == false) {
@@ -471,7 +498,6 @@ int ReadLF_realtime(bool reader_field) {
         // interruptible only when logging not yet triggered
         if (trigger_hit == false && (checked >= 4000)) {
             if (data_available()) {
-                checked = -1;
                 break;
             } else {
                 checked = 0;
@@ -547,25 +573,36 @@ int ReadLF_realtime(bool reader_field) {
 * @return number of bits sampled
 **/
 uint32_t SniffLF(bool verbose, uint32_t sample_size, bool ledcontrol) {
-    BigBuf_Clear_ext(false);
     return ReadLF(false, verbose, sample_size, ledcontrol);
 }
 
 /**
-* acquisition of T55x7 LF signal. Similar to other LF, but adjusted with @marshmellows thresholds
-* the data is collected in BigBuf.
-**/
-void doT55x7Acquisition(size_t sample_size, bool ledcontrol) {
+ * @brief Acquisition of T55x7 LF Signal.
+ * 
+ * Similar to other LF, but this is adjusted with @marshmellows thresholds.
+ * 
+ * The buffer returned from this function MUST BE FREED WITH `palloc_free()`!
+ * 
+ * @param sample_size 
+ * @param ledcontrol Flag to control the LEDs
+ * @return uint8_t* The T55x7 LF signal buffer
+ */
+uint8_t *doT55x7Acquisition(size_t sample_size, bool ledcontrol) {
 
 #define T55xx_READ_UPPER_THRESHOLD 128+60  // 60 grph
 #define T55xx_READ_LOWER_THRESHOLD 128-60  // -60 grph
 #define T55xx_READ_TOL   5
 
-    uint8_t *dest = BigBuf_get_addr();
-    uint16_t bufsize = BigBuf_max_traceLen();
+    uint16_t bufsize = palloc_sram_left();
 
     if (bufsize > sample_size)
         bufsize = sample_size;
+    
+    uint8_t *dest = (uint8_t*)palloc(1, bufsize);
+    if(dest == nullptr) {
+        Dbprintf("Unable to allocate data, aborting...");
+        return nullptr;
+    }
 
     uint8_t lastSample = 0;
     uint16_t i = 0, skipCnt = 0;
@@ -575,7 +612,7 @@ void doT55x7Acquisition(size_t sample_size, bool ledcontrol) {
 
     uint16_t checker = 0;
 
-    if (g_dbglevel >= DBG_DEBUG) {
+    if (PRINT_DEBUG) {
         Dbprintf("doT55x7Acquisition - after init");
         print_stack_usage();
     }
@@ -634,12 +671,15 @@ void doT55x7Acquisition(size_t sample_size, bool ledcontrol) {
             }
         }
     }
+
+    // MUST BE FREED WITH `palloc_free()`
+    return dest;
 }
+
 /**
 * acquisition of Cotag LF signal. Similart to other LF,  since the Cotag has such long datarate RF/384
 * and is Manchester?,  we directly gather the manchester data into bigbuff
 **/
-
 #define COTAG_T1 384
 #define COTAG_T2 (COTAG_T1 >> 1)
 #define COTAG_ONE_THRESHOLD 127+5
@@ -647,12 +687,16 @@ void doT55x7Acquisition(size_t sample_size, bool ledcontrol) {
 #ifndef COTAG_BITS
 #define COTAG_BITS 264
 #endif
-void doCotagAcquisition(void) {
+uint8_t *doCotagAcquisition(void) {
 
-    uint16_t bufsize = BigBuf_max_traceLen();
-    uint8_t *dest = BigBuf_malloc(bufsize);
+    uint16_t bufsize = palloc_sram_left();
+    palloc_compact_heap();
+    uint8_t *dest = (uint8_t*)palloc(1, bufsize);
 
-    dest[0] = 0;
+    if(dest == nullptr) {
+        Dbprintf("Unable to allocate memory, aborting...");
+        return nullptr;
+    }
 
     bool firsthigh = false, firstlow = false;
     uint16_t i = 0, noise_counter = 0;
@@ -716,6 +760,8 @@ void doCotagAcquisition(void) {
     // Ensure that DC offset removal and noise check is performed for any device-side processing
     removeSignalOffset(dest, i);
     computeSignalProperties(dest, i);
+
+    return dest;
 }
 
 uint16_t doCotagAcquisitionManchester(uint8_t *dest, uint16_t destlen) {

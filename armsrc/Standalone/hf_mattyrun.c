@@ -53,7 +53,9 @@ on a blank card.
 #include "iso14443a.h"
 #include "mifarecmd.h"
 #include "crc16.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "mifaresim.h"  // mifare1ksim
 #include "mifareutil.h"
 
@@ -92,13 +94,13 @@ static int saMifareCSetBlock(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_
     uint8_t isOK = 0;
     uint8_t d_block[18] = {0x00};
 
-    uint8_t receivedAnswer[MAX_MIFARE_FRAME_SIZE];
-    uint8_t receivedAnswerPar[MAX_MIFARE_PARITY_SIZE];
+    uint8_t receivedAnswer[MAX_FRAME_SIZE];
+    uint8_t receivedAnswerPar[MAX_PARITY_SIZE];
 
     // reset FPGA and LED
     if (workFlags & 0x08) {
         iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
-        set_tracing(false);
+        stop_tracing();
     }
 
     while (true) {
@@ -186,9 +188,9 @@ static int saMifareCSetBlock(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_
 a particular sector. also no tracing no dbg */
 static int saMifareChkKeys(uint8_t blockNo, uint8_t keyType, bool clearTrace,
                            uint8_t keyCount, uint8_t *datain, uint64_t *key) {
-    g_dbglevel = DBG_NONE;
+    g_dbglevel = DEBUG_NONE;
     iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
-    set_tracing(false);
+    stop_tracing();
 
     struct Crypto1State mpcs = {0, 0};
     struct Crypto1State *pcs;
@@ -227,7 +229,7 @@ static int saMifareChkKeys(uint8_t blockNo, uint8_t keyType, bool clearTrace,
  * - tracing is falsed
  */
 static int saMifareECardLoad(uint32_t numofsectors, uint8_t keytype) {
-    g_dbglevel = DBG_NONE;
+    g_dbglevel = DEBUG_NONE;
 
     uint8_t numSectors = numofsectors;
     uint8_t keyType = keytype;
@@ -240,8 +242,8 @@ static int saMifareECardLoad(uint32_t numofsectors, uint8_t keytype) {
     uint8_t dataoutbuf2[16];
 
     iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
-    clear_trace();
-    set_tracing(false);
+    release_trace();
+    stop_tracing();
 
     int retval = PM3_SUCCESS;
 
@@ -400,7 +402,14 @@ void RunMod(void) {
         This part allocates the byte representation of the
         keys in keyBlock's memory space .
     */
-    keyBlock = BigBuf_malloc(ARRAYLEN(mfKeys) * 6);
+    keyBlock = palloc(6, ARRAYLEN(mfKeys));
+
+    if(keyBlock == nullptr) {
+        LEDsoff();
+        Dbprintf("Unable to allocate memory, aborting...");
+        return;
+    }
+
     int mfKeysCnt = ARRAYLEN(mfKeys);
 
     for (int mfKeyCounter = 0; mfKeyCounter < mfKeysCnt; mfKeyCounter++) {
@@ -467,6 +476,8 @@ void RunMod(void) {
             block < 127 ? (block += 4) : (block += 16);
         }
     }
+
+    palloc_free(keyBlock);
 
     /*
         TODO:

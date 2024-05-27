@@ -3109,7 +3109,7 @@ SWIG_InitializeModule(SWIG_INIT_CLIENT_DATA_TYPE clientdata) {
 #endif
 }
 
-/* This function will propagate the clientdata field of type to
+/** This function will propagate the clientdata field of type to
 * any new swig_type_info structures that have been added into the list
 * of equivalent types.  It is like calling
 * SWIG_TypeClientData(type, clientdata) a second time.
@@ -3118,10 +3118,10 @@ SWIGRUNTIME void
 SWIG_PropagateClientData(void) {
     size_t i;
     swig_cast_info *equiv;
-    static int init_run = 0;
+    static bool init_run = false;
 
     if (init_run) return;
-    init_run = 1;
+    init_run = true;
 
     for (i = 0; i < swig_module.size; i++) {
         if (swig_module.types[i]->clientdata) {

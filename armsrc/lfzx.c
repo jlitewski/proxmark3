@@ -18,7 +18,6 @@
 #include "lfzx.h"
 #include "zx8211.h"
 
-#include "BigBuf.h"
 #include "crc.h"        // CRC-8 / Hitag1 / ZX8211
 #include "fpgaloader.h"
 #include "dbprint.h"
@@ -162,9 +161,6 @@ static void zx_get(bool ledcontrol) {
 
 int zx8211_read(zx8211_data_t *zxd, bool ledcontrol) {
     zx8211_setup_read();
-
-    // clear buffer now so it does not interfere with timing later
-    BigBuf_Clear_ext(false);
 
     if (ledcontrol) LED_A_ON();
 

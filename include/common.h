@@ -38,6 +38,11 @@
 #define PATHSEP "/"
 #endif
 
+/**
+ * @brief Helper define for null pointers
+ */
+#define nullptr NULL
+
 // PM3 share path relative to executable when installed
 #define PM3_SHARE_RELPATH    ".." PATHSEP "share" PATHSEP "proxmark3" PATHSEP
 
@@ -57,7 +62,10 @@
 #define BOOTROM_SUBDIR       "bootrom" PATHSEP "obj" PATHSEP
 #define FULLIMAGE_SUBDIR     "armsrc" PATHSEP "obj" PATHSEP
 
+#define RAMFUNC __attribute__((long_call, section(".ramfunc"), target("arch=armv4t")))
 #define PACKED __attribute__((packed))
+#define ALIGNED(x) __attribute__((aligned(x)))
+#define NO_OPT __attribute__((optimize("O0")))
 
 #define VERSION_INFORMATION_MAGIC 0x56334d50 // "PM3V"
 struct version_information_t {
@@ -71,12 +79,19 @@ struct version_information_t {
 } PACKED;
 
 // debug
-#define DBG_NONE          0 // no messages
-#define DBG_ERROR         1 // errors only
-#define DBG_INFO          2 // errors + info messages
-#define DBG_DEBUG         3 // errors + info + debug messages
-#define DBG_EXTENDED      4 // errors + info + debug + breaking debug messages
-extern int g_dbglevel;
+typedef enum DebugLevel {
+    DEBUG_NONE     = 0, // no message output
+    DEBUG_ERROR    = 1, // error messages only
+    DEBUG_INFO     = 2, // errors + info messages
+    DEBUG_LITE     = 3, // errors + info + debug (not including timing breaking debug messages)
+    DEBUG_FULL     = 4  // errors + info + debug (including timing breaking debug messages)
+} debug_level;
+
+extern debug_level g_dbglevel;
+#define PRINT_ERROR       (g_dbglevel > DEBUG_NONE)
+#define PRINT_INFO        (g_dbglevel > DEBUG_ERROR)
+#define PRINT_DEBUG       (g_dbglevel > DEBUG_INFO)
+#define PRINT_EXTEND      (g_dbglevel > DEBUG_LITE)
 
 // tear-off
 extern uint16_t g_tearoff_delay_us;
@@ -96,10 +111,6 @@ extern bool g_tearoff_enabled;
 #ifndef ABS
 # define ABS(a) ( ((a)<0) ? -(a) : (a) )
 #endif
-
-
-//#define RAMFUNC __attribute((long_call, section(".ramfunc")))
-#define RAMFUNC __attribute((long_call, section(".ramfunc"))) __attribute__((target("arm")))
 
 #ifndef ROTR
 # define ROTR(x,n) (((uintmax_t)(x) >> (n)) | ((uintmax_t)(x) << ((sizeof(x) * 8) - (n))))
@@ -177,7 +188,6 @@ extern bool g_tearoff_enabled;
 #ifndef BYTES2UINT32_BE
 # define BYTES2UINT32_BE(x) (((x)[0] << 24) | ((x)[1] << 16) | ((x)[2] << 8) | ((x)[3]))
 #endif
-
 
 #define EVEN                        0
 #define ODD                         1

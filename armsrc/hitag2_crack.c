@@ -25,7 +25,8 @@
 #include "commonutil.h"
 #include "dbprint.h"
 #include "util.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "cmd.h"
 #include "lfadc.h"
 
@@ -50,7 +51,7 @@ static void hitag2crack_xor(uint8_t *target, const uint8_t *source, const uint8_
 // len is the length of the encrypted command.
 static bool hitag2crack_send_e_cmd(uint8_t *resp, uint8_t *nrar, uint8_t *cmd, size_t len) {
 
-    memset(resp, 0, 4);
+    palloc_set(resp, 0, 4);
 
     // Get UID
     if (ht2_read_uid(NULL, true, false, true) != PM3_SUCCESS) {
@@ -87,7 +88,7 @@ static bool hitag2crack_read_page(uint8_t *resp, uint8_t pagenum, uint8_t *nrar,
 
     // create cmd
     uint8_t cmd[10];
-    memcpy(cmd, read_p0_cmd, sizeof(read_p0_cmd));
+    palloc_copy(cmd, read_p0_cmd, sizeof(read_p0_cmd));
 
     if (pagenum & 0x1) {
         cmd[9] = !cmd[9];
@@ -145,13 +146,13 @@ static bool hitag2crack_read_page(uint8_t *resp, uint8_t pagenum, uint8_t *nrar,
 static bool hitag2crack_test_e_p0cmd(uint8_t *keybits, uint8_t *nrar, uint8_t *e_cmd, uint8_t *uid, uint8_t *e_uid) {
 
     uint8_t cipherbits[42] = {0};
-    memcpy(cipherbits, e_cmd, 10);          // copy encrypted cmd to cipherbits
-    memcpy(cipherbits + 10, e_uid, 32);     // copy encrypted uid to cipherbits
+    palloc_copy(cipherbits, e_cmd, 10);          // copy encrypted cmd to cipherbits
+    palloc_copy(cipherbits + 10, e_uid, 32);     // copy encrypted uid to cipherbits
 
 
     uint8_t plainbits[42] = {0};
-    memcpy(plainbits, read_p0_cmd, sizeof(read_p0_cmd));    // copy cmd to plainbits
-    memcpy(plainbits + 10, uid, 32);                        // copy uid to plainbits
+    palloc_copy(plainbits, read_p0_cmd, sizeof(read_p0_cmd));    // copy cmd to plainbits
+    palloc_copy(plainbits + 10, uid, 32);                        // copy uid to plainbits
 
     // xor the plainbits with the cipherbits to get keybits
     hitag2crack_xor(keybits, plainbits, cipherbits, 42);
@@ -199,7 +200,7 @@ static bool hitag2crack_find_e_page0_cmd(uint8_t *keybits, uint8_t *e_firstcmd, 
                     // in both the non-inverted and inverted parts of the
                     // encrypted command.
                     uint8_t guess[10];
-                    memcpy(guess, e_firstcmd, 10);
+                    palloc_copy(guess, e_firstcmd, 10);
                     if (a) {
                         guess[5] = !guess[5];
                         guess[0] = !guess[0];
@@ -282,7 +283,7 @@ static bool hitag2crack_find_valid_e_cmd(uint8_t *e_cmd, uint8_t *nrar) {
                                 // check if it was valid
                                 if (memcmp(resp, ERROR_RESPONSE, 4)) {
                                     // return the guess as the encrypted command
-                                    memcpy(e_cmd, guess, 10);
+                                    palloc_copy(e_cmd, guess, 10);
                                     return true;
                                 }
                             }
@@ -405,10 +406,10 @@ static bool ht2crack_extend_keystream(lf_hitag_crack2_t *c2, int *kslen, int kso
 // nrarhex is a string containing hex representations of the 32 bit nR and aR values
 void ht2_crack1(uint8_t *nrar_hex) {
 
-    clear_trace();
+    release_trace();
 
     lf_hitag_crack_response_t packet;
-    memset((uint8_t *)&packet, 0x00, sizeof(lf_hitag_crack_response_t));
+    palloc_set((uint8_t *)&packet, 0x00, sizeof(lf_hitag_crack_response_t));
 
     int res = PM3_SUCCESS;
 
@@ -449,7 +450,7 @@ void ht2_crack1(uint8_t *nrar_hex) {
     }
 
     // copy UID since we already have it...
-    memcpy(packet.data, uid_hex, 4);
+    palloc_copy(packet.data, uid_hex, 4);
 
     packet.status = 1;
 
@@ -462,15 +463,13 @@ out:
 // response is a multi-line text response containing the hex of the keystream;
 // nrar_hex is the 32 bit nR and aR in hex
 void ht2_crack2(uint8_t *nrar_hex) {
-
-
-    lf_hitag_crack2_t *c2 = (lf_hitag_crack2_t*)BigBuf_calloc(sizeof(lf_hitag_crack2_t));
-    lf_hitag_crack_response_t *packet = (lf_hitag_crack_response_t*)BigBuf_calloc(sizeof(lf_hitag_crack_response_t));
+    lf_hitag_crack2_t *c2 = (lf_hitag_crack2_t*)palloc(1, sizeof(lf_hitag_crack2_t));
+    lf_hitag_crack_response_t *packet = (lf_hitag_crack_response_t*)palloc(1, sizeof(lf_hitag_crack_response_t));
 
     g_logging = false;
     LEDsoff();
-    set_tracing(false);
-    clear_trace();
+    stop_tracing();
+    release_trace();
 
     int res = PM3_SUCCESS;
 
@@ -506,7 +505,7 @@ void ht2_crack2(uint8_t *nrar_hex) {
 
     // build extended command
     for (int i = 0; i < 208 ; i++) {
-        memcpy(c2->ext_cmd + (i * 10), read_p0_cmd, 10);
+        palloc_copy(c2->ext_cmd + (i * 10), read_p0_cmd, 10);
     }
 
     while (kslen < 2048) {
@@ -550,15 +549,14 @@ void ht2_crack2(uint8_t *nrar_hex) {
         Dbprintf("Recovered " _YELLOW_("%i") " bits of keystream", kslen);
     }
     
-    uint8_t *keybitshex = BigBuf_calloc(64);
+    uint8_t *keybitshex = (uint8_t*)palloc(1, 64);
     for (int i = 0; i < 2048; i += 256) {
         binarray2hex(c2->keybits + i, 256, keybitshex);
         Dbhexdump(256, keybitshex, false);
     }
-    BigBuf_free();
 
     // copy UID since we already have it...
-    memcpy(packet->data, uid_hex, 4);
+    palloc_copy(packet->data, uid_hex, 4);
     packet->status = 1;
 
 out:
@@ -573,4 +571,7 @@ out:
 */
 
     reply_ng(CMD_LF_HITAG2_CRACK_2, res, (uint8_t *)packet, sizeof(lf_hitag_crack_response_t));
+
+    palloc_free(packet);
+    palloc_free(c2);
 }

@@ -138,7 +138,7 @@ typedef struct {
     int8_t forcerats;    // 0:auto 1:force executing RATS 2:force skipping RATS
 } PACKED hf14a_config;
 
-// Tracelog Header struct
+// Tracelog Header struct (deprecated)
 typedef struct {
     uint32_t timestamp;
     uint16_t duration;
@@ -149,7 +149,20 @@ typedef struct {
     // ceil(data_len/8) bytes of parity
 } PACKED tracelog_hdr_t;
 
+typedef struct {
+    uint8_t metadata;
+    uint8_t data;
+} PACKED tracer_trace_t;
+
+typedef struct {
+    uint32_t ts_start;
+    uint32_t ts_end;
+    uint16_t duration;
+    tracer_trace_t traces[];
+} PACKED tracer_hdr_t;
+
 #define TRACELOG_HDR_LEN        sizeof(tracelog_hdr_t)
+#define TRACER_HDR_LEN          sizeof(tracer_hdr_t)
 #define TRACELOG_PARITY_LEN(x)  (((x)->data_len - 1) / 8 + 1)
 
 // T55XX - Extended to support 1 of 4 timing
@@ -174,7 +187,7 @@ typedef struct {
 typedef struct {
     uint8_t version;
     uint32_t baudrate;
-    uint32_t bigbuf_size;
+    uint32_t sram_size;
     bool via_fpc                       : 1;
     bool via_usb                       : 1;
     // rdv4
@@ -399,20 +412,21 @@ typedef struct {
 #define CMD_ACK                                                           0x00ff
 
 // For general mucking around
-#define CMD_DEBUG_PRINT_STRING                                            0x0100
-#define CMD_DEBUG_PRINT_INTEGERS                                          0x0101
-#define CMD_DEBUG_PRINT_BYTES                                             0x0102
-#define CMD_LCD_RESET                                                     0x0103
-#define CMD_LCD                                                           0x0104
-#define CMD_BUFF_CLEAR                                                    0x0105
+//#define CMD_DEBUG_PRINT_STRING                                            0x0100 // Redefined
+//#define CMD_DEBUG_PRINT_INTEGERS                                          0x0101 // Redefined
+//#define CMD_DEBUG_PRINT_BYTES                                             0x0102 // Redefined
+
+#define CMD_LCD_RESET                                                     0x0103 // Feature Removed
+#define CMD_LCD                                                           0x0104 // Feature Removed
+#define CMD_SRAM_CLEAR                                                    0x0105 // depreciated
 #define CMD_READ_MEM                                                      0x0106 // legacy
 #define CMD_READ_MEM_DOWNLOAD                                             0x010A
 #define CMD_READ_MEM_DOWNLOADED                                           0x010B
 #define CMD_VERSION                                                       0x0107
 #define CMD_STATUS                                                        0x0108
 #define CMD_PING                                                          0x0109
-#define CMD_DOWNLOAD_EML_BIGBUF                                           0x0110
-#define CMD_DOWNLOADED_EML_BIGBUF                                         0x0111
+#define CMD_DOWNLOAD_EMULATOR                                             0x0110
+#define CMD_DOWNLOADED_EMULATOR                                           0x0111
 #define CMD_CAPABILITIES                                                  0x0112
 #define CMD_QUIT_SESSION                                                  0x0113
 #define CMD_SET_DBGMODE                                                   0x0114
@@ -421,7 +435,7 @@ typedef struct {
 #define CMD_TIA                                                           0x0117
 #define CMD_BREAK_LOOP                                                    0x0118
 #define CMD_SET_TEAROFF                                                   0x0119
-#define CMD_GET_DBGMODE                                                   0x0120
+//#define CMD_GET_DBGMODE                                                   0x0120 // Redefined
 
 // RDV40, Flash memory operations
 #define CMD_FLASHMEM_WRITE                                                0x0121
@@ -490,8 +504,8 @@ typedef struct {
 #define CMD_LF_TI_WRITE                                                   0x0203
 #define CMD_LF_ACQ_RAW_ADC                                                0x0205
 #define CMD_LF_MOD_THEN_ACQ_RAW_ADC                                       0x0206
-#define CMD_DOWNLOAD_BIGBUF                                               0x0207
-#define CMD_DOWNLOADED_BIGBUF                                             0x0208
+#define CMD_DOWNLOAD_TRACE                                                0x0207
+#define CMD_DOWNLOADED_TRACE                                              0x0208
 #define CMD_LF_UPLOAD_SIM_SAMPLES                                         0x0209
 #define CMD_LF_SIMULATE                                                   0x020A
 #define CMD_LF_HID_WATCH                                                  0x020B
@@ -722,8 +736,6 @@ typedef struct {
 // MFU_Ev1 Counter TearOff
 #define CMD_HF_MFU_COUNTER_TEAROFF                                        0x0741
 
-
-
 #define CMD_HF_SNIFF                                                      0x0800
 #define CMD_HF_PLOT                                                       0x0801
 
@@ -755,6 +767,12 @@ typedef struct {
 #define CMD_HF_SAM_PICOPASS                                               0x0900
 #define CMD_HF_SAM_SEOS                                                   0x0901
 #define CMD_HF_SAM_MFC                                                    0x0902
+
+// Debug Commands (0xF0xx)
+#define CMD_GET_DBGMODE                                                   0xF000
+#define CMD_DEBUG_PRINT_STRING                                            0xF010
+#define CMD_DEBUG_PRINT_INTEGERS                                          0xF011
+#define CMD_DEBUG_PRINT_BYTES                                             0xF012
 
 #define CMD_UNKNOWN                                                       0xFFFF
 
@@ -822,7 +840,7 @@ typedef struct {
 #define PM3_ESOFT             -10
 // Flash error                          client/pm3: error in RDV4 Flash operation
 #define PM3_EFLASH            -11
-// Memory allocation error              client:     error in memory allocation (maybe also for pm3 BigBuff?)
+// Memory allocation error              client/pm3: error in memory allocation
 #define PM3_EMALLOC           -12
 // File error                           client:     error related to file access on host
 #define PM3_EFILE             -13

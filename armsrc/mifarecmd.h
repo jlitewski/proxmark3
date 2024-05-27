@@ -29,7 +29,7 @@ void MifareUReadBlock(uint8_t arg0, uint8_t arg1, uint8_t *datain);
 void MifareUC_Auth(uint8_t arg0, uint8_t *keybytes);
 void MifareUL_AES_Auth(bool turn_off_field, uint8_t keyno, uint8_t *keybytes);
 
-void MifareUReadCard(uint8_t arg0, uint16_t arg1, uint8_t arg2, uint8_t *datain);
+void MifareUReadCard(uint8_t blockNo, uint16_t pages, uint8_t useKey, uint8_t *datain);
 void MifareUWriteBlockCompat(uint8_t arg0, uint8_t arg1, uint8_t *datain);
 void MifareUWriteBlock(uint8_t arg0, uint8_t arg1, uint8_t *datain);
 
@@ -55,7 +55,7 @@ void MifareHasStaticNonce(void);  // Has the tag a static nonce?
 void MifareHasStaticEncryptedNonce(uint8_t block_no, uint8_t key_type, uint8_t *key); // Has the tag a static encrypted nonce?
 
 // MFC GEN3
-int DoGen3Cmd(uint8_t *cmd, uint8_t cmd_len);
+int DoGen3Cmd(uint8_t *cmd, size_t cmd_len);
 void MifareGen3UID(uint8_t uidlen, uint8_t *uid); // Gen 3 magic card set UID without manufacturer block
 void MifareGen3Blk(uint8_t block_len, uint8_t *block); // Gen 3 magic card overwrite manufacturer block
 void MifareGen3Freez(void); // Gen 3 magic card lock further UID changes

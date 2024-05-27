@@ -21,7 +21,7 @@
 #include "appmain.h"
 #include "proxmark3_arm.h"
 #include "cmd.h"
-#include "BigBuf.h"
+#include "palloc.h"
 #include "fpgaloader.h"
 #include "ticks.h"
 #include "dbprint.h"
@@ -32,7 +32,6 @@
 int HfReadADC(uint32_t samplesCount, bool ledcontrol) {
     if (ledcontrol) LEDsoff();
 
-    BigBuf_Clear_ext(false);
     // connect Demodulated Signal to ADC:
     SetAdcMuxFor(GPIO_MUXSEL_HIPKD);
 
@@ -200,12 +199,9 @@ static uint32_t HfEncodeTkm(const uint8_t *uid, uint8_t modulation, uint8_t *dat
 }
 
 int HfSimulateTkm(const uint8_t *uid, uint8_t modulation, uint32_t timeout) {
-    // free eventually allocated BigBuf memory
-    BigBuf_free_keep_EM();
-
     LEDsoff();
 
-    uint8_t *data = BigBuf_calloc(256);
+    uint8_t *data = (uint8_t*)palloc(1, 256);
     uint32_t elen = HfEncodeTkm(uid, modulation, data);
     if (elen == 0) {
         DbpString("encode error");
@@ -262,6 +258,7 @@ int HfSimulateTkm(const uint8_t *uid, uint8_t modulation, uint32_t timeout) {
     }
 
     switch_off();
+    palloc_free(data);
 
     if (button_pressed)
         DbpString("Exit by press button");

@@ -16,7 +16,7 @@
 #ifndef __LFSAMPLING_H
 #define __LFSAMPLING_H
 
-#include "common.h"
+#include "util.h"
 #include "pm3_cmd.h"
 
 typedef struct {
@@ -36,14 +36,22 @@ typedef struct {
 * acquisition of Cotag LF signal. Similar to other LF,  since the Cotag has such long datarate RF/384
 * and is Manchester?,  we directly gather the manchester data into bigbuff
 **/
-void doCotagAcquisition(void);
+uint8_t *doCotagAcquisition(void);
+
 uint16_t doCotagAcquisitionManchester(uint8_t *dest, uint16_t destlen);
 
 /**
-* acquisition of T55x7 LF signal. Similar to other LF, but adjusted with @marshmellows thresholds
-* the data is collected in BigBuf.
-**/
-void doT55x7Acquisition(size_t sample_size, bool ledcontrol);
+ * @brief Acquisition of T55x7 LF Signal.
+ * 
+ * Similar to other LF, but this is adjusted with @marshmellows thresholds.
+ * 
+ * The buffer returned from this function MUST BE FREED WITH `palloc_free()`!
+ * 
+ * @param sample_size 
+ * @param ledcontrol Flag to control the LEDs
+ * @return The T55x7 LF signal buffer
+ */
+uint8_t *doT55x7Acquisition(size_t sample_size, bool ledcontrol);
 
 /**
 * Initializes the FPGA for reader-mode (field on), and acquires the samples.
@@ -94,11 +102,12 @@ uint32_t DoAcquisition_config(bool verbose, uint32_t sample_size, bool ledcontro
 /**
  * Refactoring of lf sampling buffer
  */
-void initSampleBuffer(uint32_t *sample_size);
-void initSampleBufferEx(uint32_t *sample_size, bool use_malloc);
+int initSampleBuffer(uint32_t *sample_size);
 void logSampleSimple(uint8_t sample);
 void logSample(uint8_t sample, uint8_t decimation, uint8_t bits_per_sample, bool avg);
 uint32_t getSampleCounter(void);
+memptr_t *get_sample_address(void);
+void free_sample_buffer(void);
 
 /**
 * Setup the FPGA to listen for samples. This method downloads the FPGA bitstream

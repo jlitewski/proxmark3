@@ -341,7 +341,7 @@ static int authenticate(const uint8_t *rnd, const uint8_t *frnd, uint8_t *respon
         uint8_t grnd[EM4X70_MAX_RECEIVE_LENGTH] = {0};
         int num = em4x70_receive(grnd, 20);
         if (num < 20) {
-            if (g_dbglevel >= DBG_EXTENDED) Dbprintf("Auth failed");
+            if (PRINT_EXTEND) Dbprintf("Auth failed");
             return PM3_ESOFT;
         }
         bits2bytes(grnd, 24, response);
@@ -411,7 +411,7 @@ static int bruteforce(const uint8_t address, const uint8_t *rnd, const uint8_t *
 
         // Due to performance reason, we only try it once. Therefore you need a very stable RFID communcation.
         if (authenticate(temp_rnd, frnd, auth_resp) == PM3_SUCCESS) {
-            if (g_dbglevel >= DBG_INFO)
+            if (PRINT_INFO)
                 Dbprintf("Authentication success with rnd: %02X%02X%02X%02X%02X%02X%02X", temp_rnd[0], temp_rnd[1], temp_rnd[2], temp_rnd[3], temp_rnd[4], temp_rnd[5], temp_rnd[6]);
             response[0] = (k >> 8) & 0xFF;
             response[1] = k & 0xFF;
@@ -659,7 +659,7 @@ static int em4x70_receive(uint8_t *bits, size_t length) {
     }
 
     if (!foundheader) {
-        if (g_dbglevel >= DBG_EXTENDED) Dbprintf("Failed to find read header");
+        if (PRINT_EXTEND) Dbprintf("Failed to find read header");
         return 0;
     }
 

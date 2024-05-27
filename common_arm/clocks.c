@@ -14,6 +14,8 @@
 // See LICENSE.txt for the text of the license.
 //-----------------------------------------------------------------------------
 #include "clocks.h"
+
+#include "at91sam7s512.h"
 #include "proxmark3_arm.h"
 
 void mck_from_pll_to_slck(void) {

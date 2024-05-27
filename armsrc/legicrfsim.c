@@ -23,13 +23,15 @@
 #include "legic.h"              /* legic_card_select_t struct */
 #include "cmd.h"
 #include "proxmark3_arm.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "fpgaloader.h"
 #include "ticks.h"
 #include "dbprint.h"
 #include "util.h"
 
-static uint8_t *legic_mem;      /* card memory, used for sim */
+static memptr_t *legic_mem;      /* card memory, used for sim */
 static legic_card_select_t card;/* metadata of currently selected card */
 static crc_t legic_crc;
 
@@ -183,7 +185,7 @@ static void tx_frame(uint32_t frame, uint8_t len) {
 
     // log
     uint8_t cmdbytes[] = {len, BYTEx(frame, 0), BYTEx(frame, 1)};
-    LogTrace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, false);
+    log_trace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, false);
 }
 
 static void tx_ack(void) {
@@ -204,7 +206,7 @@ static void tx_ack(void) {
 
     // log
     uint8_t cmdbytes[] = {1, 1};
-    LogTrace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, false);
+    log_trace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, false);
 }
 
 // Returns a demodulated frame or -1 on code violation
@@ -271,7 +273,7 @@ static int32_t rx_frame(uint8_t *len) {
 
     // log
     uint8_t cmdbytes[] = {*len, BYTEx(frame, 0), BYTEx(frame, 1), BYTEx(frame, 2)};
-    LogTrace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, true);
+    log_trace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, true);
     return frame;
 }
 
@@ -321,12 +323,16 @@ static void init_tag(void) {
     AT91C_BASE_PIOA->PIO_OER = GPIO_SSC_DOUT;
     AT91C_BASE_PIOA->PIO_PER = GPIO_SSC_DOUT;
 
-    // reserve a cardmem, meaning we can use the tracelog function in bigbuff easier.
-    legic_mem = BigBuf_get_EM_addr();
+    // reserve the emulator
+    if(has_emulator_data()) {
+        release_emuator();
+    }
+
+    legic_mem = get_emulator_address();
 
     // start trace
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
 
     // init crc calculator
     crc_init(&legic_crc, 4, 0x19 >> 1, 0x05, 0);
@@ -507,8 +513,8 @@ void LegicRfSimulate(uint8_t tagtype, bool send_reply) {
 
 OUT:
 
-    if (g_dbglevel >= DBG_ERROR) {
-        Dbprintf("Emulator stopped. Trace length... " _YELLOW_("%d"), BigBuf_get_traceLen());
+    if (PRINT_ERROR) {
+        Dbprintf("Emulator stopped. Trace length... " _YELLOW_("%d"), get_trace_length());
     }
 
     if (res == PM3_EOPABORTED) {
@@ -521,6 +527,4 @@ OUT:
     if (send_reply) {
         reply_ng(CMD_HF_LEGIC_SIMULATE, res, NULL, 0);
     }
-
-    BigBuf_free_keep_EM();
 }

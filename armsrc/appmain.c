@@ -20,56 +20,58 @@
 //-----------------------------------------------------------------------------
 #include "appmain.h"
 
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "ansi.h"
+#include "at91sam7s512.h"
+#include "cardemu.h"
+#include "cmd.h"
 #include "clocks.h"
-#include "usb_cdc.h"
-#include "proxmark3_arm.h"
+#include "common.h"
+#include "commonutil.h"
+#include "config_gpio.h"
 #include "dbprint.h"
-#include "pmflash.h"
 #include "fpga.h"
 #include "fpgaloader.h"
+#include "lfsampling.h"
+#include "palloc.h"
+#include "pm3_cmd.h"
 #include "printf.h"
-#include "legicrf.h"
-#include "BigBuf.h"
-#include "iclass_cmd.h"
+#include "protocols.h"
+#include "proxmark3_arm.h"
+#include "ticks.h"
+#include "tracer.h"
+#include "usb_cdc.h"
+#include "util.h"
+
+#include "Standalone/standalone.h"
+
+#ifdef WITH_GENERAL_HF
 #include "hfops.h"
-#include "iso14443a.h"
-#include "iso14443b.h"
-#include "iso15693.h"
-#include "thinfilm.h"
-#include "felica.h"
+#endif
+
+#ifdef WITH_ZX8211
+#include "lfzx.h"
+#endif
+
+#ifdef WITH_EM4x50
+#include "em4x50.h"
+#endif
+
+#ifdef WITH_EM4x70
+#include "em4x70.h"
+#endif
+
+#ifdef WITH_HITAG
+#include "hitagS.h"
 #include "hitag2.h"
 #include "hitag2_crack.h"
-#include "hitagS.h"
-#include "em4x50.h"
-#include "em4x70.h"
-#include "iclass.h"
-#include "legicrfsim.h"
-//#include "cryptorfsim.h"
-#include "epa.h"
-#include "hfsnoop.h"
-#include "lfops.h"
-#include "lfsampling.h"
-#include "lfzx.h"
-#include "mifarecmd.h"
-#include "mifaredesfire.h"
-#include "mifaresim.h"
-#include "pcf7931.h"
-#include "Standalone/standalone.h"
-#include "util.h"
-#include "ticks.h"
-#include "commonutil.h"
-#include "crc16.h"
-#include "protocols.h"
-#include "mifareutil.h"
-#include "sam_picopass.h"
-#include "sam_seos.h"
-#include "sam_mfc.h"
-
-#ifdef WITH_LCD
-#include "LCD_disabled.h"
 #endif
 
 #ifdef WITH_SMARTCARD
+#include "crc16.h"
+#include "sam_picopass.h"
 #include "i2c.h"
 #endif
 
@@ -77,17 +79,62 @@
 #include "usart.h"
 #endif
 
+#ifdef WITH_ICLASS
+#include "iclass.h"
+#endif
+
+#ifdef WITH_FELICA
+#include "felica.h"
+#endif
+
 #ifdef WITH_FLASH
+#include "pmflash.h"
 #include "flashmem.h"
 #include "spiffs.h"
 #endif
 
-int g_dbglevel = DBG_ERROR;
+#ifdef WITH_ISO15693
+#include "iso15693.h"
+#endif
+
+#ifdef WITH_ISO14443a
+#include "iso14443a.h"
+#include "epa.h"
+#include "mifarecmd.h"
+#include "mifaresim.h"
+#include "mifaredesfire.h"
+#include "mifareutil.h"
+#endif
+
+#ifdef WITH_ISO14443b
+#include "iso14443b.h"
+#endif
+
+#ifdef WITH_NFCBARCODE
+#include "thinfilm.h"
+#endif
+
+#ifdef WITH_LEGICRF
+#include "legicrf.h"
+#include "legicrfsim.h"
+#endif
+
+#if defined(WITH_HFSNIFF) || defined(WITH_HFPLOT)
+#include "hfsnoop.h"
+#endif
+
+#ifdef WITH_LF
+#include "lfops.h"
+#include "pcf7931.h"
+#endif
+
+debug_level g_dbglevel = DEBUG_NONE;
+
 uint8_t g_trigger = 0;
 bool g_hf_field_active = false;
 extern uint32_t _stack_start[], _stack_end[];
 common_area_t g_common_area __attribute__((section(".commonarea")));
-static int button_status = BUTTON_NO_CLICK;
+static int8_t button_status = BUTTON_NO_CLICK;
 static bool allow_send_wtx = false;
 uint16_t g_tearoff_delay_us = 0;
 bool g_tearoff_enabled = false;
@@ -179,8 +226,8 @@ static void MeasureAntennaTuning(void) {
     } PACKED payload;
 
     // Need to clear all values to ensure non-random responses.
-    memset(&payload, 0, sizeof(payload));
-    // memset(payload.results, 0, sizeof(payload.results));
+    palloc_set(&payload, 0, sizeof(payload));
+    // palloc_set(payload.results, 0, sizeof(payload.results));
 
     sample_config *sc = getSamplingConfig();
     payload.divisor = sc->divisor;
@@ -238,9 +285,7 @@ static void MeasureAntennaTuning(void) {
 
 // Measure HF in milliVolt
 static uint16_t MeasureAntennaTuningHfData(void) {
-
     return (MAX_ADC_HF_VOLTAGE * SumAdc(ADC_CHAN_HF, 32)) >> 15;
-
 }
 
 // Measure LF in milliVolt
@@ -251,13 +296,14 @@ static uint32_t MeasureAntennaTuningLfData(void) {
 void print_stack_usage(void) {
     for (uint32_t *p = _stack_start; ; ++p) {
         if (*p != 0xdeadbeef) {
-            Dbprintf("  Max stack usage......... %d / %d bytes", (uint32_t)(_stack_end) - (uint32_t)(p), (uint32_t)_stack_end - (uint32_t)_stack_start);
+            Dbprintf("--- " _CYAN_("Stack") " ---------------------");
+            Dbprintf(" - Usage:........ %d / %d bytes", (size_t)(_stack_end) - (size_t)(p), (size_t)_stack_end - (size_t)_stack_start);
             break;
         }
     }
 }
 
-void ReadMem(int addr) {
+void ReadMem(size_t addr) {
     const uint8_t *data = ((uint8_t *)addr);
 
     Dbprintf("%x: %02x %02x %02x %02x %02x %02x %02x %02x", addr, data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
@@ -266,9 +312,11 @@ void ReadMem(int addr) {
 /* osimage version information is linked in, cf commonutil.h */
 /* bootrom version information is pointed to from _bootphase1_version_pointer */
 extern uint32_t _bootphase1_version_pointer[], _flash_start[], _flash_end[], __data_src_start__[];
+
 #ifdef WITH_NO_COMPRESSION
 extern uint32_t _bootrom_end[], _bootrom_start[], __os_size__[];
 #endif
+
 static void SendVersion(void) {
     char temp[PM3_CMD_DATA_SIZE - 12]; /* Limited data payload in USB packets */
     char VersionString[PM3_CMD_DATA_SIZE - 12] = { '\0' };
@@ -310,6 +358,7 @@ static void SendVersion(void) {
             strncat(VersionString, "\n ", sizeof(VersionString) - strlen(VersionString) - 1);
         }
     }
+
 #ifndef WITH_NO_COMPRESSION
     // Send Chip ID and used flash memory
     uint32_t text_and_rodata_section_size = (uint32_t)__data_src_start__ - (uint32_t)_flash_start;
@@ -331,73 +380,104 @@ static void SendVersion(void) {
     payload.section_size = text_and_rodata_section_size + compressed_data_section_size;
 #endif
     payload.versionstr_len = strlen(VersionString) + 1;
-    memcpy(payload.versionstr, VersionString, payload.versionstr_len);
+    palloc_copy(payload.versionstr, VersionString, payload.versionstr_len);
 
     reply_ng(CMD_VERSION, PM3_SUCCESS, (uint8_t *)&payload, 12 + payload.versionstr_len);
 }
 
 static void TimingIntervalAcquisition(void) {
     // trigger new acquisition by turning main oscillator off and on
+    if(PRINT_DEBUG) Dbprintf("Turning Main Oscillator off...");
     mck_from_pll_to_slck();
+    if(PRINT_DEBUG) Dbprintf("Turning Main Oscillator on...");
     mck_from_slck_to_pll();
     // wait for MCFR and recompute RTMR scaler
     StartTickCount();
 }
 
 static void print_debug_level(void) {
-    char dbglvlstr[20] = {0};
-    switch (g_dbglevel) {
-        case DBG_NONE:
-            sprintf(dbglvlstr, "off");
-            break;
-        case DBG_ERROR:
-            sprintf(dbglvlstr, "error");
-            break;
-        case DBG_INFO:
-            sprintf(dbglvlstr, "info");
-            break;
-        case DBG_DEBUG:
-            sprintf(dbglvlstr, "debug");
-            break;
-        case DBG_EXTENDED:
-            sprintf(dbglvlstr, "extended");
-            break;
+    char dbglvlstr[30] = {0};
+    int8_t dbglvl = -1;
+
+    if(g_dbglevel == DEBUG_NONE) {
+        sprintf(dbglvlstr, "none");
+        dbglvl = 0;
+        goto end_debug_search;
     }
-    Dbprintf("  Debug log level......... %d ( " _YELLOW_("%s")" )", g_dbglevel, dbglvlstr);
+    if(g_dbglevel == DEBUG_ERROR) {
+        sprintf(dbglvlstr, "error only");
+        dbglvl = 1;
+        goto end_debug_search;
+    }
+    if(g_dbglevel == DEBUG_INFO) {
+        sprintf(dbglvlstr, "error + info");
+        dbglvl = 2;
+        goto end_debug_search;
+    }
+    if(g_dbglevel == DEBUG_LITE) {
+        sprintf(dbglvlstr, "error + info + debug");
+        dbglvl = 3;
+        goto end_debug_search;
+    }
+    if(g_dbglevel == DEBUG_FULL) {
+        sprintf(dbglvlstr, "EXTREME DEBUGGING MODE");
+        dbglvl = 4;
+    }
+
+end_debug_search:
+    Dbprintf("  Debug logging mode ......... %d ( " _YELLOW_("%s")" )", dbglvl, dbglvlstr);
 }
 
 // measure the Connection Speed by sending SpeedTestBufferSize bytes to client and measuring the elapsed time.
 // Note: this mimics GetFromBigbuf(), i.e. we have the overhead of the PacketCommandNG structure included.
 static void printConnSpeed(uint32_t wait) {
     DbpString(_CYAN_("Transfer Speed"));
-    Dbprintf("  Sending packets to client...");
+    Dbprintf(_CYAN_("  [<--] Sending packets to client..."));
 
-    uint8_t *test_data = BigBuf_get_addr();
+    uint8_t *test_data = (uint8_t*)palloc(2, PM3_CMD_DATA_SIZE);
+
+    if(test_data == nullptr) {
+        Dbprintf("  " _RED_("Error allocating data for speed test!"));
+        reply_ng(CMD_DOWNLOADED_TRACE, PM3_EMALLOC, nullptr, 0);
+        return;
+    }
+
     uint32_t start_time = GetTickCount();
     uint32_t delta_time = 0;
     uint32_t bytes_transferred = 0;
 
+    // Disable debug logging to get an accurate speed
+    debug_level old_debug_level = g_dbglevel;
+    g_dbglevel = DEBUG_NONE;
+
     LED_B_ON();
 
     while (delta_time < wait) {
-        reply_ng(CMD_DOWNLOADED_BIGBUF, PM3_SUCCESS, test_data, PM3_CMD_DATA_SIZE);
+        reply_ng(CMD_DOWNLOADED_TRACE, PM3_SUCCESS, test_data, PM3_CMD_DATA_SIZE);
         bytes_transferred += PM3_CMD_DATA_SIZE;
         delta_time = GetTickCountDelta(start_time);
     }
+
     LED_B_OFF();
+
+    // Reenable the debug logging
+    g_dbglevel = old_debug_level;
 
     Dbprintf("  Time elapsed................... %dms", delta_time);
     Dbprintf("  Bytes transferred.............. %d", bytes_transferred);
     if (delta_time) {
         Dbprintf("  Transfer Speed PM3 -> Client... " _YELLOW_("%llu") " bytes/s", 1000 * (uint64_t)bytes_transferred / delta_time);
     }
+
+    palloc_free(test_data);
 }
 
 /**
   * Prints runtime information about the PM3.
 **/
 static void SendStatus(uint32_t wait) {
-    BigBuf_print_status();
+    palloc_status();
+    print_stack_usage();
     Fpga_print_status();
 #ifdef WITH_FLASH
     Flashmem_print_status();
@@ -414,13 +494,13 @@ static void SendStatus(uint32_t wait) {
 #endif
     printConnSpeed(wait);
     DbpString(_CYAN_("Various"));
-
-    print_stack_usage();
     print_debug_level();
 
-    tosend_t *ts = get_tosend();
-    Dbprintf("  ToSendMax............... %d", ts->max);
-    Dbprintf("  ToSend BUFFERSIZE....... %d", TOSEND_BUFFER_SIZE);
+    fpga_queue_t *fpga_queue = get_fpga_queue();
+    Dbprintf("  FPGA Queue Size.............. %d", fpga_queue->max);
+    Dbprintf("  FPGA Queue Max Size.......... %d", QUEUE_BUFFER_SIZE);
+    free_fpga_queue();
+
     while ((AT91C_BASE_PMC->PMC_MCFR & AT91C_CKGR_MAINRDY) == 0);       // Wait for MAINF value to become available...
     uint16_t mainf = AT91C_BASE_PMC->PMC_MCFR & AT91C_CKGR_MAINF;       // Get # main clocks within 16 slow clocks
     Dbprintf("  Slow clock.............. %d Hz", (16 * MAINCK) / mainf);
@@ -435,14 +515,14 @@ static void SendStatus(uint32_t wait) {
         Dbprintf(_YELLOW_("  Slow Clock actual speed seems closer to %d kHz"),
                  (16 * MAINCK / 1000) / mainf * delta_time / SLCK_CHECK_MS);
     }
-    DbpString(_CYAN_("Installed StandAlone Mode"));
+    DbpString(_CYAN_("Installed Standalone Mode"));
     ModInfo();
 
 #ifdef WITH_FLASH
     Flashmem_print_info();
 #endif
     DbpString("");
-    reply_ng(CMD_STATUS, PM3_SUCCESS, NULL, 0);
+    reply_ng(CMD_STATUS, PM3_SUCCESS, nullptr, 0);
 }
 
 static void SendCapabilities(void) {
@@ -450,7 +530,7 @@ static void SendCapabilities(void) {
     capabilities.version = CAPABILITIES_VERSION;
     capabilities.via_fpc = g_reply_via_fpc;
     capabilities.via_usb = g_reply_via_usb;
-    capabilities.bigbuf_size = BigBuf_get_size();
+    capabilities.sram_size = palloc_sram_size();
     capabilities.baudrate = 0; // no real baudrate for USB-CDC
 #ifdef WITH_FPC_USART
     if (g_reply_via_fpc)
@@ -778,14 +858,6 @@ void ListenReaderField(uint8_t limit) {
     }
 }
 static void PacketReceived(PacketCommandNG *packet) {
-    /*
-    if (packet->ng) {
-        Dbprintf("received NG frame with %d bytes payload, with command: 0x%04x", packet->length, cmd);
-    } else {
-        Dbprintf("received OLD frame of %d bytes, with command: 0x%04x and args: %d %d %d", packet->length, packet->cmd, packet->oldarg[0], packet->oldarg[1], packet->oldarg[2]);
-    }
-    */
-
     switch (packet->cmd) {
         case CMD_BREAK_LOOP:
             break;
@@ -798,17 +870,16 @@ static void PacketReceived(PacketCommandNG *packet) {
             uint8_t mode = packet->data.asBytes[0];
             if (mode >= FPGA_BITSTREAM_LF && mode <= FPGA_BITSTREAM_HF_15) {
                 FpgaDownloadAndGo(mode);
-                reply_ng(CMD_SET_FPGAMODE, PM3_SUCCESS, NULL, 0);
+                reply_ng(CMD_SET_FPGAMODE, PM3_SUCCESS, nullptr, 0);
             }
-            reply_ng(CMD_SET_FPGAMODE, PM3_EINVARG, NULL, 0);
+            reply_ng(CMD_SET_FPGAMODE, PM3_EINVARG, nullptr, 0);
             break;
         }
-        // emulator
         case CMD_SET_DBGMODE: {
             g_dbglevel = packet->data.asBytes[0];
             if (packet->length == 1 || packet->data.asBytes[1] != 0)
                 print_debug_level();
-            reply_ng(CMD_SET_DBGMODE, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_SET_DBGMODE, PM3_SUCCESS, nullptr, 0);
             break;
         }
         case CMD_GET_DBGMODE: {
@@ -821,9 +892,12 @@ static void PacketReceived(PacketCommandNG *packet) {
                 bool on;
                 bool off;
             } PACKED;
+
             struct p *payload = (struct p *)packet->data.asBytes;
+
             if (payload->on && payload->off) {
-                reply_ng(CMD_SET_TEAROFF, PM3_EINVARG, NULL, 0);
+                if(PRINT_DEBUG) Dbprintf(" - CMD_SET_TEAROFF: Cannot have both 'on' and 'off' set at the same time!");
+                reply_ng(CMD_SET_TEAROFF, PM3_EINVARG, nullptr, 0);
             }
 
             if (payload->on) {
@@ -837,7 +911,8 @@ static void PacketReceived(PacketCommandNG *packet) {
             if (payload->delay_us > 0) {
                 g_tearoff_delay_us = payload->delay_us;
             }
-            reply_ng(CMD_SET_TEAROFF, PM3_SUCCESS, NULL, 0);
+
+            reply_ng(CMD_SET_TEAROFF, PM3_SUCCESS, nullptr, 0);
             break;
         }
         // always available
@@ -861,7 +936,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         }
         case CMD_LF_SAMPLING_SET_CONFIG: {
             sample_config c;
-            memcpy(&c, packet->data.asBytes, sizeof(sample_config));
+            palloc_copy(&c, packet->data.asBytes, sizeof(sample_config));
             setSamplingConfig(&c);
             break;
         }
@@ -889,8 +964,8 @@ static void PacketReceived(PacketCommandNG *packet) {
             struct p *payload = (struct p *)packet->data.asBytes;
             uint8_t  symbol_extra[LF_CMDREAD_MAX_EXTRA_SYMBOLS];
             uint16_t period_extra[LF_CMDREAD_MAX_EXTRA_SYMBOLS];
-            memcpy(symbol_extra, payload->symbol_extra, sizeof(symbol_extra));
-            memcpy(period_extra, payload->period_extra, sizeof(period_extra));
+            palloc_copy(symbol_extra, payload->symbol_extra, sizeof(symbol_extra));
+            palloc_copy(period_extra, payload->period_extra, sizeof(period_extra));
             ModThenAcquireRawAdcSamples125k(payload->delay, payload->period_0, payload->period_1, symbol_extra, period_extra, packet->data.asBytes + sizeof(struct p), payload->verbose, payload->keep, payload->samples, true);
             break;
         }
@@ -907,7 +982,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         case CMD_LF_HID_WATCH: {
             uint32_t high, low;
             int res = lf_hid_watch(0, &high, &low, true);
-            reply_ng(CMD_LF_HID_WATCH, res, NULL, 0);
+            reply_ng(CMD_LF_HID_WATCH, res, nullptr, 0);
             break;
         }
         case CMD_LF_HID_SIMULATE: {
@@ -943,14 +1018,14 @@ static void PacketReceived(PacketCommandNG *packet) {
         case CMD_LF_IO_WATCH: {
             uint32_t high, low;
             int res = lf_io_watch(0, &high, &low, true);
-            reply_ng(CMD_LF_IO_WATCH, res, NULL, 0);
+            reply_ng(CMD_LF_IO_WATCH, res, nullptr, 0);
             break;
         }
         case CMD_LF_EM410X_WATCH: {
             uint32_t high;
             uint64_t low;
             int res = lf_em410x_watch(0, &high, &low, true);
-            reply_ng(CMD_LF_EM410X_WATCH, res, NULL, 0);
+            reply_ng(CMD_LF_EM410X_WATCH, res, nullptr, 0);
             break;
         }
         case CMD_LF_EM410X_CLONE: {
@@ -965,7 +1040,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             struct p *payload = (struct p *)packet->data.asBytes;
             uint8_t card = payload->Q5 ? 0 : (payload->EM ? 2 : 1);
             int res = copy_em410x_to_t55xx(card, payload->clock, payload->high, payload->low, payload->add_electra, true);
-            reply_ng(CMD_LF_EM410X_CLONE, res, NULL, 0);
+            reply_ng(CMD_LF_EM410X_CLONE, res, nullptr, 0);
             break;
         }
         case CMD_LF_TI_READ: {
@@ -982,6 +1057,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             WriteTItag(payload->high, payload->low, packet->crc, true);
             break;
         }
+        //XXX This might be broken with the changes needed by palloc
         case CMD_LF_SIMULATE: {
             LED_A_ON();
             struct p {
@@ -990,8 +1066,8 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *)packet->data.asBytes;
             // length, start gap, led control
-            SimulateTagLowFrequency(payload->len, payload->gap, true);
-            reply_ng(CMD_LF_SIMULATE, PM3_EOPABORTED, NULL, 0);
+            SimulateTagLowFrequency(payload->len, payload->gap, true, (uint8_t*)get_current_trace());
+            reply_ng(CMD_LF_SIMULATE, PM3_EOPABORTED, nullptr, 0);
             LED_A_OFF();
             break;
         }
@@ -1104,7 +1180,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         case CMD_LF_AWID_WATCH:  {
             uint32_t high, low;
             int res = lf_awid_watch(0, &high, &low, true);
-            reply_ng(CMD_LF_AWID_WATCH, res, NULL, 0);
+            reply_ng(CMD_LF_AWID_WATCH, res, nullptr, 0);
             break;
         }
         case CMD_LF_VIKING_CLONE: {
@@ -1125,13 +1201,13 @@ static void PacketReceived(PacketCommandNG *packet) {
             Cotag(payload->mode, true);
             break;
         }
-#endif
+#endif // WITH_LF
 
 #ifdef WITH_HITAG
         case CMD_LF_HITAG_SNIFF: { // Eavesdrop Hitag tag, args = type
             SniffHitag2(true);
             //hitag_sniff();
-            reply_ng(CMD_LF_HITAG_SNIFF, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_LF_HITAG_SNIFF, PM3_SUCCESS, nullptr, 0);
             break;
         }
         case CMD_LF_HITAG_SIMULATE: { // Simulate Hitag tag, args = memory content
@@ -1148,7 +1224,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             switch (payload->cmd) {
                 case RHT2F_UID_ONLY: {
-                    ht2_read_uid(NULL, true, true, false);
+                    ht2_read_uid(nullptr, true, true, false);
                     break;
                 }
                 default: {
@@ -1183,8 +1259,8 @@ static void PacketReceived(PacketCommandNG *packet) {
         }
         case CMD_LF_HITAG_ELOAD: {
             lf_hitag_t *payload = (lf_hitag_t *) packet->data.asBytes;
-            uint8_t *mem = BigBuf_get_EM_addr();
-            memcpy(mem, payload->data, payload->len);
+            uint8_t *mem = (uint8_t*)get_emulator_address();
+            palloc_copy(mem, payload->data, payload->len);
             break;
         }
 #endif
@@ -1235,7 +1311,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             // destroy the Emulator Memory.
             //-----------------------------------------------------------------------------
             FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
-            emlSet(packet->data.asBytes, packet->oldarg[0], packet->oldarg[1]);
+            set_emulator_memory(packet->data.asBytes, packet->oldarg[0], packet->oldarg[1]);
             break;
         }
         case CMD_LF_EM4X50_CHK: {
@@ -1298,8 +1374,8 @@ static void PacketReceived(PacketCommandNG *packet) {
             break;
         }
         case CMD_HF_ISO15693_SNIFF: {
-            SniffIso15693(0, NULL, false);
-            reply_ng(CMD_HF_ISO15693_SNIFF, PM3_SUCCESS, NULL, 0);
+            SniffIso15693(0, nullptr, false);
+            reply_ng(CMD_HF_ISO15693_SNIFF, PM3_SUCCESS, nullptr, 0);
             break;
         }
         case CMD_HF_ISO15693_COMMAND: {
@@ -1316,7 +1392,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             break;
         }
         case CMD_HF_ISO15693_READER: {
-            ReaderIso15693(NULL);
+            ReaderIso15693(nullptr);
             break;
         }
         case CMD_HF_ISO15693_EML_CLEAR: {
@@ -1341,7 +1417,7 @@ static void PacketReceived(PacketCommandNG *packet) {
                 uint8_t data[];
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
-            emlSet(payload->data, payload->offset, payload->count);
+            set_emulator_memory(payload->data, payload->offset, payload->count);
             break;
         }
         case CMD_HF_ISO15693_EML_GETMEM: {
@@ -1353,16 +1429,32 @@ static void PacketReceived(PacketCommandNG *packet) {
             struct p *payload = (struct p *) packet->data.asBytes;
 
             if (payload->length > PM3_CMD_DATA_SIZE) {
-                reply_ng(CMD_HF_ISO15693_EML_GETMEM, PM3_EMALLOC, NULL, 0);
+                reply_ng(CMD_HF_ISO15693_EML_GETMEM, PM3_EMALLOC, nullptr, 0);
                 return;
             }
 
-            uint8_t *buf = BigBuf_malloc(payload->length);
-            emlGet(buf, payload->offset, payload->length);
-            LED_B_ON();
-            reply_ng(CMD_HF_ISO15693_EML_GETMEM, PM3_SUCCESS, buf, payload->length);
-            LED_B_OFF();
-            BigBuf_free_keep_EM();
+            uint8_t *buf = (uint8_t*)palloc(1, payload->length);
+            if(buf == nullptr) {
+                Dbprintf("Unable to allocate memory, aborting...");
+                LED_C_ON();
+                reply_ng(CMD_HF_ISO15693_EML_GETMEM, PM3_EMALLOC, nullptr, 0);
+                LED_C_OFF();
+                break;
+            }
+
+            int res = get_emulator_memory(buf, payload->offset, payload->length);
+            if(res != PM3_SUCCESS) {
+                Dbprintf(_YELLOW_("There was an issue getting the emulator data!"));
+                LED_B_ON();
+                reply_ng(CMD_HF_ISO15693_EML_GETMEM, res, nullptr, 0);
+                LED_B_OFF();
+            } else {
+                LED_B_ON();
+                reply_ng(CMD_HF_ISO15693_EML_GETMEM, res, buf, payload->length);
+                LED_B_OFF();
+            }
+
+            palloc_free(buf);
             break;
         }
         case CMD_HF_ISO15693_SIMULATE: {
@@ -1497,7 +1589,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             //-----------------------------------------------------------------------------
             FpgaDownloadAndGo(FPGA_BITSTREAM_HF);
             legic_packet_t *payload = (legic_packet_t *) packet->data.asBytes;
-            emlSet(payload->data, payload->offset, payload->len);
+            set_emulator_memory(payload->data, payload->offset, payload->len);
             break;
         }
 #endif
@@ -1513,7 +1605,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         }
         case CMD_HF_ISO14443B_SNIFF: {
             SniffIso14443b();
-            reply_ng(CMD_HF_ISO14443B_SNIFF, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_HF_ISO14443B_SNIFF, PM3_SUCCESS, nullptr, 0);
             break;
         }
         case CMD_HF_ISO14443B_SIMULATE: {
@@ -1562,7 +1654,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 #ifdef WITH_GENERAL_HF
         case CMD_HF_ACQ_RAW_ADC: {
             uint32_t samplesCount = 0;
-            memcpy(&samplesCount, packet->data.asBytes, 4);
+            palloc_copy(&samplesCount, packet->data.asBytes, 4);
             HfReadADC(samplesCount, true);
             break;
         }
@@ -1591,7 +1683,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         }
         case CMD_HF_ISO14443A_SET_CONFIG: {
             hf14a_config c;
-            memcpy(&c, packet->data.asBytes, sizeof(hf14a_config));
+            palloc_copy(&c, packet->data.asBytes, sizeof(hf14a_config));
             setHf14aConfig(&c);
             break;
         }
@@ -1609,7 +1701,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         }
         case CMD_HF_ISO14443A_SNIFF: {
             SniffIso14443a(packet->data.asBytes[0]);
-            reply_ng(CMD_HF_ISO14443A_SNIFF, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_HF_ISO14443A_SNIFF, PM3_SUCCESS, nullptr, 0);
             break;
         }
         case CMD_HF_ISO14443A_READER: {
@@ -1723,7 +1815,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         case CMD_HF_MIFARE_WRITEBL_EX: {
             mf_writeblock_ex_t *payload = (mf_writeblock_ex_t *)packet->data.asBytes;
             int16_t retval = mifare_cmd_writeblocks(payload->wakeup, payload->auth_cmd, payload->key, payload->write_cmd, payload->block_no, 1, payload->block_data);
-            reply_ng(CMD_HF_MIFARE_WRITEBL_EX, retval, NULL, 0);
+            reply_ng(CMD_HF_MIFARE_WRITEBL_EX, retval, nullptr, 0);
             break;
         }
         case CMD_HF_MIFARE_VALUE: {
@@ -1801,7 +1893,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         }
         case CMD_HF_MIFARE_EML_MEMCLR: {
             MifareEMemClr();
-            reply_ng(CMD_HF_MIFARE_EML_MEMCLR, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_HF_MIFARE_EML_MEMCLR, PM3_SUCCESS, nullptr, 0);
             FpgaDownloadAndGo(FPGA_BITSTREAM_HF);
             break;
         }
@@ -1899,7 +1991,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
             int16_t retval = mifare_cmd_writeblocks(MF_WAKE_WUPA, MIFARE_MAGIC_GDM_AUTH_KEY, payload->key, MIFARE_MAGIC_GDM_WRITEBLOCK, payload->blockno, 1, payload->data);
-            reply_ng(CMD_HF_MIFARE_G4_GDM_WRBL, retval, NULL, 0);
+            reply_ng(CMD_HF_MIFARE_G4_GDM_WRBL, retval, nullptr, 0);
             break;
         }
         case CMD_HF_MIFARE_PERSONALIZE_UID: {
@@ -1977,7 +2069,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             MifareHasStaticEncryptedNonce(payload->block_no, payload->key_type, payload->key);
             break;
         }
-#endif
+#endif // WITH_ISO14443a
 
 #ifdef WITH_NFCBARCODE
         case CMD_HF_THINFILM_READ: {
@@ -1999,7 +2091,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
             SniffIClass(payload->jam_search_len, payload->jam_search_string);
-            reply_ng(CMD_HF_ICLASS_SNIFF, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_HF_ICLASS_SNIFF, PM3_SUCCESS, nullptr, 0);
             break;
         }
         case CMD_HF_ICLASS_SIMULATE: {
@@ -2032,7 +2124,7 @@ static void PacketReceived(PacketCommandNG *packet) {
                 uint8_t data[];
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
-            emlSet(payload->data, payload->offset, payload->len);
+            set_emulator_memory(payload->data, payload->offset, payload->len);
             break;
         }
         case CMD_HF_ICLASS_WRITEBL: {
@@ -2120,17 +2212,25 @@ static void PacketReceived(PacketCommandNG *packet) {
                 uint8_t data[400];
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
-            uint8_t *mem = BigBuf_get_addr();
-            memcpy(mem + payload->idx, payload->data, payload->bytes_in_packet);
-
-            uint8_t a = 0, b = 0;
-            compute_crc(CRC_14443_A, mem + payload->idx,  payload->bytes_in_packet, &a, &b);
             int res = PM3_SUCCESS;
-            if (payload->crc != (a << 8 | b)) {
-                DbpString("CRC Failed");
-                res = PM3_ESOFT;
+
+            uint8_t *mem = (uint8_t*)palloc(1, (payload->bytes_in_packet + payload->crc + sizeof(payload->data)));
+            if(mem == nullptr) {
+                res = PM3_EMALLOC;
+                DbpString("Unable to allocate memory!");
+            } else {
+                palloc_copy(mem + payload->idx, payload->data, payload->bytes_in_packet);
+
+                uint8_t a = 0, b = 0;
+                compute_crc(CRC_14443_A, mem + payload->idx,  payload->bytes_in_packet, &a, &b);
+                if (payload->crc != (a << 8 | b)) {
+                    DbpString("CRC Failed");
+                    res = PM3_ESOFT;
+                }
+                palloc_free(mem);
             }
-            reply_ng(CMD_SMART_UPLOAD, res, NULL, 0);
+
+            reply_ng(CMD_SMART_UPLOAD, res, nullptr, 0);
             break;
         }
         case CMD_SMART_UPGRADE: {
@@ -2140,17 +2240,24 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
 
-            uint8_t *fwdata = BigBuf_get_addr();
+            uint8_t *fwdata = (uint8_t*)palloc(1, payload->fw_size + payload->crc);
+            if(fwdata == nullptr) {
+                Dbprintf("Unable to allocate memory, aborting...");
+                reply_ng(CMD_SMART_UPGRADE, PM3_EMALLOC, nullptr, 0);
+                break;
+            }
+            
             uint8_t a = 0, b = 0;
             compute_crc(CRC_14443_A, fwdata, payload->fw_size, &a, &b);
 
             if (payload->crc != (a << 8 | b)) {
                 Dbprintf("CRC Failed, 0x[%04x] != 0x[%02x%02x]", payload->crc, a, b);
-                reply_ng(CMD_SMART_UPGRADE, PM3_ESOFT, NULL, 0);
+                reply_ng(CMD_SMART_UPGRADE, PM3_ESOFT, nullptr, 0);
             } else {
                 SmartCardUpgrade(payload->fw_size);
             }
-            fwdata = NULL;
+
+            palloc_free(fwdata);
             break;
         }
 
@@ -2174,7 +2281,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         case CMD_USART_TX: {
             LED_B_ON();
             usart_writebuffer_sync(packet->data.asBytes, packet->length);
-            reply_ng(CMD_USART_TX, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_USART_TX, PM3_SUCCESS, nullptr, 0);
             LED_B_OFF();
             break;
         }
@@ -2185,9 +2292,15 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
 
+            uint8_t *dest = (uint8_t*)palloc(1, USART_FIFOLEN);
+            if(dest == nullptr) {
+                Dbprintf("Unable to allocate memory, aborting...");
+                reply_ng(CMD_USART_RX, PM3_EMALLOC, nullptr, 0);
+                break;
+            }
+
             uint16_t available;
             uint16_t pre_available = 0;
-            uint8_t *dest = BigBuf_malloc(USART_FIFOLEN);
             uint32_t wait = payload->waittime;
 
             StartTicks();
@@ -2208,15 +2321,16 @@ static void PacketReceived(PacketCommandNG *packet) {
                 if (GetTickCountDelta(ti) > wait)
                     break;
             }
+
             if (available > 0) {
                 uint16_t len = usart_read_ng(dest, available);
                 reply_ng(CMD_USART_RX, PM3_SUCCESS, dest, len);
             } else {
-                reply_ng(CMD_USART_RX, PM3_ENODATA, NULL, 0);
+                reply_ng(CMD_USART_RX, PM3_ENODATA, nullptr, 0);
             }
 
             StopTicks();
-            BigBuf_free();
+            palloc_free(dest);
             LED_B_OFF();
             break;
         }
@@ -2229,9 +2343,15 @@ static void PacketReceived(PacketCommandNG *packet) {
             struct p *payload = (struct p *) packet->data.asBytes;
             usart_writebuffer_sync(payload->data, packet->length - sizeof(payload));
 
+            uint8_t *dest = (uint8_t*)palloc(1, USART_FIFOLEN);
+            if(dest == nullptr) {
+                Dbprintf("Unable to allocate memory, aborting...");
+                reply_ng(CMD_USART_TXRX, PM3_EMALLOC, nullptr, 0);
+                break;
+            }
+
             uint16_t available;
             uint16_t pre_available = 0;
-            uint8_t *dest = BigBuf_malloc(USART_FIFOLEN);
             uint32_t wait = payload->waittime;
 
             StartTicks();
@@ -2257,11 +2377,11 @@ static void PacketReceived(PacketCommandNG *packet) {
                 uint16_t len = usart_read_ng(dest, available);
                 reply_ng(CMD_USART_TXRX, PM3_SUCCESS, dest, len);
             } else {
-                reply_ng(CMD_USART_TXRX, PM3_ENODATA, NULL, 0);
+                reply_ng(CMD_USART_TXRX, PM3_ENODATA, nullptr, 0);
             }
 
             StopTicks();
-            BigBuf_free();
+            palloc_free(dest);
             LED_B_OFF();
             break;
         }
@@ -2271,14 +2391,17 @@ static void PacketReceived(PacketCommandNG *packet) {
                 uint8_t parity;
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
+            
             usart_init(payload->baudrate, payload->parity);
-            reply_ng(CMD_USART_CONFIG, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_USART_CONFIG, PM3_SUCCESS, nullptr, 0);
             break;
         }
 #endif
-        case CMD_BUFF_CLEAR: {
-            BigBuf_Clear();
-            BigBuf_free();
+        case CMD_SRAM_CLEAR: {
+            // Palloc no longer requires a command to fully clear space, since it manages all of that
+            // itself.
+
+            // TODO Repurpose this command to something else 
             break;
         }
         case CMD_MEASURE_ANTENNA_TUNING: {
@@ -2287,35 +2410,35 @@ static void PacketReceived(PacketCommandNG *packet) {
         }
         case CMD_MEASURE_ANTENNA_TUNING_HF: {
             if (packet->length != 1)
-                reply_ng(CMD_MEASURE_ANTENNA_TUNING_HF, PM3_EINVARG, NULL, 0);
+                reply_ng(CMD_MEASURE_ANTENNA_TUNING_HF, PM3_EINVARG, nullptr, 0);
 
             switch (packet->data.asBytes[0]) {
                 case 1: // MEASURE_ANTENNA_TUNING_HF_START
                     // Let the FPGA drive the high-frequency antenna around 13.56 MHz.
                     FpgaDownloadAndGo(FPGA_BITSTREAM_HF);
                     FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER);
-                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_HF, PM3_SUCCESS, NULL, 0);
+                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_HF, PM3_SUCCESS, nullptr, 0);
                     break;
                 case 2:
                     if (button_status == BUTTON_SINGLE_CLICK) {
-                        reply_ng(CMD_MEASURE_ANTENNA_TUNING_HF, PM3_EOPABORTED, NULL, 0);
+                        reply_ng(CMD_MEASURE_ANTENNA_TUNING_HF, PM3_EOPABORTED, nullptr, 0);
                     }
                     uint16_t volt = MeasureAntennaTuningHfData();
                     reply_ng(CMD_MEASURE_ANTENNA_TUNING_HF, PM3_SUCCESS, (uint8_t *)&volt, sizeof(volt));
                     break;
                 case 3:
                     FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
-                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_HF, PM3_SUCCESS, NULL, 0);
+                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_HF, PM3_SUCCESS, nullptr, 0);
                     break;
                 default:
-                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_HF, PM3_EINVARG, NULL, 0);
+                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_HF, PM3_EINVARG, nullptr, 0);
                     break;
             }
             break;
         }
         case CMD_MEASURE_ANTENNA_TUNING_LF: {
             if (packet->length != 2)
-                reply_ng(CMD_MEASURE_ANTENNA_TUNING_LF, PM3_EINVARG, NULL, 0);
+                reply_ng(CMD_MEASURE_ANTENNA_TUNING_LF, PM3_EINVARG, nullptr, 0);
 
             switch (packet->data.asBytes[0]) {
                 case 1: // MEASURE_ANTENNA_TUNING_LF_START
@@ -2323,11 +2446,11 @@ static void PacketReceived(PacketCommandNG *packet) {
                     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
                     FpgaWriteConfWord(FPGA_MAJOR_MODE_LF_READER | FPGA_LF_ADC_READER_FIELD);
                     FpgaSendCommand(FPGA_CMD_SET_DIVISOR, packet->data.asBytes[1]);
-                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_LF, PM3_SUCCESS, NULL, 0);
+                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_LF, PM3_SUCCESS, nullptr, 0);
                     break;
                 case 2:
                     if (button_status == BUTTON_SINGLE_CLICK) {
-                        reply_ng(CMD_MEASURE_ANTENNA_TUNING_LF, PM3_EOPABORTED, NULL, 0);
+                        reply_ng(CMD_MEASURE_ANTENNA_TUNING_LF, PM3_EOPABORTED, nullptr, 0);
                     }
 
                     uint32_t volt = MeasureAntennaTuningLfData();
@@ -2335,10 +2458,10 @@ static void PacketReceived(PacketCommandNG *packet) {
                     break;
                 case 3:
                     FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
-                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_LF, PM3_SUCCESS, NULL, 0);
+                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_LF, PM3_SUCCESS, nullptr, 0);
                     break;
                 default:
-                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_LF, PM3_EINVARG, NULL, 0);
+                    reply_ng(CMD_MEASURE_ANTENNA_TUNING_LF, PM3_EINVARG, nullptr, 0);
                     break;
             }
             break;
@@ -2347,7 +2470,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             if (packet->length != sizeof(uint8_t))
                 break;
             ListenReaderField(packet->data.asBytes[0]);
-            reply_ng(CMD_LISTEN_READER_FIELD, PM3_EOPABORTED, NULL, 0);
+            reply_ng(CMD_LISTEN_READER_FIELD, PM3_EOPABORTED, nullptr, 0);
             break;
         }
         case CMD_FPGA_MAJOR_MODE_OFF: { // ## FPGA Control
@@ -2356,11 +2479,17 @@ static void PacketReceived(PacketCommandNG *packet) {
             LED_D_OFF(); // LED D indicates field ON or OFF
             break;
         }
-        case CMD_DOWNLOAD_BIGBUF: {
-            LED_B_ON();
-            uint8_t *mem = BigBuf_get_addr();
+        case CMD_DOWNLOAD_TRACE: {
+            uint16_t *mem = get_current_trace();
+            if(mem == nullptr) {
+                Dbprintf("Unable to send Trace data to client! Current Trace is nullptr!");
+                break;
+            }
+
             uint32_t startidx = packet->oldarg[0];
             uint32_t numofbytes = packet->oldarg[1];
+
+            LED_B_ON();
 
             // arg0 = startindex
             // arg1 = length bytes to transfer
@@ -2369,7 +2498,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             for (size_t i = 0; i < numofbytes; i += PM3_CMD_DATA_SIZE) {
                 size_t len = MIN((numofbytes - i), PM3_CMD_DATA_SIZE);
-                int result = reply_old(CMD_DOWNLOADED_BIGBUF, i, len, BigBuf_get_traceLen(), mem + startidx + i, len);
+                int result = reply_old(CMD_DOWNLOADED_TRACE, i, len, get_trace_length(), mem + startidx + i, len);
                 if (result != PM3_SUCCESS)
                     Dbprintf("transfer to client failed ::  | bytes between %d - %d (%d) | result: %d", i, i + len, len, result);
             }
@@ -2379,7 +2508,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             // arg1 = RFU
             // arg2 = tracelen?
             // asbytes = samplingconfig array
-            reply_mix(CMD_ACK, 1, 0, BigBuf_get_traceLen(), getSamplingConfig(), sizeof(sample_config));
+            reply_mix(CMD_ACK, 1, 0, get_trace_length(), getSamplingConfig(), sizeof(sample_config));
             LED_B_OFF();
             break;
         }
@@ -2400,28 +2529,30 @@ static void PacketReceived(PacketCommandNG *packet) {
             FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
 
             if ((payload->flag & 0x1) == 0x1) {
-                BigBuf_Clear_ext(false);
-                BigBuf_free();
+                release_trace();
             }
 
             // offset should not be over buffer
-            if (payload->offset >= BigBuf_get_size()) {
-                reply_ng(CMD_LF_UPLOAD_SIM_SAMPLES, PM3_EOVFLOW, NULL, 0);
+            if (payload->offset >= palloc_sram_left()) {
+                reply_ng(CMD_LF_UPLOAD_SIM_SAMPLES, PM3_EOVFLOW, nullptr, 0);
                 break;
             }
+
+            start_tracing();
+
             // ensure len bytes copied won't go past end of bigbuf
-            uint16_t len = MIN(BigBuf_get_size() - payload->offset, sizeof(payload->data));
+            uint16_t len = MIN(get_trace_space_left() - payload->offset, sizeof(payload->data));
 
-            uint8_t *mem = BigBuf_get_addr();
+            uint8_t *mem = (uint8_t*)get_current_trace();
 
-            memcpy(mem + payload->offset, &payload->data, len);
-            reply_ng(CMD_LF_UPLOAD_SIM_SAMPLES, PM3_SUCCESS, NULL, 0);
+            palloc_copy(mem + payload->offset, &payload->data, len);
+            reply_ng(CMD_LF_UPLOAD_SIM_SAMPLES, PM3_SUCCESS, nullptr, 0);
             break;
         }
 #endif
-        case CMD_DOWNLOAD_EML_BIGBUF: {
+        case CMD_DOWNLOAD_EMULATOR: {
             LED_B_ON();
-            uint8_t *mem = BigBuf_get_EM_addr();
+            uint8_t *mem = (uint8_t*)get_emulator_address();
             uint32_t startidx = packet->oldarg[0];
             uint32_t numofbytes = packet->oldarg[1];
 
@@ -2431,7 +2562,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             for (size_t i = 0; i < numofbytes; i += PM3_CMD_DATA_SIZE) {
                 size_t len = MIN((numofbytes - i), PM3_CMD_DATA_SIZE);
-                int result = reply_old(CMD_DOWNLOADED_EML_BIGBUF, i, len, 0, mem + startidx + i, len);
+                int result = reply_old(CMD_DOWNLOADED_EMULATOR, i, len, 0, mem + startidx + i, len);
                 if (result != PM3_SUCCESS)
                     Dbprintf("transfer to client failed ::  | bytes between %d - %d (%d) | result: %d", i, i + len, len, result);
             }
@@ -2454,7 +2585,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             uint32_t flags = packet->oldarg[2];
 
             bool isok = true;
-            uint8_t *base = NULL;
+            uint8_t *base = nullptr;
 
             bool raw_address_mode = ((flags & READ_MEM_DOWNLOAD_FLAG_RAW) == READ_MEM_DOWNLOAD_FLAG_RAW);
             if (!raw_address_mode) {
@@ -2474,7 +2605,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             } else {
                 // Allow reading from any memory address and length in special 'raw' mode.
-                base = NULL;
+                base = nullptr;
                 // Boundary check against end of addressable space.
                 if (offset > 0)
                     count = MIN(count, -offset);
@@ -2524,16 +2655,16 @@ static void PacketReceived(PacketCommandNG *packet) {
             LED_B_ON();
             uint8_t filename[32];
             uint8_t *pfilename = packet->data.asBytes;
-            memcpy(filename, pfilename, SPIFFS_OBJ_NAME_LEN);
-            if (g_dbglevel >= DBG_DEBUG) Dbprintf("Filename received for spiffs dump : %s", filename);
+            palloc_copy(filename, pfilename, SPIFFS_OBJ_NAME_LEN);
+            if (PRINT_DEBUG) Dbprintf("Filename received for spiffs dump : %s", filename);
 
             uint32_t size = packet->oldarg[1];
 
-            uint8_t *buff = BigBuf_malloc(size);
-            if (buff == NULL) {
-                if (g_dbglevel >= DBG_DEBUG) Dbprintf("Could not allocate buffer");
+            uint8_t *buff = (uint8_t*)palloc(1, size);
+            if (buff == nullptr) {
+                if (PRINT_DEBUG) Dbprintf("Could not allocate buffer");
                 // Trigger a finish downloading signal with an PM3_EMALLOC
-                reply_ng(CMD_SPIFFS_DOWNLOAD, PM3_EMALLOC, NULL, 0);
+                reply_ng(CMD_SPIFFS_DOWNLOAD, PM3_EMALLOC, nullptr, 0);
             } else {
                 rdv40_spiffs_read_as_filetype((char *)filename, (uint8_t *)buff, size, RDV40_SPIFFS_SAFETY_SAFE);
                 // arg0 = filename
@@ -2547,8 +2678,8 @@ static void PacketReceived(PacketCommandNG *packet) {
                         Dbprintf("transfer to client failed ::  | bytes between %d - %d (%d) | result: %d", i, i + len, len, result);
                 }
                 // Trigger a finish downloading signal with an ACK frame
-                reply_ng(CMD_SPIFFS_DOWNLOAD, PM3_SUCCESS, NULL, 0);
-                BigBuf_free();
+                reply_ng(CMD_SPIFFS_DOWNLOAD, PM3_SUCCESS, nullptr, 0);
+                palloc_free(buff);
             }
             LED_B_OFF();
             break;
@@ -2557,8 +2688,8 @@ static void PacketReceived(PacketCommandNG *packet) {
             LED_B_ON();
             uint8_t filename[32];
             uint8_t *pfilename = packet->data.asBytes;
-            memcpy(filename, pfilename, SPIFFS_OBJ_NAME_LEN);
-            if (g_dbglevel >= DBG_DEBUG) {
+            palloc_copy(filename, pfilename, SPIFFS_OBJ_NAME_LEN);
+            if (PRINT_DEBUG) {
                 Dbprintf("Filename received for spiffs STAT : %s", filename);
             }
 
@@ -2581,12 +2712,12 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
 
-            if (g_dbglevel >= DBG_DEBUG) {
+            if (PRINT_DEBUG) {
                 Dbprintf("Filename received for spiffs REMOVE : %s", payload->fn);
             }
 
             rdv40_spiffs_remove((char *)payload->fn, RDV40_SPIFFS_SAFETY_SAFE);
-            reply_ng(CMD_SPIFFS_REMOVE, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_SPIFFS_REMOVE, PM3_SUCCESS, nullptr, 0);
             LED_B_OFF();
             break;
         }
@@ -2600,13 +2731,13 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
 
-            if (g_dbglevel >= DBG_DEBUG) {
+            if (PRINT_DEBUG) {
                 Dbprintf("SPIFFS RENAME");
                 Dbprintf("Source........ %s", payload->src);
                 Dbprintf("Destination... %s", payload->dest);
             }
             rdv40_spiffs_rename((char *)payload->src, (char *)payload->dest, RDV40_SPIFFS_SAFETY_SAFE);
-            reply_ng(CMD_SPIFFS_RENAME, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_SPIFFS_RENAME, PM3_SUCCESS, nullptr, 0);
             LED_B_OFF();
             break;
         }
@@ -2620,13 +2751,13 @@ static void PacketReceived(PacketCommandNG *packet) {
             } PACKED;
             struct p *payload = (struct p *) packet->data.asBytes;
 
-            if (g_dbglevel >= DBG_DEBUG) {
+            if (PRINT_DEBUG) {
                 Dbprintf("SPIFFS COPY");
                 Dbprintf("Source........ %s", payload->src);
                 Dbprintf("Destination... %s", payload->dest);
             }
             rdv40_spiffs_copy((char *)payload->src, (char *)payload->dest, RDV40_SPIFFS_SAFETY_SAFE);
-            reply_ng(CMD_SPIFFS_COPY, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_SPIFFS_COPY, PM3_SUCCESS, nullptr, 0);
             LED_B_OFF();
             break;
         }
@@ -2635,7 +2766,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             flashmem_write_t *payload = (flashmem_write_t *)packet->data.asBytes;
 
-            if (g_dbglevel >= DBG_DEBUG) {
+            if (PRINT_DEBUG) {
                 Dbprintf("SPIFFS WRITE, dest `%s` with APPEND set to: %c", payload->fn, payload->append ? 'Y' : 'N');
             }
 
@@ -2645,23 +2776,23 @@ static void PacketReceived(PacketCommandNG *packet) {
                 rdv40_spiffs_write((char *) payload->fn, payload->data, payload->bytes_in_packet, RDV40_SPIFFS_SAFETY_SAFE);
             }
 
-            reply_ng(CMD_SPIFFS_WRITE, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_SPIFFS_WRITE, PM3_SUCCESS, nullptr, 0);
             LED_B_OFF();
             break;
         }
         case CMD_SPIFFS_WIPE: {
             LED_B_ON();
             rdv40_spiffs_safe_wipe();
-            reply_ng(CMD_SPIFFS_WIPE, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_SPIFFS_WIPE, PM3_SUCCESS, nullptr, 0);
             LED_B_OFF();
             break;
         }
         case CMD_SPIFFS_ELOAD: {
             LED_B_ON();
 
-            uint8_t *em = BigBuf_get_EM_addr();
-            if (em == NULL) {
-                reply_ng(CMD_SPIFFS_ELOAD, PM3_EMALLOC, NULL, 0);
+            uint8_t *em = (uint8_t*)get_emulator_address();
+            if (em == nullptr) {
+                reply_ng(CMD_SPIFFS_ELOAD, PM3_EMALLOC, nullptr, 0);
                 LED_B_OFF();
                 break;
             }
@@ -2670,13 +2801,13 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             uint32_t size = size_in_spiffs(fn);
             if (size == 0) {
-                reply_ng(CMD_SPIFFS_ELOAD, PM3_SUCCESS, NULL, 0);
+                reply_ng(CMD_SPIFFS_ELOAD, PM3_SUCCESS, nullptr, 0);
                 LED_B_OFF();
                 break;
             }
 
             rdv40_spiffs_read_as_filetype(fn, em, size, RDV40_SPIFFS_SAFETY_SAFE);
-            reply_ng(CMD_SPIFFS_ELOAD, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_SPIFFS_ELOAD, PM3_SUCCESS, nullptr, 0);
             LED_B_OFF();
             break;
         }
@@ -2692,7 +2823,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             flashmem_old_write_t *payload = (flashmem_old_write_t *)packet->data.asBytes;
 
             if (FlashInit() == false) {
-                reply_ng(CMD_FLASHMEM_WRITE, PM3_EIO, NULL, 0);
+                reply_ng(CMD_FLASHMEM_WRITE, PM3_EIO, nullptr, 0);
                 LED_B_OFF();
                 break;
             }
@@ -2723,7 +2854,7 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             uint16_t res = Flash_Write(payload->startidx, payload->data, payload->len);
 
-            reply_ng(CMD_FLASHMEM_WRITE, (res == payload->len) ? PM3_SUCCESS : PM3_ESOFT, NULL, 0);
+            reply_ng(CMD_FLASHMEM_WRITE, (res == payload->len) ? PM3_SUCCESS : PM3_ESOFT, nullptr, 0);
             LED_B_OFF();
             break;
         }
@@ -2751,7 +2882,7 @@ static void PacketReceived(PacketCommandNG *packet) {
         case CMD_FLASHMEM_DOWNLOAD: {
 
             LED_B_ON();
-            uint8_t *mem = BigBuf_malloc(PM3_CMD_DATA_SIZE);
+            uint8_t *mem = (uint8_t*)palloc(1, PM3_CMD_DATA_SIZE);
             uint32_t startidx = packet->oldarg[0];
             uint32_t numofbytes = packet->oldarg[1];
             // arg0 = startindex
@@ -2776,14 +2907,14 @@ static void PacketReceived(PacketCommandNG *packet) {
             FlashStop();
 
             reply_mix(CMD_ACK, 1, 0, 0, 0, 0);
-            BigBuf_free();
+            palloc_free(mem);
             LED_B_OFF();
             break;
         }
         case CMD_FLASHMEM_INFO: {
 
             LED_B_ON();
-            rdv40_validation_t *info = (rdv40_validation_t *)BigBuf_malloc(sizeof(rdv40_validation_t));
+            rdv40_validation_t *info = (rdv40_validation_t *)palloc(1, sizeof(rdv40_validation_t));
 
             bool isok = Flash_ReadData(FLASH_MEM_SIGNATURE_OFFSET, info->signature, FLASH_MEM_SIGNATURE_LEN);
 
@@ -2792,7 +2923,7 @@ static void PacketReceived(PacketCommandNG *packet) {
                 FlashStop();
             }
             reply_mix(CMD_ACK, isok, 0, 0, info, sizeof(rdv40_validation_t));
-            BigBuf_free();
+            palloc_free(info);
 
             LED_B_OFF();
             break;
@@ -2844,7 +2975,7 @@ static void PacketReceived(PacketCommandNG *packet) {
             mainf = AT91C_BASE_PMC->PMC_MCFR & AT91C_CKGR_MAINF;
             Dbprintf(""); // first message gets lost
             Dbprintf("  Slow clock new measured value:.........%d Hz", (16 * MAINCK) / mainf);
-            reply_ng(CMD_TIA, PM3_SUCCESS, NULL, 0);
+            reply_ng(CMD_TIA, PM3_SUCCESS, nullptr, 0);
             break;
         }
         case CMD_STANDALONE: {
@@ -2857,11 +2988,11 @@ static void PacketReceived(PacketCommandNG *packet) {
 
             struct p *payload = (struct p *) packet->data.asBytes;
 
-            uint8_t *bb = BigBuf_get_EM_addr();
+            uint8_t *bb = (uint8_t*)get_emulator_address();
             if (payload->mlen == 0) {
                 bb[0] = payload->arg;
             } else {
-                memcpy(bb, payload->mode, payload->mlen);
+                palloc_copy(bb, payload->mode, payload->mlen);
             }
 
             RunMod();
@@ -2875,42 +3006,31 @@ static void PacketReceived(PacketCommandNG *packet) {
             reply_ng(CMD_PING, PM3_SUCCESS, packet->data.asBytes, packet->length);
             break;
         }
-#ifdef WITH_LCD
-        case CMD_LCD_RESET: {
-            LCDReset();
-            break;
+        case CMD_START_FLASH: {
+            if (g_common_area.flags.bootrom_present) {
+                g_common_area.command = COMMON_AREA_COMMAND_ENTER_FLASH_MODE;
+            }
+
+            // This should flow into the following section, since the code was identical before
         }
-        case CMD_LCD: {
-            LCDSend(packet->oldarg[0]);
-            break;
-        }
-#endif
         case CMD_FINISH_WRITE:
         case CMD_HARDWARE_RESET: {
             usb_disable();
 
             // (iceman) why this wait?
-            SpinDelay(1000);
+            SpinDelay(500); // Reduced wait to 500ms from 1000ms
             AT91C_BASE_RSTC->RSTC_RCR = RST_CONTROL_KEY | AT91C_RSTC_PROCRST;
             // We're going to reset, and the bootrom will take control.
             for (;;) {}
             break;
         }
-        case CMD_START_FLASH: {
-            if (g_common_area.flags.bootrom_present) {
-                g_common_area.command = COMMON_AREA_COMMAND_ENTER_FLASH_MODE;
-            }
-            usb_disable();
-            AT91C_BASE_RSTC->RSTC_RCR = RST_CONTROL_KEY | AT91C_RSTC_PROCRST;
-            // We're going to flash, and the bootrom will take control.
-            for (;;) {}
-            break;
-        }
         case CMD_DEVICE_INFO: {
             uint32_t dev_info = DEVICE_INFO_FLAG_OSIMAGE_PRESENT | DEVICE_INFO_FLAG_CURRENT_MODE_OS;
+
             if (g_common_area.flags.bootrom_present) {
                 dev_info |= DEVICE_INFO_FLAG_BOOTROM_PRESENT;
             }
+
             reply_old(CMD_DEVICE_INFO, dev_info, 0, 0, 0, 0);
             break;
         }
@@ -2922,9 +3042,16 @@ static void PacketReceived(PacketCommandNG *packet) {
 }
 
 void  __attribute__((noreturn)) AppMain(void) {
-
     SpinDelay(100);
-    BigBuf_initialize();
+    
+#ifdef DEBUG_ARM
+    g_dbglevel = DEBUG_LITE;
+#else
+    g_dbglevel = DEBUG_ERROR;
+#endif
+
+    debug_level old_debug_level = g_dbglevel;
+    g_dbglevel = DEBUG_NONE; // Disable debug while we boot up
 
     // Add stack canary
     for (uint32_t *p = _stack_start; p + 0x200 < _stack_end ; ++p) {
@@ -2950,16 +3077,26 @@ void  __attribute__((noreturn)) AppMain(void) {
 
     // Configure MUX
     SetAdcMuxFor(GPIO_MUXSEL_HIPKD);
+    
+    palloc_init();
+    LED_A_ON();
 
     // Load the FPGA image, which we have stored in our flash.
     // (the HF version by default)
-    FpgaDownloadAndGo(FPGA_BITSTREAM_HF);
+    int ret = FpgaDownloadAndGo(FPGA_BITSTREAM_HF);
+    if(ret != PM3_SUCCESS) {
+        LED_A_OFF();
+        LED_B_OFF();
+
+        while(true) {
+            LED_C_INV();
+            SpinDelay(100);
+        }
+    }
+
+    LED_C_ON();
 
     StartTickCount();
-
-#ifdef WITH_LCD
-    LCDInit();
-#endif
 
 #ifdef WITH_SMARTCARD
     I2C_init(false);
@@ -2974,10 +3111,7 @@ void  __attribute__((noreturn)) AppMain(void) {
         FlashStop();
         usb_update_serial(flash_uniqueID);
     }
-#endif
-
-
-#ifdef WITH_FLASH
+    
     // If flash is not present, BUSY_TIMEOUT kicks in, let's do it after USB
     loadT55xxConfig();
 
@@ -2998,15 +3132,19 @@ void  __attribute__((noreturn)) AppMain(void) {
     // against device such as http://www.hobbytronics.co.uk/usb-host-board-v2
     // In other words, keep the interval between usb_enable() and the main loop as short as possible.
     // (AT91F_CDC_Enumerate() will be called in the main loop)
+    LED_D_ON();
     usb_disable();
     usb_enable();
+    LEDsoff();
+
+    g_dbglevel = old_debug_level;
 
     for (;;) {
         WDT_HIT();
 
         if (*_stack_start != 0xdeadbeef) {
-            Dbprintf("DEBUG: increase stack size, currently " _YELLOW_("%d") " bytes", (uint32_t)_stack_end - (uint32_t)_stack_start);
-            Dbprintf("Stack overflow detected");
+            if(PRINT_DEBUG) Dbprintf("DEBUG: increase stack size, currently " _YELLOW_("%d") " bytes", (size_t)_stack_end - (size_t)_stack_start);
+            Dbprintf(_BACK_BRIGHT_RED_("Stack overflow detected!"));
             Dbprintf("--> Unplug your device now! <--");
             hf_field_off();
             while (1);
@@ -3014,13 +3152,12 @@ void  __attribute__((noreturn)) AppMain(void) {
 
         // Check if there is a packet available
         PacketCommandNG rx;
-        memset(&rx.data, 0, sizeof(rx.data));
+        palloc_set(&rx.data, 0, sizeof(rx.data));
 
-        int ret = receive_ng(&rx);
+        ret = receive_ng(&rx);
         if (ret == PM3_SUCCESS) {
             PacketReceived(&rx);
         } else if (ret != PM3_ENODATA) {
-
             Dbprintf("Error in frame reception: %d %s", ret, (ret == PM3_EIO) ? "PM3_EIO" : "");
             // TODO if error, shall we resync ?
         }
@@ -3033,8 +3170,12 @@ void  __attribute__((noreturn)) AppMain(void) {
             * All standalone mod "main loop" should be the RunMod() function.
             */
             allow_send_wtx = false;
+            old_debug_level = g_dbglevel;
+
             RunMod();
+            
             allow_send_wtx = true;
+            g_dbglevel = old_debug_level; // Reset the debug level if the standalone mode changes it
         }
     }
 }

@@ -138,11 +138,13 @@ THUMBSRC = start.c \
     commonutil.c \
     util.c \
     string.c \
-    BigBuf.c \
     ticks.c \
     clocks.c \
     hfsnoop.c \
-    generator.c
+    generator.c \
+    palloc.c \
+    tracer.c \
+    cardemu.c
 
 
 # These are to be compiled in ARM mode

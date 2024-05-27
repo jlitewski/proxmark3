@@ -21,7 +21,8 @@
 #include "proxmark3_arm.h"
 #include "cmd.h"
 #include "appmain.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "iso14443a.h"
 #include "fpgaloader.h"
 #include "ticks.h"
@@ -37,20 +38,20 @@
 
 void ReadThinFilm(void) {
 
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
 
     iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
 
     uint8_t len = 0;
-    uint8_t buf[36] = {0x00};
+    uint8_t data[36] = {0x00};
 
     // power on and listen for answer.
-    bool status = GetIso14443aAnswerFromTag_Thinfilm(buf, &len);
-    reply_ng(CMD_HF_THINFILM_READ, status ? PM3_SUCCESS : PM3_ENODATA, buf, len);
+    bool status = GetIso14443aAnswerFromTag_Thinfilm(data, &len);
+    reply_ng(CMD_HF_THINFILM_READ, status ? PM3_SUCCESS : PM3_ENODATA, data, len);
 
     hf_field_off();
-    set_tracing(false);
+    stop_tracing();
 }
 
 #define SEC_D 0xf0
@@ -63,19 +64,18 @@ static uint16_t ReadReaderField(void) {
 }
 
 static void CodeThinfilmAsTag(const uint8_t *cmd, uint16_t len) {
+    reset_fpga_queue();
 
-    tosend_reset();
-
-    tosend_t *ts = get_tosend();
+    fpga_queue_t *queue = get_fpga_queue();
 
     for (uint16_t i = 0; i < len; i++) {
         uint8_t b = cmd[i];
         for (uint8_t j = 0; j < 8; j++) {
-            ts->buf[++ts->max] = (b & 0x80) ? SEC_D : SEC_E;
+            queue->data[++queue->max] = (b & 0x80) ? SEC_D : SEC_E;
             b <<= 1;
         }
     }
-    ts->max++;
+    queue->max++;
 }
 
 static int EmSendCmdThinfilmRaw(const uint8_t *resp, uint16_t respLen) {
@@ -88,7 +88,6 @@ static int EmSendCmdThinfilmRaw(const uint8_t *resp, uint16_t respLen) {
         if (AT91C_BASE_SSC->SSC_RHR) break;
     }
     while ((ThisTransferTime = GetCountSspClk()) & 0x00000007);
-
 
     // Clear TXRDY:
     AT91C_BASE_SSC->SSC_THR = SEC_F;
@@ -143,7 +142,7 @@ void SimulateThinFilm(uint8_t *data, size_t len) {
     int16_t status = PM3_SUCCESS;
     CodeThinfilmAsTag(data, len);
 
-    tosend_t *ts = get_tosend();
+    fpga_queue_t *queue = get_fpga_queue();
 
     bool reader_detected = false;
     LED_A_ON();
@@ -164,7 +163,7 @@ void SimulateThinFilm(uint8_t *data, size_t len) {
 
         if (hf_av > hf_baseline + 10) {
 
-            EmSendCmdThinfilmRaw(ts->buf, ts->max);
+            EmSendCmdThinfilmRaw(queue->data, queue->max);
 
             if (reader_detected == false) {
                 LED_B_ON();

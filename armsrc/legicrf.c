@@ -23,14 +23,16 @@
 
 #include "proxmark3_arm.h"
 #include "cmd.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "fpgaloader.h"
 #include "ticks.h"
 #include "dbprint.h"
 #include "util.h"
 #include "protocols.h"
 
-static uint8_t *legic_mem;      /* card memory, used for read, write */
+static memptr_t *legic_mem;      /* card memory, used for read, write */
 static legic_card_select_t card;/* metadata of currently selected card */
 static crc_t legic_crc;
 
@@ -187,7 +189,7 @@ static void tx_frame(uint32_t frame, uint8_t len) {
 
     // log
     uint8_t cmdbytes[] = {len, BYTEx(frame, 0), BYTEx(frame, 1), BYTEx(frame, 2)};
-    LogTrace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, true);
+    log_trace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, true);
 }
 
 static uint32_t rx_frame(uint8_t len) {
@@ -212,7 +214,7 @@ static uint32_t rx_frame(uint8_t len) {
 
     // log
     uint8_t cmdbytes[] = {len, BYTEx(frame, 0), BYTEx(frame, 1)};
-    LogTrace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, false);
+    log_trace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, false);
 
     return frame;
 }
@@ -246,7 +248,7 @@ static bool rx_ack(void) {
 
     // log
     uint8_t cmdbytes[] = {1, BYTEx(ack, 0)};
-    LogTrace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, false);
+    log_trace(cmdbytes, sizeof(cmdbytes), last_frame_start, last_frame_end, NULL, false);
 
     return ack;
 }
@@ -298,15 +300,16 @@ static void init_reader(void) {
     AT91C_BASE_PIOA->PIO_PER = GPIO_SSC_DOUT;
     LOW(GPIO_SSC_DOUT);
 
-    // reserve a cardmem, meaning we can use the tracelog function in bigbuff easier.
-    legic_mem = BigBuf_get_EM_addr();
-    if (legic_mem) {
-        memset(legic_mem, 0x00, LEGIC_CARD_MEMSIZE);
+    // reserve the emulator
+    if(has_emulator_data()) {
+        release_emuator(); // Release whatever we have in the emulator and give the data back to Palloc
     }
 
+    legic_mem = get_emulator_address();
+
     // start trace
-    clear_trace();
-    set_tracing(true);
+    release_trace();
+    start_tracing();
 
     // init crc calculator
     crc_init(&legic_crc, 4, 0x19 >> 1, 0x05, 0);

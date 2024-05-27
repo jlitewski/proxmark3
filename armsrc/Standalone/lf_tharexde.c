@@ -21,7 +21,7 @@
 #include "standalone.h"
 #include "proxmark3_arm.h"
 #include "appmain.h"
-#include "BigBuf.h"
+#include "palloc.h"
 #include "commonutil.h"
 #include "fpgaloader.h"
 #include "util.h"
@@ -103,7 +103,7 @@ static bool get_input_data_from_file(uint32_t *tag, char *inputfile) {
     if (exists_in_spiffs(inputfile)) {
 
         uint32_t size = size_in_spiffs(inputfile);
-        uint8_t *mem = BigBuf_malloc(size);
+        uint8_t *mem = palloc(1, size);
 
         Dbprintf(_YELLOW_("found input file %s"), inputfile);
 
@@ -117,11 +117,11 @@ static bool get_input_data_from_file(uint32_t *tag, char *inputfile) {
         }
 
         Dbprintf(_YELLOW_("read tag data from input file"));
+
+        palloc_free(mem);
     } else {
         Dbprintf(_RED_("no input file %s"), inputfile);
     }
-
-    BigBuf_free();
 
     return ((now == EM4X50_NO_WORDS) && (tag[EM4X50_DEVICE_SERIAL] != tag[EM4X50_DEVICE_ID]));
 }
@@ -216,7 +216,7 @@ void RunMod(void) {
                 g_WritePasswordProcess = false;
                 command = EM4X50_COMMAND_STANDARD_READ;
                 no_pwd = 0;
-                memset(pwdlist, 0, sizeof(pwdlist));
+                palloc_set(pwdlist, 0, sizeof(pwdlist));
 
                 em4x50_setup_sim();
                 state_change = false;
@@ -262,12 +262,12 @@ void RunMod(void) {
             }
 
             no_words = 0;
-            memset(tag, 0, sizeof(tag));
+            palloc_set(tag, 0, sizeof(tag));
             standard_read(&no_words, tag);
 
             if (no_words > 0) {
 
-                memset(entry, 0, sizeof(entry));
+                palloc_set(entry, 0, sizeof(entry));
 
                 sprintf((char *)entry, "found EM4x50 tag:\n");
                 for (int i = 0; i < no_words; i++) {

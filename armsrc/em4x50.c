@@ -15,19 +15,23 @@
 //-----------------------------------------------------------------------------
 // Low frequency EM4x50 commands
 //-----------------------------------------------------------------------------
+#include "em4x50.h"
 
 #include "fpgaloader.h"
 #include "ticks.h"
 #include "dbprint.h"
-#include "lfsampling.h"
 #include "lfadc.h"
 #include "lfdemod.h"
 #include "commonutil.h"
-#include "em4x50.h"
-#include "BigBuf.h"
-#include "spiffs.h"
+#include "palloc.h"
+#include "pm3_cmd.h"
+#include "cardemu.h"
 #include "appmain.h" // tear
 #include "bruteforce.h"
+
+#ifdef WITH_FLASH
+#include "spiffs.h"
+#endif
 
 // Sam7s has several timers, we will use the source TIMER_CLOCK1 (aka AT91C_TC_CLKS_TIMER_DIV1_CLOCK)
 // TIMER_CLOCK1 = MCK/2, MCK is running at 48 MHz, Timer is running at 48/2 = 24 MHz
@@ -191,7 +195,7 @@ static bool get_signalproperties(void) {
     uint8_t sample_max_mean = 0;
     uint8_t sample_max[no_periods];
     uint32_t sample_max_sum = 0;
-    memset(sample_max, 0x00, sizeof(sample_max));
+    palloc_set(sample_max, 0x00, sizeof(sample_max));
 
     // wait until signal/noise > 1 (max. 32 periods)
     for (int i = 0; i < EM4X50_T_TAG_WAITING_FOR_SIGNAL; i++) {
@@ -626,7 +630,7 @@ static int login(uint32_t password) {
             return PM3_SUCCESS;
 
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("error in command request");
     }
 
@@ -743,13 +747,11 @@ void em4x50_chk(const char *filename, bool ledcontrol) {
 
 #ifdef WITH_FLASH
 
-    BigBuf_free();
-
     int changed = rdv40_spiffs_lazy_mount();
     uint16_t pwd_count = 0;
     uint32_t size = size_in_spiffs(filename);
     pwd_count = size / 4;
-    uint8_t *pwds = BigBuf_malloc(size);
+    uint8_t *pwds = (uint8_t*)palloc(1, size);
 
     rdv40_spiffs_read_as_filetype(filename, pwds, size, RDV40_SPIFFS_SAFETY_SAFE);
 
@@ -789,7 +791,7 @@ void em4x50_chk(const char *filename, bool ledcontrol) {
         }
     }
 
-    BigBuf_free();
+    palloc_free(pwds);
 
 #endif
 
@@ -809,7 +811,7 @@ static int reset(void) {
             return PM3_SUCCESS;
 
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("error in command request");
     }
 
@@ -836,7 +838,7 @@ int standard_read(int *now, uint32_t *words) {
         *now -= fwr;
 
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("didn't find a listen window");
     }
 
@@ -869,7 +871,7 @@ static int selective_read(uint32_t addresses, uint32_t *words) {
                     return status;
 
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("error in command request");
     }
 
@@ -998,7 +1000,7 @@ static int write(uint32_t word, uint32_t addresses) {
             }
         }
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("error in command request");
     }
 
@@ -1047,7 +1049,7 @@ static int write_password(uint32_t password, uint32_t new_password) {
             }
         }
     } else {
-        if (g_dbglevel >= DBG_DEBUG)
+        if (PRINT_DEBUG)
             Dbprintf("error in command request");
     }
 
@@ -1814,7 +1816,7 @@ void em4x50_sim(const uint32_t *password, bool ledcontrol) {
 
     int command = PM3_ENODATA;
 
-    uint8_t *em4x50_mem = BigBuf_get_EM_addr();
+    uint8_t *em4x50_mem = (uint8_t*)get_emulator_address();
     uint32_t tag[EM4X50_NO_WORDS] = {0x0};
 
     for (int i = 0; i < EM4X50_NO_WORDS; i++)
@@ -1856,7 +1858,7 @@ void em4x50_sim(const uint32_t *password, bool ledcontrol) {
         }
     }
 
-    BigBuf_free();
+    release_emuator();
     lf_finalize(ledcontrol);
     reply_ng(CMD_LF_EM4X50_SIM, command, NULL, 0);
 }

@@ -17,7 +17,9 @@
 
 #include "proxmark3_arm.h"
 #include "cmd.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "fpgaloader.h"
 #include "ticks.h"
 #include "dbprint.h"
@@ -27,15 +29,22 @@
 #define T0_PCF 8 //period for the pcf7931 in us
 #define ALLOC 16
 
+// TODO See if this stores everything in the stack, and if so, move it to palloc
+
 size_t DemodPCF7931(uint8_t **outBlocks, bool ledcontrol) {
 
     // 2021 iceman, memor
     uint8_t bits[256] = {0x00};
     uint8_t blocks[8][16];
 
-    uint8_t *dest = BigBuf_get_addr();
+    uint16_t *dest = get_current_trace();
 
-    int g_GraphTraceLen = BigBuf_max_traceLen();
+    if(dest == nullptr) {
+        Dbprintf("No Trace data has been set up!");
+        return 0;
+    }
+
+    uint16_t g_GraphTraceLen = get_max_trace_length();
     if (g_GraphTraceLen > 18000) {
         g_GraphTraceLen = 18000;
     }
@@ -49,7 +58,6 @@ size_t DemodPCF7931(uint8_t **outBlocks, bool ledcontrol) {
     int lmin = 64, lmax = 192;
     uint8_t dir;
 
-    BigBuf_Clear_keep_EM();
     LFSetupFPGAForADC(LF_DIVISOR_125, true);
     DoAcquisition_default(0, true, ledcontrol);
 
@@ -116,7 +124,7 @@ size_t DemodPCF7931(uint8_t **outBlocks, bool ledcontrol) {
                 // Error
                 if (++warnings > 10) {
 
-                    if (g_dbglevel >= DBG_EXTENDED) {
+                    if (PRINT_EXTEND) {
                         Dbprintf("Error: too many detection errors, aborting");
                     }
 
@@ -158,7 +166,7 @@ size_t DemodPCF7931(uint8_t **outBlocks, bool ledcontrol) {
             break;
         }
     }
-    memcpy(outBlocks, blocks, 16 * num_blocks);
+    palloc_copy(outBlocks, blocks, 16 * num_blocks);
     return num_blocks;
 }
 
@@ -216,15 +224,15 @@ void ReadPCF7931(bool ledcontrol) {
     int errors = 0; // error counter
     int tries = 0; // tries counter
 
-    memset(memory_blocks, 0, 8 * 17 * sizeof(uint8_t));
-    memset(single_blocks, 0, 8 * 17 * sizeof(uint8_t));
+    palloc_set(memory_blocks, 0, 8 * 17 * sizeof(uint8_t));
+    palloc_set(single_blocks, 0, 8 * 17 * sizeof(uint8_t));
 
     int i = 0, j = 0;
 
     do {
-        i = 0;
-
-        memset(tmp_blocks, 0, 4 * 16 * sizeof(uint8_t));
+        if(i > 0) i = 0;
+        
+        palloc_set(tmp_blocks, 0, 4 * 16 * sizeof(uint8_t));
         n = DemodPCF7931((uint8_t **)tmp_blocks, ledcontrol);
         if (!n)
             ++errors;
@@ -232,7 +240,7 @@ void ReadPCF7931(bool ledcontrol) {
         // exit if no block is received
         if (errors >= 10 && found_blocks == 0 && single_blocks_cnt == 0) {
 
-            if (g_dbglevel >= DBG_INFO)
+            if (PRINT_INFO)
                 Dbprintf("[!!] Error, no tag or bad tag");
 
             return;
@@ -240,7 +248,7 @@ void ReadPCF7931(bool ledcontrol) {
         // exit if too many errors during reading
         if (tries > 50 && (2 * errors > tries)) {
 
-            if (g_dbglevel >= DBG_INFO) {
+            if (PRINT_INFO) {
                 Dbprintf("[!!] Error reading the tag, only partial content");
             }
 
@@ -262,7 +270,7 @@ void ReadPCF7931(bool ledcontrol) {
                     }
                 }
                 if (j != 1) {
-                    memcpy(single_blocks[single_blocks_cnt], tmp_blocks[0], 16);
+                    palloc_copy(single_blocks[single_blocks_cnt], tmp_blocks[0], 16);
                     print_result("got single block", single_blocks[single_blocks_cnt], 16);
                     single_blocks_cnt++;
                 }
@@ -272,7 +280,7 @@ void ReadPCF7931(bool ledcontrol) {
             continue;
         }
 
-        if (g_dbglevel >= DBG_EXTENDED)
+        if (PRINT_EXTEND)
             Dbprintf("(dbg) got %d blocks (%d/%d found) (%d tries, %d errors)", n, found_blocks, (max_blocks == 0 ? found_blocks : max_blocks), tries, errors);
 
         for (i = 0; i < n; ++i) {
@@ -284,8 +292,8 @@ void ReadPCF7931(bool ledcontrol) {
             while (i < n - 1) {
                 if (IsBlock0PCF7931(tmp_blocks[i]) && IsBlock1PCF7931(tmp_blocks[i + 1])) {
                     found_0_1 = 1;
-                    memcpy(memory_blocks[0], tmp_blocks[i], 16);
-                    memcpy(memory_blocks[1], tmp_blocks[i + 1], 16);
+                    palloc_copy(memory_blocks[0], tmp_blocks[i], 16);
+                    palloc_copy(memory_blocks[1], tmp_blocks[i + 1], 16);
                     memory_blocks[0][ALLOC] = memory_blocks[1][ALLOC] = 1;
                     // block 1 tells how many blocks are going to be sent
                     max_blocks = MAX((memory_blocks[1][14] & 0x7f), memory_blocks[1][15]) + 1;
@@ -295,7 +303,7 @@ void ReadPCF7931(bool ledcontrol) {
 
                     // handle the following blocks
                     for (j = i + 2; j < n; ++j) {
-                        memcpy(memory_blocks[found_blocks], tmp_blocks[j], 16);
+                        palloc_copy(memory_blocks[found_blocks], tmp_blocks[j], 16);
                         memory_blocks[found_blocks][ALLOC] = 1;
                         ++found_blocks;
                     }
@@ -311,7 +319,7 @@ void ReadPCF7931(bool ledcontrol) {
                 if (memcmp(tmp_blocks[i], "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 16)) {
                     for (j = 1; j < max_blocks - 1; ++j) {
                         if (!memcmp(tmp_blocks[i], memory_blocks[j], 16) && !memory_blocks[j + 1][ALLOC]) {
-                            memcpy(memory_blocks[j + 1], tmp_blocks[i + 1], 16);
+                            palloc_copy(memory_blocks[j + 1], tmp_blocks[i + 1], 16);
                             memory_blocks[j + 1][ALLOC] = 1;
                             if (++found_blocks >= max_blocks) goto end;
                         }
@@ -321,10 +329,10 @@ void ReadPCF7931(bool ledcontrol) {
                     for (j = 0; j < max_blocks; ++j) {
                         if (!memcmp(tmp_blocks[i + 1], memory_blocks[j], 16) && !memory_blocks[(j == 0 ? max_blocks : j) - 1][ALLOC]) {
                             if (j == 0) {
-                                memcpy(memory_blocks[max_blocks - 1], tmp_blocks[i], 16);
+                                palloc_copy(memory_blocks[max_blocks - 1], tmp_blocks[i], 16);
                                 memory_blocks[max_blocks - 1][ALLOC] = 1;
                             } else {
-                                memcpy(memory_blocks[j - 1], tmp_blocks[i], 16);
+                                palloc_copy(memory_blocks[j - 1], tmp_blocks[i], 16);
                                 memory_blocks[j - 1][ALLOC] = 1;
                             }
                             if (++found_blocks >= max_blocks) goto end;
@@ -336,7 +344,7 @@ void ReadPCF7931(bool ledcontrol) {
         }
         ++tries;
         if (BUTTON_PRESS()) {
-            if (g_dbglevel >= DBG_EXTENDED)
+            if (PRINT_EXTEND)
                 Dbprintf("Button pressed, stopping.");
 
             goto end;
@@ -451,7 +459,7 @@ static void RealWritePCF7931(uint8_t *pass, uint16_t init_delay, int32_t l, int3
  */
 void WritePCF7931(uint8_t pass1, uint8_t pass2, uint8_t pass3, uint8_t pass4, uint8_t pass5, uint8_t pass6, uint8_t pass7, uint16_t init_delay, int32_t l, int32_t p, uint8_t address, uint8_t byte, uint8_t data, bool ledcontrol) {
 
-    if (g_dbglevel >= DBG_INFO) {
+    if (PRINT_INFO) {
         Dbprintf("Initialization delay : %d us", init_delay);
         Dbprintf("Offsets : %d us on the low pulses width, %d us on the low pulses positions", l, p);
     }
@@ -474,7 +482,7 @@ void WritePCF7931(uint8_t pass1, uint8_t pass2, uint8_t pass3, uint8_t pass4, ui
 void SendCmdPCF7931(const uint32_t *tab, bool ledcontrol) {
     uint16_t u = 0, tempo = 0;
 
-    if (g_dbglevel >= DBG_INFO) {
+    if (PRINT_INFO) {
         Dbprintf("Sending data frame...");
     }
 

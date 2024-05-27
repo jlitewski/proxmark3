@@ -31,7 +31,8 @@
 #include "appmain.h"
 #include "dbprint.h"
 #include "ticks.h"
-#include "BigBuf.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "crc16.h"
 
 #define AddCrc15(data, len)     compute_crc(CRC_15693, (data), (len), (data)+(len), (data)+(len)+1)
@@ -69,7 +70,7 @@ void RunMod(void) {
 
     FpgaDownloadAndGo(FPGA_BITSTREAM_HF_15);
 
-    iso15_tag_t *tag = (iso15_tag_t *) BigBuf_get_EM_addr();
+    iso15_tag_t *tag = (iso15_tag_t *) get_emulator_address();
     if (tag == NULL) return;
 
     uint8_t cmd[8] = {0};
@@ -189,7 +190,7 @@ void RunMod(void) {
     Dbprintf("Simulation stopped");
     SpinDelay(200);
 
-    uint32_t trace_len = BigBuf_get_traceLen();
+    uint32_t trace_len = get_trace_length();
 #ifndef WITH_FLASH
     // Keep stuff in BigBuf for USB/BT dumping
     if (trace_len > 0)
@@ -199,7 +200,7 @@ void RunMod(void) {
     if (trace_len > 0) {
         Dbprintf("[!] Trace length (bytes) = %u", trace_len);
 
-        uint8_t *trace_buffer = BigBuf_get_addr();
+        uint8_t *trace_buffer = (uint8_t*)get_current_trace();
         if (!exists_in_spiffs(HF_15693SIM_LOGFILE)) {
             rdv40_spiffs_write(
                 HF_15693SIM_LOGFILE,

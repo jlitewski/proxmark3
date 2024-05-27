@@ -19,9 +19,13 @@
 //-----------------------------------------------------------------------------
 #include "fpgaloader.h"
 
+#include "at91sam7s512.h"
+#include "config_gpio.h"
 #include "proxmark3_arm.h"
 #include "appmain.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "ticks.h"
 #include "dbprint.h"
 #include "util.h"
@@ -38,12 +42,12 @@ typedef struct {
 typedef lz4_stream_t *lz4_streamp_t;
 
 // remember which version of the bitstream we have already downloaded to the FPGA
-static int downloaded_bitstream = 0;
+static uint8_t downloaded_bitstream = 0;
 
 // this is where the bitstreams are located in memory:
 extern uint32_t _binary_obj_fpga_all_bit_z_start[], _binary_obj_fpga_all_bit_z_end[];
 
-static uint8_t *fpga_image_ptr = NULL;
+static uint8_t *fpga_image_ptr = nullptr;
 static uint32_t uncompressed_bytes_cnt;
 
 //-----------------------------------------------------------------------------
@@ -184,12 +188,12 @@ void FpgaSetupSsc(uint16_t fpga_mode) {
 // ourselves, not to another buffer).
 //-----------------------------------------------------------------------------
 bool FpgaSetupSscDma(uint8_t *buf, uint16_t len) {
-    if (buf == NULL) return false;
+    if (buf == nullptr) return false;
 
     FpgaDisableSscDma();
-    AT91C_BASE_PDC_SSC->PDC_RPR = (uint32_t) buf;  // transfer to this memory address
+    AT91C_BASE_PDC_SSC->PDC_RPR = (size_t)buf;  // transfer to this memory address
     AT91C_BASE_PDC_SSC->PDC_RCR = len;             // transfer this many bytes
-    AT91C_BASE_PDC_SSC->PDC_RNPR = (uint32_t) buf; // next transfer to same memory address
+    AT91C_BASE_PDC_SSC->PDC_RNPR = (size_t)buf; // next transfer to same memory address
     AT91C_BASE_PDC_SSC->PDC_RNCR = len;            // ... with same number of bytes
     FpgaEnableSscDma();
     return true;
@@ -246,7 +250,7 @@ static bool reset_fpga_stream(int bitstream_version, lz4_streamp_t compressed_fp
     compressed_fpga_stream->next_in = (char *)_binary_obj_fpga_all_bit_z_start;
     compressed_fpga_stream->avail_in = (uint32_t)_binary_obj_fpga_all_bit_z_end - (uint32_t)_binary_obj_fpga_all_bit_z_start;
 
-    int res = LZ4_setStreamDecode(compressed_fpga_stream->lz4StreamDecode, NULL, 0);
+    int res = LZ4_setStreamDecode(compressed_fpga_stream->lz4StreamDecode, nullptr, 0);
     if (res == 0)
         return false;
 
@@ -475,38 +479,40 @@ static bool FpgaConfCurrentMode(int bitstream_version) {
 // Check which FPGA image is currently loaded (if any). If necessary
 // decompress and load the correct (HF or LF) image to the FPGA
 //----------------------------------------------------------------------------
-void FpgaDownloadAndGo(int bitstream_version) {
+int8_t FpgaDownloadAndGo(uint8_t bitstream_version) {
 
     // check whether or not the bitstream is already loaded
     if (downloaded_bitstream == bitstream_version) {
         FpgaEnableTracing();
-        return;
+        return PM3_SUCCESS;
     }
 
 #if defined XC3
     // If we can change image version
     // direct return.
     if (FpgaConfCurrentMode(bitstream_version)) {
-        return;
+        return PM3_SUCCESS;
     }
 #endif
 
     // Send waiting time extension request as this will take a while
     send_wtx(FPGA_LOAD_WAIT_TIME);
 
-    bool verbose = (g_dbglevel > 3);
-
-    // make sure that we have enough memory to decompress
-    BigBuf_free();
-    BigBuf_Clear_ext(verbose);
+    // XXX Clear as much memory as we can, since this is a VERY memory intensive task
+    if(has_emulator_data()) release_emuator();
+    if(has_trace_data()) release_trace();
 
     lz4_stream_t compressed_fpga_stream;
     LZ4_streamDecode_t lz4StreamDecode_body = {{ 0 }};
     compressed_fpga_stream.lz4StreamDecode = &lz4StreamDecode_body;
-    uint8_t *output_buffer = BigBuf_malloc(FPGA_RING_BUFFER_BYTES);
+
+    uint8_t *output_buffer = (uint8_t*)palloc(1, FPGA_RING_BUFFER_BYTES);
+    if(output_buffer == nullptr) {
+        return PM3_EMALLOC;
+    }
 
     if (!reset_fpga_stream(bitstream_version, &compressed_fpga_stream, output_buffer))
-        return;
+        return PM3_SUCCESS;
 
     uint32_t bitstream_length;
     if (bitparse_find_section(bitstream_version, 'e', &bitstream_length, &compressed_fpga_stream, output_buffer)) {
@@ -524,8 +530,9 @@ void FpgaDownloadAndGo(int bitstream_version) {
     FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 
     // free eventually allocated BigBuf memory
-    BigBuf_free();
-    BigBuf_Clear_ext(false);
+    palloc_free(output_buffer);
+
+    return PM3_SUCCESS;
 }
 
 //-----------------------------------------------------------------------------
@@ -609,12 +616,12 @@ int FpgaGetCurrent(void) {
     return downloaded_bitstream;
 }
 
-// Turns off the antenna,
-// log message
-// if HF,  Disable SSC DMA
-// turn off trace and leds off.
+/**
+ * @brief Turns off the antenna, stops tracing, and turns off the LEDs.
+ * If needed, it'll also disable the SSC DMA and optionally log a message
+ */
 void switch_off(void) {
-    if (g_dbglevel > 3) {
+    if (PRINT_EXTEND) {
         Dbprintf("switch_off");
     }
 
@@ -623,6 +630,6 @@ void switch_off(void) {
         FpgaDisableSscDma();
     }
 
-    set_tracing(false);
+    stop_tracing();
     LEDsoff();
 }

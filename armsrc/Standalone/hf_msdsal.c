@@ -24,7 +24,8 @@
 #include "dbprint.h"
 #include "ticks.h"
 #include "string.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "iso14443a.h"
 #include "protocols.h"
 #include "cmd.h"
@@ -67,7 +68,6 @@ static uint8_t ppdol [255] = {0x80, 0xA8, 0x00, 0x00, 0x02, 0x83, 0x00};
 
 // Generate GET PROCESSING
 static uint8_t treatPDOL(const uint8_t *apdu) {
-
     uint8_t plen = 7;
 
     // PDOL Format: 80 A8 00 00 + (PDOL Length+2) + 83 + PDOL Length + PDOL + 00
@@ -138,10 +138,6 @@ void RunMod(void) {
     DbpString("");
     FpgaDownloadAndGo(FPGA_BITSTREAM_HF);
 
-    // free eventually allocated BigBuf memory but keep Emulator Memory
-    // also sets HIGH pointer of BigBuf enabling us to malloc w/o fiddling w the reserved emulator memory
-    BigBuf_free_keep_EM();
-
     //For reading process
     iso14a_card_select_t card_a_info;
 
@@ -186,7 +182,10 @@ void RunMod(void) {
     uint8_t *apdus[4] = {ppse, visa, processing, sfi};
     uint8_t apduslen[4] = { sizeof(ppse), sizeof(visa), sizeof(processing), sizeof(sfi)};
 
-    uint8_t pdol[50], plen = 8;
+    uint8_t pdol[50];
+    memset(pdol, 0, sizeof(pdol)); // Zero out the memory to prevent garbage data
+
+    uint8_t plen = 8;
 
     bool existpdol;
 
@@ -374,12 +373,8 @@ void RunMod(void) {
             LED_A_OFF();
             LED_C_ON();
 
-            // free eventually allocated BigBuf memory but keep Emulator Memory
-            BigBuf_free_keep_EM();
-
             // tag type: 11 = ISO/IEC 14443-4 - javacard (JCOP)
             if (SimulateIso14443aInit(11, flags, data, &responses, &cuid, NULL, NULL, NULL) == false) {
-                BigBuf_free_keep_EM();
                 reply_ng(CMD_HF_MIFARE_SIMULATE, PM3_EINIT, NULL, 0);
                 DbpString(_RED_("Error initializing the emulation process!"));
                 SpinDelay(500);
@@ -398,8 +393,8 @@ void RunMod(void) {
             int retval = PM3_SUCCESS;
             bool odd_reply = true;
 
-            clear_trace();
-            set_tracing(true);
+            release_trace();
+            start_tracing();
 
             for (;;) {
                 LED_B_OFF();
@@ -447,7 +442,7 @@ void RunMod(void) {
                     p_response = &responses[RESP_INDEX_RATS];
 
                 } else {
-                    if (g_dbglevel == DBG_DEBUG) {
+                    if (PRINT_DEBUG) {
                         DbpString("[ "_YELLOW_("Card reader command") " ]");
                         Dbhexdump(len, receivedCmd, false);
                     }
@@ -555,8 +550,7 @@ void RunMod(void) {
             }
 
             switch_off();
-            set_tracing(false);
-            BigBuf_free_keep_EM();
+            stop_tracing();
             reply_ng(CMD_HF_MIFARE_SIMULATE, retval, NULL, 0);
         }
     }

@@ -37,42 +37,35 @@ typedef size_t lua_UInteger;
 
 /* Bit type size and limits */
 
-#define BIT_BITS                                                        \
-    (CHAR_BIT * sizeof(lua_Integer) > BITLIB_FLOAT_BITS ?                 \
-     BITLIB_FLOAT_BITS : (CHAR_BIT * sizeof(lua_Integer)))
+#define BIT_BITS (CHAR_BIT * sizeof(lua_Integer) > BITLIB_FLOAT_BITS ? \
+                  BITLIB_FLOAT_BITS : (CHAR_BIT * sizeof(lua_Integer)))
 
 /* This code may give warnings if BITLIB_FLOAT_* are too big to fit in
    long, but that doesn't matter since in that case they won't be
    used. */
-#define BIT_MAX                                                         \
-    (CHAR_BIT * sizeof(lua_Integer) > BITLIB_FLOAT_BITS ? BITLIB_FLOAT_MAX : LUA_INTEGER_MAX)
+#define BIT_MAX  (CHAR_BIT * sizeof(lua_Integer) > BITLIB_FLOAT_BITS ? BITLIB_FLOAT_MAX : LUA_INTEGER_MAX)
 
-#define BIT_MIN                                                         \
-    (CHAR_BIT * sizeof(lua_Integer) > BITLIB_FLOAT_BITS ? BITLIB_FLOAT_MIN : LUA_INTEGER_MIN)
+#define BIT_MIN  (CHAR_BIT * sizeof(lua_Integer) > BITLIB_FLOAT_BITS ? BITLIB_FLOAT_MIN : LUA_INTEGER_MIN)
 
-#define BIT_UMAX                                                        \
-    (CHAR_BIT * sizeof(lua_Integer) > BITLIB_FLOAT_BITS ? BITLIB_FLOAT_UMAX : LUA_UINTEGER_MAX)
+#define BIT_UMAX (CHAR_BIT * sizeof(lua_Integer) > BITLIB_FLOAT_BITS ? BITLIB_FLOAT_UMAX : LUA_UINTEGER_MAX)
 
 
-/* Define TOBIT to get a bit value */
-#ifdef BUILTIN_CAST
-#define
-#define TOBIT(L, n, res)                    \
-    ((void)(res), luaL_checkinteger((L), (n)))
-#else
 #include <stdint.h>
 #include <math.h>
 
-/* FIXME: Assumes lua_Number fits in a double (use of fmod). */
-#define TOBIT(L, n, res)                                            \
-    ((lua_Integer)(((res) = fmod(luaL_checknumber(L, (n)), (double)BIT_UMAX + 1.0)), \
-                   (res) > BIT_MAX ? ((res) -= (double)BIT_UMAX, (res) -= 1) : \
-                   ((res) < BIT_MIN ? ((res) += (double)BIT_UMAX, (res) += 1) : (res))))
-#endif
+static lua_Integer TOBIT(lua_State *state, int32_t numArg, lua_Number *result) {
+    *result = fmod(luaL_checknumber(state, numArg), (double)BIT_UMAX + 1.0);
+    if (*result > BIT_MAX) {
+        *result -= (double)BIT_UMAX;
+        *result -= 1;
+    } else if (*result < BIT_MIN) {
+        *result += (double)BIT_UMAX;
+        *result += 1;
+    }
+    return (lua_Integer)*result;
+}
 
-
-#define BIT_TRUNCATE(i)                         \
-    ((i) & BIT_UMAX)
+#define BIT_TRUNCATE(i) ((i) & BIT_UMAX)
 
 
 /* Operations
@@ -87,40 +80,38 @@ typedef size_t lua_UInteger;
    the sign bits are not removed and right shift work properly.
    */
 
-#define MONADIC(name, op)                                       \
-    static int bit_ ## name(lua_State *L) {                       \
-        lua_Number f;                                               \
-        lua_pushinteger(L, BIT_TRUNCATE(op TOBIT(L, 1, f)));        \
-        return 1;                                                   \
+#define MONADIC(name, op)                            \
+    static int bit_ ## name(lua_State *L) {          \
+        lua_Number f = 0;                            \
+        lua_pushinteger(L, BIT_TRUNCATE(op TOBIT(L, 1, &f))); \
+        return 1;                                    \
     }
 
-#define VARIADIC(name, op)                      \
-    static int bit_ ## name(lua_State *L) {       \
-        lua_Number f;                               \
-        int n = lua_gettop(L), i;                   \
-        lua_Integer w = TOBIT(L, 1, f);             \
-        for (i = 2; i <= n; i++)                    \
-            w op TOBIT(L, i, f);                      \
-        lua_pushinteger(L, BIT_TRUNCATE(w));        \
-        return 1;                                   \
+#define VARIADIC(name, op)                           \
+    static int bit_ ## name(lua_State *L) {          \
+        lua_Number f = 0;                            \
+        int n = lua_gettop(L), i;                    \
+        lua_Integer w = TOBIT(L, 1, &f);             \
+        for (i = 2; i <= n; i++)                     \
+            w op TOBIT(L, i, &f);                    \
+        lua_pushinteger(L, BIT_TRUNCATE(w));         \
+        return 1;                                    \
     }
 
-#define LOGICAL_SHIFT(name, op)                                         \
-    static int bit_ ## name(lua_State *L) {                               \
-        lua_Number f;                                                       \
-        lua_Number n = luaL_checknumber(L, 2);                              \
-        lua_pushinteger(L, BIT_TRUNCATE(BIT_TRUNCATE((lua_UInteger)TOBIT(L, 1, f)) op \
-                                        (unsigned)n)); \
-        return 1;                                                           \
+#define LOGICAL_SHIFT(name, op)                      \
+    static int bit_ ## name(lua_State *L) {          \
+        lua_Number f = 0;                            \
+        lua_Number n = luaL_checknumber(L, 2);       \
+        lua_pushinteger(L, BIT_TRUNCATE(BIT_TRUNCATE((lua_UInteger)TOBIT(L, 1, &f)) op (unsigned)n)); \
+        return 1;                                    \
     }
 
-#define ARITHMETIC_SHIFT(name, op)                                      \
-    static int bit_ ## name(lua_State *L) {                               \
-        lua_Number f;                                                       \
-        lua_Number n = luaL_checknumber(L, 2);                              \
-        lua_pushinteger(L, BIT_TRUNCATE((lua_Integer)TOBIT(L, 1, f) op      \
-                                        (unsigned)n)); \
-        return 1;                                                           \
+#define ARITHMETIC_SHIFT(name, op)                   \
+    static int bit_ ## name(lua_State *L) {          \
+        lua_Number f = 0;                            \
+        lua_Number n = luaL_checknumber(L, 2);       \
+        lua_pushinteger(L, BIT_TRUNCATE((lua_Integer)TOBIT(L, 1, &f) op (unsigned)n)); \
+        return 1;                                    \
     }
 
 MONADIC(cast,  +)

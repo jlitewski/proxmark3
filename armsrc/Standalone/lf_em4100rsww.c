@@ -44,6 +44,8 @@
 // Pressing the button enters the default mode (reading or emulation).
 //-----------------------------------------------------------------------------
 
+// TODO Maybe move parts over to cardemu?
+
 #include "standalone.h"
 #include "proxmark3_arm.h"
 #include "appmain.h"
@@ -52,11 +54,13 @@
 #include "dbprint.h"
 #include "ticks.h"
 #include "string.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "cardemu.h"
 #include "spiffs.h"
 #include "inttypes.h"
 #include "parity.h"
 #include "lfops.h"
+#include "commonutil.h"
 
 #ifdef WITH_FLASH
 #include "flashmem.h"
@@ -64,7 +68,6 @@ char *filename = "lf";
 char *filenameLast = "lf-last";
 #endif
 
-#define LF_CLOCK 64 // for 125kHz
 #define LF_RWSB_T55XX_TYPE 1 // Tag type: 0 - T5555, 1-T55x7
 
 static uint64_t low = 0;
@@ -72,33 +75,26 @@ static uint64_t low2 = 0;
 static uint32_t high = 0;
 static uint32_t high2 = 0;
 static unsigned char mode = 0;
-static int buflen;
+static uint16_t buffer_len;
+static uint16_t *memory_addr = nullptr;
 
 void ModInfo(void) {
     DbpString("=== LF EM4100 read/sim/write/wipe/validate ===");
 }
 
-static uint64_t rev_quads(uint64_t bits) {
-    uint64_t result = 0;
-    for (int i = 0; i < 16; i++) {
-        result += ((bits >> (60 - 4 * i)) & 0xf) << (4 * i);
-    }
-    return result >> 24;
-}
-
 static void fill_buff(uint8_t bit) {
-    uint8_t *bba = BigBuf_get_addr();
-    memset(bba + buflen, bit, LF_CLOCK / 2);
-    buflen += (LF_CLOCK / 2);
-    memset(bba + buflen, bit ^ 1, LF_CLOCK / 2);
-    buflen += (LF_CLOCK / 2);
+    palloc_set((memory_addr + buffer_len), bit, LF_CLK_125KHZ / 2);
+    buffer_len += (LF_CLK_125KHZ / 2);
+
+    palloc_set((memory_addr + buffer_len), bit^1, LF_CLK_125KHZ / 2);
+    buffer_len += (LF_CLK_125KHZ / 2);
 }
 
 static void construct_EM410x_emul(uint64_t id) {
-    int i, j;
+    uint8_t i, j;
     int binary[4] = {0, 0, 0, 0};
     int parity[4] = {0, 0, 0, 0};
-    buflen = 0;
+    buffer_len = 0;
 
     for (i = 0; i < 9; i++)
         fill_buff(1);
@@ -167,7 +163,7 @@ static void Wipe(void) {
         LED_C_ON();
         LED_D_ON();
         copy_em410x_to_t55xx(LF_RWSB_T55XX_TYPE
-                             , LF_CLOCK
+                             , LF_CLK_125KHZ
                              , (uint32_t) 0
                              , (uint32_t) 0
                              , false
@@ -290,7 +286,7 @@ static void Write(void) {
     LED_A_ON();
     LED_B_ON();
     copy_em410x_to_t55xx(LF_RWSB_T55XX_TYPE
-                         , LF_CLOCK
+                         , LF_CLK_125KHZ
                          , (uint32_t)(low >> 32)
                          , (uint32_t)(low & 0xffffffff)
                          , false
@@ -322,7 +318,7 @@ static void Emulate(void) {
 
     LED_B_ON();
     construct_EM410x_emul(rev_quads(low));
-    SimulateTagLowFrequencyEx(buflen, 0, false, -1);
+    SimulateTagLowFrequencyEx(buffer_len, 0, false, -1);
 
     int b = BUTTON_CLICKED(800);
 
@@ -351,6 +347,12 @@ void RunMod() {
     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
     WDT_HIT();
 
+    memory_addr = palloc(1, (MAX_BLOCK_SIZE / 4)); //8k bytes should be enough?
+    if(memory_addr == nullptr) {
+        Dbprintf(_RED_("Unable to allocate memory for the EM4100 REWVW!"));
+        return;
+    }
+
 #ifdef WITH_FLASH
     if (ReadFlash())
         mode = 1;
@@ -369,4 +371,6 @@ void RunMod() {
             Read();
         else Emulate();
     }
+
+    palloc_free(memory_addr);
 }

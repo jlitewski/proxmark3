@@ -19,7 +19,8 @@
 
 #include "proxmark3_arm.h"
 #include "cmd.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
 #include "ticks.h"
 #include "dbprint.h"
 #include "util.h"
@@ -400,7 +401,7 @@ bool I2C_WriteCmd(uint8_t device_cmd, uint8_t device_address) {
 
     if (_break) {
 
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
 
         return false;
     }
@@ -435,7 +436,7 @@ bool I2C_WriteByte(uint8_t data, uint8_t device_cmd, uint8_t device_address) {
 
     I2C_Stop();
     if (_break) {
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
         return false;
     }
     return true;
@@ -478,7 +479,7 @@ bool I2C_BufferWrite(const uint8_t *data, uint16_t len, uint8_t device_cmd, uint
 
     I2C_Stop();
     if (_break) {
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
         return false;
     }
     return true;
@@ -529,7 +530,7 @@ int16_t I2C_BufferRead(uint8_t *data, uint16_t len, uint8_t device_cmd, uint8_t 
 
     if (_break) {
         I2C_Stop();
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
         return 0;
     }
 
@@ -640,7 +641,7 @@ int16_t I2C_ReadFW(uint8_t *data, uint8_t len, uint8_t msb, uint8_t lsb, uint8_t
 
     if (_break) {
         I2C_Stop();
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
         return 0;
     }
 
@@ -712,7 +713,7 @@ bool I2C_WriteFW(const uint8_t *data, uint8_t len, uint8_t msb, uint8_t lsb, uin
     I2C_Stop();
 
     if (_break) {
-        if (g_dbglevel > 3) DbpString(I2C_ERROR);
+        if (PRINT_EXTEND) DbpString(I2C_ERROR);
         return false;
     }
     return true;
@@ -825,14 +826,16 @@ bool GetATR(smart_card_atr_t *card_ptr, bool verbose) {
                 chksum ^= card_ptr->atr[i];
 
             if (chksum) {
-                if (g_dbglevel > 2) DbpString("Wrong ATR checksum");
+                if (PRINT_DEBUG) DbpString("Wrong ATR checksum");
             }
         }
     }
 
     card_ptr->atr_len = (uint8_t)(len & 0xff);
     if (verbose) {
-        LogTrace(card_ptr->atr, card_ptr->atr_len, 0, 0, NULL, false);
+        start_tracing();
+        log_trace(card_ptr->atr, card_ptr->atr_len, 0, 0, NULL, false);
+        stop_tracing();
     }
 
     return true;
@@ -840,15 +843,17 @@ bool GetATR(smart_card_atr_t *card_ptr, bool verbose) {
 
 void SmartCardAtr(void) {
     LED_D_ON();
-    set_tracing(true);
+    start_tracing();
     I2C_Reset_EnterMainProgram();
     smart_card_atr_t card;
+
     if (GetATR(&card, true)) {
         reply_ng(CMD_SMART_ATR, PM3_SUCCESS, (uint8_t *)&card, sizeof(smart_card_atr_t));
     } else {
         reply_ng(CMD_SMART_ATR, PM3_ETIMEOUT, NULL, 0);
     }
-    set_tracing(false);
+
+    stop_tracing();
     LEDsoff();
 //    StopTicks();
 }
@@ -857,17 +862,17 @@ void SmartCardRaw(const smart_card_raw_t *p) {
     LED_D_ON();
 
     uint16_t len = 0;
-    uint8_t *resp = BigBuf_malloc(ISO7816_MAX_FRAME);
+    uint8_t *resp = (uint8_t*)palloc(1, ISO7816_MAX_FRAME);
     // check if alloacted...
     smartcard_command_t flags = p->flags;
 
     if ((flags & SC_CLEARLOG) == SC_CLEARLOG)
-        clear_trace();
+        release_trace();
 
     if ((flags & SC_LOG) == SC_LOG)
-        set_tracing(true);
+        start_tracing();
     else
-        set_tracing(false);
+        stop_tracing();
 
     if ((flags & SC_CONNECT) == SC_CONNECT) {
 
@@ -891,7 +896,7 @@ void SmartCardRaw(const smart_card_raw_t *p) {
             wait = (uint32_t)((p->wait_delay * 1000) / 3.07);
         }
 
-        LogTrace(p->data, p->len, 0, 0, NULL, true);
+        log_trace(p->data, p->len, 0, 0, NULL, true);
 
         bool res = I2C_BufferWrite(
                        p->data,
@@ -900,7 +905,7 @@ void SmartCardRaw(const smart_card_raw_t *p) {
                        I2C_DEVICE_ADDRESS_MAIN
                    );
 
-        if (res == false && g_dbglevel > 3) {
+        if (res == false && PRINT_EXTEND) {
             DbpString(I2C_ERROR);
             reply_ng(CMD_SMART_RAW, PM3_ESOFT, NULL, 0);
             goto OUT;
@@ -910,7 +915,7 @@ void SmartCardRaw(const smart_card_raw_t *p) {
         len = ISO7816_MAX_FRAME;
         res = sc_rx_bytes(resp, &len, wait);
         if (res) {
-            LogTrace(resp, len, 0, 0, NULL, false);
+            log_trace(resp, len, 0, 0, NULL, false);
         } else {
             len = 0;
         }
@@ -919,8 +924,8 @@ void SmartCardRaw(const smart_card_raw_t *p) {
     reply_ng(CMD_SMART_RAW, PM3_SUCCESS, resp, len);
 
 OUT:
-    BigBuf_free();
-    set_tracing(false);
+    palloc_free(resp);
+    stop_tracing();
     LEDsoff();
 }
 
@@ -936,8 +941,8 @@ void SmartCardUpgrade(uint64_t arg0) {
 
     bool isOK = true;
     uint16_t length = arg0, pos = 0;
-    uint8_t *fwdata = BigBuf_get_addr();
-    uint8_t *verfiydata = BigBuf_malloc(I2C_BLOCK_SIZE);
+    uint8_t *fwdata = (uint8_t*)palloc(1, length);
+    uint8_t *verfiydata = (uint8_t*)palloc(1, I2C_BLOCK_SIZE);
 
     while (length) {
 
@@ -978,9 +983,10 @@ void SmartCardUpgrade(uint64_t arg0) {
         pos += size;
     }
 
+    palloc_free(fwdata);
+    palloc_free(verfiydata);
     reply_ng(CMD_SMART_UPGRADE, (isOK) ? PM3_SUCCESS : PM3_ESOFT, NULL, 0);
     LED_C_OFF();
-    BigBuf_free();
 }
 
 void SmartCardSetBaud(uint64_t arg0) {
@@ -988,12 +994,12 @@ void SmartCardSetBaud(uint64_t arg0) {
 
 void SmartCardSetClock(uint64_t arg0) {
     LED_D_ON();
-    set_tracing(true);
+    start_tracing();
     I2C_Reset_EnterMainProgram();
     // Send SIM CLC
     // start [C0 05 xx] stop
     I2C_WriteByte(arg0, I2C_DEVICE_CMD_SIM_CLC, I2C_DEVICE_ADDRESS_MAIN);
     reply_ng(CMD_SMART_SETCLOCK, PM3_SUCCESS, NULL, 0);
-    set_tracing(false);
+    stop_tracing();
     LEDsoff();
 }

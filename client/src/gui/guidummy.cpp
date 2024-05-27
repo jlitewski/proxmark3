@@ -19,11 +19,11 @@
 #include <stdio.h>
 
 extern "C" void ShowGraphWindow(void) {
-    static int warned = 0;
+    static bool warned = false;
 
     if (!warned) {
         printf("No GUI in this build!\n");
-        warned = 1;
+        warned = true;
     }
 }
 
@@ -31,19 +31,19 @@ extern "C" void HideGraphWindow(void) {}
 extern "C" void RepaintGraphWindow(void) {}
 
 extern "C" void ShowPictureWindow(char *fn, int len) {
-    static int warned = 0;
+    static bool warned = false;
 
     if (!warned) {
         printf("No GUI in this build!\n");
-        warned = 1;
+        warned = true;
     }
 }
 extern "C" void ShowBase64PictureWindow(char *b64) {
-    static int warned = 0;
+    static bool warned = false;
 
     if (!warned) {
         printf("No GUI in this build!\n");
-        warned = 1;
+        warned = true;
     }
 }
 extern "C" void HidePictureWindow(void) {}

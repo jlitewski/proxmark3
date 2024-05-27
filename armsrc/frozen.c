@@ -25,9 +25,11 @@
 #include "nprintf.h"
 #include "commonutil.h"
 
-#include "BigBuf.h"
-#define malloc(X) BigBuf_malloc(X)
-#define free(X)
+#include "palloc.h"
+#define malloc(X)       palloc(1, X)
+#define free(X)         palloc_free(X)
+#define memcpy(X, Y, Z) palloc_copy(X, Y, Z)
+#define memset(X, Y, Z) palloc_set(X, Y, Z)
 
 #if !defined(WEAK)
 #if (defined(__GNUC__) || defined(__TI_COMPILER_VERSION__)) && !defined(_WIN32)
@@ -977,10 +979,10 @@ static void json_scanf_cb(void *callback_data, const char *name,
         case 'H': {
 #if JSON_ENABLE_HEX
             char **dst = (char **) info->user_data;
-            int i, len = token->len / 2;
+            int len = token->len / 2;
             *(int *) info->target = len;
             if ((*dst = (char *) malloc(len + 1)) != NULL) {
-                for (i = 0; i < len; i++) {
+                for (int i = 0; i < len; i++) {
                     (*dst)[i] = hexdec(token->ptr + 2 * i);
                 }
                 (*dst)[len] = '\0';

@@ -85,12 +85,12 @@ void RAMFUNC SniffMifare(uint8_t param) {
     // Setup and start DMA.
     // set transfer address and number of bytes. Start transfer.
     if (!FpgaSetupSscDma(dmaBuf, DMA_BUFFER_SIZE)) {
-        if (g_dbglevel > 1) Dbprintf("[!] FpgaSetupSscDma failed. Exiting");
+        if (PRINT_INFO) Dbprintf("[!] FpgaSetupSscDma failed. Exiting");
         return;
     }
 
-    tUart14a *uart = GetUart14a();
-    tDemod14a *demod = GetDemod14a();
+    uart_14a_t *uart = GetUart14a();
+    demod_14a_t *demod = GetDemod14a();
 
     MfSniffInit();
 

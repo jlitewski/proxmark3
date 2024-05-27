@@ -27,7 +27,9 @@
 #include "ticks.h"
 #include "util.h"
 #include "commonutil.h"
-#include "BigBuf.h"
+#include "palloc.h"
+#include "tracer.h"
+#include "cardemu.h"
 #include "iso14443a.h"
 #include "mifareutil.h"
 #include "mifaresim.h"
@@ -204,7 +206,7 @@ MFC1KSchema_t InfiHexact = {.name = "Infineon/Hexact",
               0x8829da9daf76, 0x8829da9daf76, 0x8829da9daf76, 0x8829da9daf76}};
 */
 
-static int colin_total_schemas = 0;
+static uint16_t colin_total_schemas = 0;
 
 static void add_schema(MFC1KSchema_t *p, MFC1KSchema_t a, int *schemas_counter) {
     if (*schemas_counter < MAX_SCHEMAS) {
@@ -240,24 +242,44 @@ static void cjSetCursLeft(void) {
 
 static void cjTabulize(void) { DbprintfEx(FLAG_RAWPRINT, "\t\t\t"); }
 
+/**
+ * @brief 
+ * 
+ * The Pointer returned from this function NEEDS to be freed by palloc_free()
+ * 
+ * @param filename 
+ * @return char* 
+ */
 static char *ReadSchemasFromSPIFFS(char *filename) {
     SpinOff(0);
 
     int changed = rdv40_spiffs_lazy_mount();
     uint32_t size = size_in_spiffs((char *)filename);
-    uint8_t *mem = BigBuf_malloc(size);
+    uint8_t *mem = palloc(1, size);
+
+    if(mem == nullptr) {
+        return nullptr;
+    }
+
     rdv40_spiffs_read_as_filetype((char *)filename, (uint8_t *)mem, size, RDV40_SPIFFS_SAFETY_SAFE);
 
     if (changed) {
         rdv40_spiffs_lazy_unmount();
     }
+
     SpinOff(0);
+
     return (char *)mem;
 }
 
 static void add_schemas_from_json_in_spiffs(char *filename) {
 
     char *jsonfile = ReadSchemasFromSPIFFS((char *)filename);
+
+    if(jsonfile == nullptr) {
+        Dbprintf("Unable to load schemas from file!");
+        return;
+    }
 
     int i, len = strlen(jsonfile);
     struct json_token t;
@@ -273,6 +295,8 @@ static void add_schemas_from_json_in_spiffs(char *filename) {
         DbprintfEx(FLAG_NEWLINE, "Schema loaded : %s", tmpname);
         cjSetCursLeft();
     }
+
+    palloc_free(jsonfile);
 }
 
 static void ReadLastTagFromFlash(void) {
@@ -287,13 +311,20 @@ static void ReadLastTagFromFlash(void) {
     DbprintfEx(FLAG_NEWLINE, "Button HELD ! Using LAST Known TAG for Simulation...");
     cjSetCursLeft();
 
-    uint8_t *mem = BigBuf_malloc(size);
+    uint8_t *mem = palloc(1, size);
+
+    if(mem == nullptr) {
+        Dbprintf("Unable to allocate memory, aborting!");
+        return;
+    }
 
     // this one will handle filetype (symlink or not) and resolving by itself
     rdv40_spiffs_read_as_filetype((char *)HFCOLIN_LASTTAG_SYMLINK, (uint8_t *)mem, len, RDV40_SPIFFS_SAFETY_SAFE);
 
     // copy 64blocks (16bytes) starting w block0, to emulator mem.
     emlSetMem_xt(mem, 0, 64, 16);
+
+    palloc_free(mem);
 
     DbprintfEx(FLAG_NEWLINE, "[OK] Last tag recovered from FLASHMEM set to emulator");
     cjSetCursLeft();
@@ -341,7 +372,7 @@ void RunMod(void) {
     Dbprintf(">>  HF Mifare ultra fast sniff/sim/clone  a.k.a VIGIKPWN Started  <<");
 
     // turn off all debugging.
-    g_dbglevel = DBG_NONE;
+    g_dbglevel = DEBUG_NONE;
 
     // add_schema(colin_Schemas, Noralsy, &colin_total_schemas);
     // add_schema(colin_Schemas, InfiHexact, &colin_total_schemas);
@@ -440,7 +471,13 @@ void RunMod(void) {
     };
 
     // Can remember something like that in case of Bigbuf
-    keyBlock = BigBuf_malloc(ARRAYLEN(mfKeys) * 6);
+    keyBlock = palloc(6, ARRAYLEN(mfKeys));
+
+    if(keyBlock == nullptr) {
+        Dbprintf("Unable to allocate memory, aborting...");
+        return;
+    }
+
     int mfKeysCnt = ARRAYLEN(mfKeys);
 
     for (int mfKeyCounter = 0; mfKeyCounter < mfKeysCnt; mfKeyCounter++) {
@@ -777,6 +814,7 @@ readysim:
     cjSetCursLeft();
     vtsend_set_attribute(NULL, 0);
     SpinErr(LED_D, 100, 16);
+    palloc_free(keyBlock);
     SpinDown(75);
     SpinOff(100);
     return;
@@ -798,8 +836,8 @@ int e_MifareECardLoad(uint32_t numofsectors, uint8_t keytype) {
     uint8_t dataoutbuf2[16];
 
     iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
-    clear_trace();
-    set_tracing(false);
+    release_trace();
+    stop_tracing();
 
     bool isOK = true;
 
@@ -851,7 +889,7 @@ a particular sector. also no tracing no dbg */
 int cjat91_saMifareChkKeys(uint8_t blockNo, uint8_t keyType, bool clearTrace,
                            uint8_t keyCount, uint8_t *datain, uint64_t *key) {
     iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
-    set_tracing(false);
+    stop_tracing();
 
     struct Crypto1State mpcs = {0, 0};
     struct Crypto1State *pcs;
@@ -966,14 +1004,14 @@ int saMifareCSetBlock(uint32_t arg0, uint32_t arg1, uint32_t arg2, uint8_t *data
     uint8_t isOK = 0;
     uint8_t d_block[18] = {0x00};
 
-    uint8_t receivedAnswer[MAX_MIFARE_FRAME_SIZE];
-    uint8_t receivedAnswerPar[MAX_MIFARE_PARITY_SIZE];
+    uint8_t receivedAnswer[MAX_FRAME_SIZE];
+    uint8_t receivedAnswerPar[MAX_PARITY_SIZE];
 
     // reset FPGA and LED
     if (workFlags & 0x08) {
         iso14443a_setup(FPGA_HF_ISO14443A_READER_LISTEN);
         //  clear_trace();
-        set_tracing(FALSE);
+        stop_tracing();
     }
 
     while (true) {

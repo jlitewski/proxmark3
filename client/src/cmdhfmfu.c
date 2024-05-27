@@ -424,13 +424,13 @@ int trace_mfuc_try_default_3des_keys(uint8_t **correct_key, int state, uint8_t (
 // param override,  means we override hw debug levels.
 static int try_default_3des_keys(bool override, uint8_t **correct_key) {
 
-    uint8_t dbg_curr = DBG_NONE;
+    uint8_t dbg_curr = DEBUG_NONE;
     if (override) {
         if (getDeviceDebugLevel(&dbg_curr) != PM3_SUCCESS) {
             return PM3_ESOFT;
         }
 
-        if (setDeviceDebugLevel(DBG_NONE, false) != PM3_SUCCESS) {
+        if (setDeviceDebugLevel(DEBUG_NONE, false) != PM3_SUCCESS) {
             return PM3_ESOFT;
         }
 
@@ -458,13 +458,13 @@ static int try_default_3des_keys(bool override, uint8_t **correct_key) {
 // param override,  means we override hw debug levels.
 static int try_default_aes_keys(bool override) {
 
-    uint8_t dbg_curr = DBG_NONE;
+    uint8_t dbg_curr = DEBUG_NONE;
     if (override) {
         if (getDeviceDebugLevel(&dbg_curr) != PM3_SUCCESS) {
             return PM3_ESOFT;
         }
 
-        if (setDeviceDebugLevel(DBG_NONE, false) != PM3_SUCCESS) {
+        if (setDeviceDebugLevel(DEBUG_NONE, false) != PM3_SUCCESS) {
             return PM3_ESOFT;
         }
     }
@@ -1755,7 +1755,7 @@ static int mfu_get_version_uid(uint8_t *version, uint8_t *uid) {
 
 static int mfu_fingerprint(uint64_t tagtype, bool hasAuthKey, uint8_t *authkey, int ak_len) {
 
-    uint8_t dbg_curr = DBG_NONE;
+    uint8_t dbg_curr = DEBUG_NONE;
     uint8_t *data = NULL;
     int res = PM3_ESOFT;
     PrintAndLogEx(INFO, "");
@@ -1790,7 +1790,7 @@ static int mfu_fingerprint(uint64_t tagtype, bool hasAuthKey, uint8_t *authkey, 
         goto out;
     }
 
-    if (setDeviceDebugLevel(DBG_NONE, false) != PM3_SUCCESS) {
+    if (setDeviceDebugLevel(DEBUG_NONE, false) != PM3_SUCCESS) {
         res = PM3_ESOFT;
         goto out;
     }
@@ -2980,12 +2980,12 @@ static int CmdHF14AMfUDump(const char *Cmd) {
             keytype = 2; // UL_EV1/NTAG auth
     }
 
-    uint8_t dbg_curr = DBG_NONE;
+    uint8_t dbg_curr = DEBUG_NONE;
     if (getDeviceDebugLevel(&dbg_curr) != PM3_SUCCESS) {
         return PM3_ESOFT;
     }
 
-    if (setDeviceDebugLevel(DBG_NONE, false) != PM3_SUCCESS) {
+    if (setDeviceDebugLevel(DEBUG_NONE, false) != PM3_SUCCESS) {
         return PM3_ESOFT;
     }
 

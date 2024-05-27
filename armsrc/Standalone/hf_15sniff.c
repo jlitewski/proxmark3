@@ -75,7 +75,7 @@
 #include "appmain.h"
 #include "dbprint.h"
 #include "ticks.h"
-#include "BigBuf.h"
+#include "tracer.h"
 
 
 
@@ -108,7 +108,7 @@ void RunMod(void) {
     Dbprintf("Stopped sniffing");
     SpinDelay(200);
 
-    uint32_t trace_len = BigBuf_get_traceLen();
+    uint32_t trace_len = get_trace_length();
 #ifndef WITH_FLASH
     // Keep stuff in BigBuf for USB/BT dumping
     if (trace_len > 0)
@@ -118,7 +118,7 @@ void RunMod(void) {
     if (trace_len > 0) {
         Dbprintf("[!] Trace length (bytes) = %u", trace_len);
 
-        uint8_t *trace_buffer = BigBuf_get_addr();
+        uint8_t *trace_buffer = (uint8_t*)get_current_trace();
         if (!exists_in_spiffs(HF_15693SNIFF_LOGFILE)) {
             rdv40_spiffs_write(
                 HF_15693SNIFF_LOGFILE, trace_buffer, trace_len, RDV40_SPIFFS_SAFETY_SAFE);

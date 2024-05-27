@@ -44,7 +44,7 @@ extern int ToSendMax;
 extern uint8_t ToSend[];
 
 void send_wtx(uint16_t wtx);
-void ReadMem(int addr);
+void ReadMem(size_t addr);
 void __attribute__((noreturn)) AppMain(void);
 
 uint16_t AvgAdc(uint8_t ch);

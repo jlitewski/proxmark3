@@ -132,4 +132,10 @@ bool hexstr_to_byte_array(const char *hexstr, uint8_t *d, size_t *n);
 char c_tolower(int c);
 char c_isprint(unsigned char c);
 
+uint64_t rev_quads(uint64_t bits);
+
+bool is_bit_set(uint8_t data, uint8_t position);
+uint8_t set_bit(uint8_t data, uint8_t position);
+uint8_t clear_bit(uint8_t data, uint8_t position);
+
 #endif

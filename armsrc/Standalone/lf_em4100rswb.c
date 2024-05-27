@@ -43,6 +43,9 @@
 //
 // Slots are switched by HOLD (LONG PRESS)
 //-----------------------------------------------------------------------------
+
+// TODO Maybe move parts over to cardemu?
+
 #include "standalone.h"
 #include "proxmark3_arm.h"
 #include "appmain.h"
@@ -51,17 +54,18 @@
 #include "dbprint.h"
 #include "ticks.h"
 #include "string.h"
-#include "BigBuf.h"
+#include "cardemu.h"
+#include "palloc.h"
 #include "spiffs.h"
 #include "inttypes.h"
 #include "parity.h"
 #include "lfops.h"
+#include "commonutil.h"
 
 #ifdef WITH_FLASH
 #include "flashmem.h"
 #endif
 
-#define LF_CLOCK 64 // for 125kHz
 #define LF_RWSB_T55XX_TYPE 1 // Tag type: 0 - T5555, 1-T55x7, 2-EM4x05
 
 #define LF_RWSB_UNKNOWN_RESULT 0
@@ -76,41 +80,35 @@
 
 // Predefined bruteforce speed
 // avg: 1s, 1.2s, 1.5s, 2s
-static int em4100rswb_bruteforceSpeedCurrent = 1;
-static int em4100rswb_bruteforceSpeed[] = {10, 12, 14, 16};
+static uint8_t current_bruteforce_speed = 1;
+static uint8_t bruteforce_speeds[] = {10, 12, 14, 16};
 
 // em4100rswb_low & em4100rswb_high - array for storage IDs. Its length must be equal.
 // Predefined IDs must be stored in em4100rswb_low[].
-// In em4100rswb_high[] must be nulls
 static uint64_t em4100rswb_low[] = {0, 0, 0, 0};
+// In em4100rswb_high[] must be nulls
 static uint32_t em4100rswb_high[] = {0, 0, 0, 0};
-static int em4100rswb_buflen;
+
+static memptr_t *memory_addr = nullptr;
+static uint16_t buffer_len;
 
 void ModInfo(void) {
     DbpString("  LF EM4100 read/sim/write/brute mode");
 }
 
-static uint64_t rev_quads(uint64_t bits) {
-    uint64_t result = 0;
-    for (int i = 0; i < 16; i++) {
-        result += ((bits >> (60 - 4 * i)) & 0xf) << (4 * i);
-    }
-    return result >> 24;
-}
-
 static void fill_buff(uint8_t bit) {
-    uint8_t *bba = BigBuf_get_addr();
-    memset(bba + em4100rswb_buflen, bit, LF_CLOCK / 2);
-    em4100rswb_buflen += (LF_CLOCK / 2);
-    memset(bba + em4100rswb_buflen, bit ^ 1, LF_CLOCK / 2);
-    em4100rswb_buflen += (LF_CLOCK / 2);
+    palloc_set((memory_addr + buffer_len), bit, LF_CLK_125KHZ / 2);
+    buffer_len += (LF_CLK_125KHZ / 2);
+
+    palloc_set((memory_addr + buffer_len), bit^1, LF_CLK_125KHZ / 2);
+    buffer_len += (LF_CLK_125KHZ / 2);
 }
 
 static void construct_EM410x_emul(uint64_t id) {
-    int i, j;
+    uint8_t i, j;
     int binary[4] = {0, 0, 0, 0};
     int parity[4] = {0, 0, 0, 0};
-    em4100rswb_buflen = 0;
+    buffer_len = 0;
 
     for (i = 0; i < 9; i++)
         fill_buff(1);
@@ -165,7 +163,7 @@ static void LED_Update(int mode, int slot) {
     }
 }
 
-static void FlashLEDs(uint32_t speed, uint8_t times) {
+static void FlashLEDs(uint16_t speed, uint8_t times) {
     for (int i = 0; i < times * 2; i++) {
         LED_A_INV();
         LED_B_INV();
@@ -235,7 +233,7 @@ static int BruteEMTag(uint64_t originalCard, int slot) {
         uint64_t currentCard = PackEmID(originalCard, cardnum);
         Dbprintf("[=] >>  Simulating card id %"PRIx64" <<", currentCard);
         construct_EM410x_emul(rev_quads(currentCard));
-        SimulateTagLowFrequencyEx(em4100rswb_buflen, 0, 1, em4100rswb_bruteforceSpeed[em4100rswb_bruteforceSpeedCurrent] * 10000);
+        SimulateTagLowFrequencyEx(buffer_len, 0, 1, bruteforce_speeds[current_bruteforce_speed] * 10000, (uint8_t*)memory_addr);
 
         int button_pressed = BUTTON_CLICKED(1000);
         if (button_pressed == BUTTON_SINGLE_CLICK) {
@@ -252,9 +250,9 @@ static int BruteEMTag(uint64_t originalCard, int slot) {
         } else if (button_pressed == BUTTON_HOLD) {
             FlashLEDs(100, 1);
             WAIT_BUTTON_RELEASED();
-            em4100rswb_bruteforceSpeedCurrent = (em4100rswb_bruteforceSpeedCurrent + 1) % speed_count;
-            FlashLEDs(100, em4100rswb_bruteforceSpeedCurrent + 1);
-            Dbprintf("[=] >>  Setting speed to %d (%d) <<", em4100rswb_bruteforceSpeedCurrent, em4100rswb_bruteforceSpeed[em4100rswb_bruteforceSpeedCurrent]);
+            current_bruteforce_speed = (current_bruteforce_speed + 1) % speed_count;
+            FlashLEDs(100, current_bruteforce_speed + 1);
+            Dbprintf("[=] >>  Setting speed to %d (%d) <<", current_bruteforce_speed, bruteforce_speeds[current_bruteforce_speed]);
         }
     }
     return LF_RWSB_BRUTE_STOPED;
@@ -280,12 +278,12 @@ static int ExecuteMode(int mode, int slot) {
         case LF_RWSB_MODE_SIM:
             Dbprintf("[=] >>  Sim mode started  <<");
             construct_EM410x_emul(rev_quads(em4100rswb_low[slot]));
-            SimulateTagLowFrequency(em4100rswb_buflen, 0, true);
+            SimulateTagLowFrequency(buffer_len, 0, true, (uint8_t*)memory_addr);
             return LF_RWSB_UNKNOWN_RESULT;
         case LF_RWSB_MODE_WRITE:
             Dbprintf("[!!] >>  Write mode started  <<");
             copy_em410x_to_t55xx(LF_RWSB_T55XX_TYPE
-                                 , LF_CLOCK
+                                 , LF_CLK_125KHZ
                                  , (uint32_t)(em4100rswb_low[slot] >> 32)
                                  , (uint32_t)(em4100rswb_low[slot] & 0xffffffff)
                                  , false
@@ -320,19 +318,26 @@ static int SwitchMode(int mode, int slot) {
 void RunMod() {
     StandAloneMode();
     FpgaDownloadAndGo(FPGA_BITSTREAM_LF);
-    Dbprintf("[=] >>  LF EM4100 read/write/clone/brute started  <<");
-    int slots_count = 4;
-    int mode_count = 4;
 
-    int mode = 0;
-    int slot = 0;
+    memory_addr = palloc(1, (MAX_BLOCK_SIZE / 4)); //8k bytes should be enough?
+    if(memory_addr == nullptr) {
+        Dbprintf(_RED_("Unable to allocate memory for the EM4100 RWCB!"));
+        return;
+    }
+
+    Dbprintf("[=] >>  LF EM4100 read/write/clone/brute started  <<");
+    uint8_t slots_count = 4;
+    uint8_t mode_count = 4;
+
+    uint8_t mode = 0;
+    uint8_t slot = 0;
     mode = SwitchMode(mode, slot);
 
     for (;;) {
         WDT_HIT();
         if (data_available()) break;
 
-        int button_pressed = BUTTON_CLICKED(1000);
+        int8_t button_pressed = BUTTON_CLICKED(1000);
         LED_Update(mode, slot);
 
         //press button - switch mode
@@ -354,4 +359,6 @@ void RunMod() {
             mode = SwitchMode(mode, slot);
         }
     }
+
+    palloc_free(memory_addr);
 }
