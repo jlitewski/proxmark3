@@ -87,7 +87,7 @@ int reply_old(uint64_t cmd, uint64_t arg0, uint64_t arg1, uint64_t arg2, const v
 #endif
 
 #ifdef DEBUG_ARM
-    Dbprintf(_BACK_BRIGHT_BLUE_("[<--] Reply OLD Packet (%d bytes payload, command 0x%04x, args: %d %d %d)"), len, cmd, arg0, arg1, arg2);
+    if(PRINT_DEBUG) Dbprintf(_BACK_BRIGHT_BLUE_("[<--] Reply OLD Packet (%d bytes payload, command 0x%04x, args: %d %d %d)"), len, cmd, arg0, arg1, arg2);
 #endif
 
     return PM3_SUCCESS;
@@ -157,7 +157,7 @@ static int reply_ng_internal(uint16_t cmd, int16_t status, const uint8_t *data, 
 #ifdef DEBUG_ARM
     uint8_t upper = (cmd >> 8) & 0xFF;
     if(upper != 0xF0) { // Filter out debug commands
-        Dbprintf(_BACK_BRIGHT_BLUE_("[<--] Reply NG Packet (%d bytes payload, command 0x%04x)"), txBufferNGLen, cmd);
+        if(PRINT_DEBUG) Dbprintf(_BACK_BRIGHT_BLUE_("[<--] Reply NG Packet (%d bytes payload, command 0x%04x)"), txBufferNGLen, cmd);
     }
 #endif
 
@@ -243,7 +243,7 @@ static int receive_ng_internal(PacketCommandNG *rx, uint32_t read_ng(uint8_t *da
         g_reply_via_fpc = fpc;
 
 #ifdef DEBUG_ARM
-         Dbprintf(_BRIGHT_BLUE_("[-->] Recv NG packet (%d bytes payload, command: 0x%04x)"), rx->length, rx->cmd);
+        if(PRINT_DEBUG) Dbprintf(_BRIGHT_BLUE_("[-->] Recv NG packet (%d bytes payload, command: 0x%04x)"), rx->length, rx->cmd);
 #endif
     } else { // Old style command
         PacketCommandOLD rx_old;
@@ -267,7 +267,7 @@ static int receive_ng_internal(PacketCommandNG *rx, uint32_t read_ng(uint8_t *da
         palloc_copy(&rx->data, &rx_old.d.asBytes, rx->length);
 
 #ifdef DEBUG_ARM
-        Dbprintf(_BRIGHT_BLUE_("[-->] Recv OLD packet (%d bytes payload, command: 0x%04x, args: %d %d %d)"), rx->length, rx->cmd, rx->oldarg[0], rx->oldarg[1], rx->oldarg[2]);
+        if(PRINT_DEBUG) Dbprintf(_BRIGHT_BLUE_("[-->] Recv OLD packet (%d bytes payload, command: 0x%04x, args: %d %d %d)"), rx->length, rx->cmd, rx->oldarg[0], rx->oldarg[1], rx->oldarg[2]);
 #endif
     }
 

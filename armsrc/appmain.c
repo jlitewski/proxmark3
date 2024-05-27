@@ -387,7 +387,9 @@ static void SendVersion(void) {
 
 static void TimingIntervalAcquisition(void) {
     // trigger new acquisition by turning main oscillator off and on
+    if(PRINT_DEBUG) Dbprintf("Turning Main Oscillator off...");
     mck_from_pll_to_slck();
+    if(PRINT_DEBUG) Dbprintf("Turning Main Oscillator on...");
     mck_from_slck_to_pll();
     // wait for MCFR and recompute RTMR scaler
     StartTickCount();
@@ -430,7 +432,7 @@ end_debug_search:
 // Note: this mimics GetFromBigbuf(), i.e. we have the overhead of the PacketCommandNG structure included.
 static void printConnSpeed(uint32_t wait) {
     DbpString(_CYAN_("Transfer Speed"));
-    Dbprintf("  Sending packets to client...");
+    Dbprintf(_CYAN_("  [<--] Sending packets to client..."));
 
     uint8_t *test_data = (uint8_t*)palloc(2, PM3_CMD_DATA_SIZE);
 
@@ -444,6 +446,10 @@ static void printConnSpeed(uint32_t wait) {
     uint32_t delta_time = 0;
     uint32_t bytes_transferred = 0;
 
+    // Disable debug logging to get an accurate speed
+    debug_level old_debug_level = g_dbglevel;
+    g_dbglevel = DEBUG_NONE;
+
     LED_B_ON();
 
     while (delta_time < wait) {
@@ -453,6 +459,9 @@ static void printConnSpeed(uint32_t wait) {
     }
 
     LED_B_OFF();
+
+    // Reenable the debug logging
+    g_dbglevel = old_debug_level;
 
     Dbprintf("  Time elapsed................... %dms", delta_time);
     Dbprintf("  Bytes transferred.............. %d", bytes_transferred);
@@ -506,7 +515,7 @@ static void SendStatus(uint32_t wait) {
         Dbprintf(_YELLOW_("  Slow Clock actual speed seems closer to %d kHz"),
                  (16 * MAINCK / 1000) / mainf * delta_time / SLCK_CHECK_MS);
     }
-    DbpString(_CYAN_("Installed StandAlone Mode"));
+    DbpString(_CYAN_("Installed Standalone Mode"));
     ModInfo();
 
 #ifdef WITH_FLASH
