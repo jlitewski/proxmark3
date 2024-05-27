@@ -550,7 +550,7 @@ void *mifare_cryto_preprocess_data(desfiretag_t tag, void *data, size_t *nbytes,
 
 void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes, int communication_settings) {
     void *res = data;
-    void *edata = nullptr;
+    uint8_t *edata = nullptr;
     uint8_t first_cmac_byte = 0x00;
 
     desfirekey_t key = DESFIRE(tag)->session_key;
@@ -590,7 +590,7 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
                         }
 
                         size_t edl = enciphered_data_length(tag, *nbytes - 1, communication_settings);
-                        edata = palloc(1, edl);
+                        edata = (uint8_t*)palloc(1, edl);
 
                         palloc_copy(edata, data, *nbytes - 1);
                         palloc_set((uint8_t *)edata + *nbytes - 1, 0, edl - *nbytes + 1);
