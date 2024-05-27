@@ -1215,8 +1215,13 @@ static void PacketReceived(PacketCommandNG *packet) {
             break;
         }
         case CMD_LF_HITAG2_CRACK: {
-            //lf_hitag_data_t *payload = (lf_hitag_data_t *) packet->data.asBytes;
-            //ht2_crack(payload->NrAr);
+            lf_hitag_data_t *payload = (lf_hitag_data_t *) packet->data.asBytes;
+            ht2_crack1(payload->NrAr);
+            break;
+        }
+        case CMD_LF_HITAG2_CRACK_2: {
+            lf_hitag_data_t *payload = (lf_hitag_data_t *) packet->data.asBytes;
+            ht2_crack2(payload->NrAr);
             break;
         }
         case CMD_LF_HITAG_READER: { // Reader for Hitag tags, args = type and function

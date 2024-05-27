@@ -1936,7 +1936,7 @@ static void BuildIdentifyRequest(uint8_t *cmd) {
 //  If you do not need the answer use NULL for *recv[]
 //  return: length of received data
 // logging enabled
-int SendDataTag(uint8_t *send, int sendlen, bool init, bool speed_fast, uint8_t *recv,
+int SendDataTag(const uint8_t *send, int sendlen, bool init, bool speed_fast, uint8_t *recv,
                 uint16_t max_recv_len, uint32_t start_time, uint16_t timeout, uint32_t *eof_time, uint16_t *resp_len) {
 
     if (init) {
@@ -1993,9 +1993,9 @@ int SendDataTagEOF(uint8_t *recv, uint16_t max_recv_len, uint32_t start_time, ui
 
 // Decodes a message from a tag and displays its metadata and content
 #define DBD15STATLEN 48
-static void DbdecodeIso15693Answer(int len, uint8_t *d) {
+static void DbdecodeIso15693Answer(int n, const uint8_t *d) {
 
-    if (len > 3) {
+    if (n > 3) {
 
         char status[DBD15STATLEN + 1] = {0};
 
@@ -2041,7 +2041,7 @@ static void DbdecodeIso15693Answer(int len, uint8_t *d) {
             strncat(status, "No error ", DBD15STATLEN - strlen(status));
         }
 
-        if (CheckCrc15(d, len))
+        if (CheckCrc15(d, n))
             strncat(status, "[+] crc ( " _GREEN_("ok") " )", DBD15STATLEN - strlen(status));
         else
             strncat(status, "[!] crc ( " _RED_("fail") " )", DBD15STATLEN - strlen(status));
@@ -2167,7 +2167,7 @@ void EmlClearIso15693(void) {
 
 // Simulate an ISO15693 TAG, perform anti-collision and then print any reader commands
 // all demodulation performed in arm rather than host. - greg
-void SimTagIso15693(uint8_t *uid, uint8_t block_size) {
+void SimTagIso15693(const uint8_t *uid, uint8_t block_size) {
     // Init early to be sure FPGA is loaded before any EML operation
     // usefull when eml memory is empty (UID supplied)
     Iso15693InitTag(); // to be sure FPGA is loaded before any EML operation
@@ -3065,7 +3065,7 @@ static uint32_t disable_privacy_15693_Slix(uint32_t start_time, uint32_t *eof_ti
     return PM3_SUCCESS;
 }
 
-static uint32_t set_pass_15693_Slix(uint32_t start_time, uint32_t *eof_time, uint8_t pass_id, const uint8_t *password, uint8_t *uid) {
+static uint32_t set_pass_15693_Slix(uint32_t start_time, uint32_t *eof_time, uint8_t pass_id, const uint8_t *password, const uint8_t *uid) {
 
 
     uint8_t rnd[2];
@@ -3178,7 +3178,7 @@ static uint32_t enable_eas_15693_Slix(uint32_t start_time, uint32_t *eof_time, c
     return PM3_SUCCESS;
 }
 
-static uint32_t write_password_15693_Slix(uint32_t start_time, uint32_t *eof_time, uint8_t pwd_id, const uint8_t *password, uint8_t *uid) {
+static uint32_t write_password_15693_Slix(uint32_t start_time, uint32_t *eof_time, uint8_t pwd_id, const uint8_t *password, const uint8_t *uid) {
 
     uint8_t new_pwd_cmd[] = { (ISO15_REQ_DATARATE_HIGH | ISO15_REQ_ADDRESS), ISO15693_WRITE_PASSWORD, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, pwd_id, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 

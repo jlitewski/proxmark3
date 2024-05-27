@@ -3255,7 +3255,7 @@ int CmdHF14MfUTamper(const char *Cmd) {
         }
     }
 
-    if (enable | disable | lock_msg) {
+    if (enable || disable || lock_msg) {
 
         if (ul_select(&card) == false) {
             PrintAndLogEx(ERR, "Unable to select tag");
