@@ -583,9 +583,9 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
                         if (*nbytes == 0) {
                             *nbytes = -1;
                             res = NULL;
-#ifdef WITH_DEBUG
-                            Dbprintf("No room for MAC!");
-#endif
+
+                            if(PRINT_DEBUG) Dbprintf("No room for MAC!");
+
                             break;
                         }
 
@@ -598,8 +598,8 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
                         mifare_cypher_blocks_chained(tag, NULL, NULL, edata, edl, MCD_SEND, MCO_ENCYPHER);
 
                         if (0 != memcmp((uint8_t *)data + *nbytes - 1, edata + edl - 8, 4)) {
-#ifdef WITH_DEBUG
-                            Dbprintf("MACing not verified");
+#ifdef DEBUG_ARM
+                            if(PRINT_DEBUG) Dbprintf("MACing not verified");
                             hexdump((uint8_t *)data + *nbytes - 1, key_macing_length(key), "Expect ", 0);
                             hexdump(edata + edl - 8, key_macing_length(key), "Actual ", 0);
 #endif
@@ -638,8 +638,8 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
                         ((uint8_t *)data)[*nbytes - 9] = first_cmac_byte;
 
                         if (0 != memcmp(DESFIRE(tag)->cmac, (uint8_t *)data + *nbytes - 9, 8)) {
-#ifdef WITH_DEBUG
-                            Dbprintf("CMAC NOT verified :-(");
+#ifdef DEBUG_ARM
+                            if(PRINT_DEBUG) Dbprintf("CMAC NOT verified :-(");
                             hexdump((uint8_t *)data + *nbytes - 9, 8, "Expect ", 0);
                             hexdump(DESFIRE(tag)->cmac, 8, "Actual ", 0);
 #endif
@@ -779,10 +779,8 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
             } while (verified == false && (end_crc_pos < *nbytes));
 
             if (verified == false) {
-#ifdef WITH_DEBUG
                 /* FIXME In some configurations, the file is transmitted PLAIN */
-                Dbprintf("CRC not verified in decyphered stream");
-#endif
+                if(PRINT_DEBUG) Dbprintf("CRC not verified in decyphered stream");
                 DESFIRE(tag)->last_pcd_error = CRYPTO_ERROR;
                 *nbytes = -1;
                 res = NULL;
