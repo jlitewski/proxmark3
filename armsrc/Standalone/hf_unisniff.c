@@ -119,7 +119,7 @@
 #include "iso15.h"
 #include "util.h"
 #include "commonutil.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #include "appmain.h"
 #include "dbprint.h"
 #include "ticks.h"

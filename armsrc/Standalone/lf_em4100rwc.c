@@ -36,7 +36,7 @@
 #include "string.h"
 #include "palloc.h"
 #include "cardemu.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #include "commonutil.h"
 
 #ifdef WITH_FLASH

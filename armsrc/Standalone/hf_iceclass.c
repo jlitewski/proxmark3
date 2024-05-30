@@ -32,7 +32,7 @@
 #include "util.h"
 #include "ticks.h"
 #include "dbprint.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #include "iclass.h"
 #include "iso15693.h"
 #include "../common/loclass/cipher.h"

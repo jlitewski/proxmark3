@@ -600,8 +600,8 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
                         if (0 != memcmp((uint8_t *)data + *nbytes - 1, edata + edl - 8, 4)) {
 #ifdef DEBUG_ARM
                             if(PRINT_DEBUG) Dbprintf("MACing not verified");
-                            hexdump((uint8_t *)data + *nbytes - 1, key_macing_length(key), "Expect ", 0);
-                            hexdump(edata + edl - 8, key_macing_length(key), "Actual ", 0);
+                            //hexdump((uint8_t *)data + *nbytes - 1, key_macing_length(key), "Expect ", 0);
+                            //hexdump(edata + edl - 8, key_macing_length(key), "Actual ", 0);
 #endif
                             DESFIRE(tag)->last_pcd_error = CRYPTO_ERROR;
                             *nbytes = -1;
@@ -640,8 +640,8 @@ void *mifare_cryto_postprocess_data(desfiretag_t tag, void *data, size_t *nbytes
                         if (0 != memcmp(DESFIRE(tag)->cmac, (uint8_t *)data + *nbytes - 9, 8)) {
 #ifdef DEBUG_ARM
                             if(PRINT_DEBUG) Dbprintf("CMAC NOT verified :-(");
-                            hexdump((uint8_t *)data + *nbytes - 9, 8, "Expect ", 0);
-                            hexdump(DESFIRE(tag)->cmac, 8, "Actual ", 0);
+                            //hexdump((uint8_t *)data + *nbytes - 9, 8, "Expect ", 0);
+                            //hexdump(DESFIRE(tag)->cmac, 8, "Actual ", 0);
 #endif
                             DESFIRE(tag)->last_pcd_error = CRYPTO_ERROR;
                             *nbytes = -1;

@@ -60,6 +60,12 @@ void doMAC_N(uint8_t *address_data_p, uint8_t address_data_size, uint8_t *div_ke
 void doMAC(uint8_t *cc_nr_p, uint8_t *div_key_p, uint8_t mac[4]);
 
 int testMAC(void);
+
+#define opt_doTagMAC_1(cc_p, div_key_p) (cipher_state_t){0,0,0,0}
+#define opt_doTagMAC_2(_init, nr, mac, div_key_p)
+#define iclass_calc_div_key(csn, key, div_key, elite)
+#define opt_doReaderMAC(ccnr, div_key, pmac)
+
 #else
 /**
  * @brief 

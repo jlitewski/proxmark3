@@ -56,7 +56,6 @@
 #include "string.h"
 #include "palloc.h"
 #include "cardemu.h"
-#include "spiffs.h"
 #include "inttypes.h"
 #include "parity.h"
 #include "lfops.h"
@@ -64,6 +63,7 @@
 
 #ifdef WITH_FLASH
 #include "flashmem.h"
+#include "flash/spiffs.h"
 char *filename = "lf";
 char *filenameLast = "lf-last";
 #endif

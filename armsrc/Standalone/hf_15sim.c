@@ -27,7 +27,7 @@
 #include "protocols.h"
 #include "iso15693tools.h"
 #include "util.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #include "appmain.h"
 #include "dbprint.h"
 #include "ticks.h"

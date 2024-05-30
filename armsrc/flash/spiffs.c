@@ -18,11 +18,15 @@
 // SPIFFS api for RDV40 Integration
 //-----------------------------------------------------------------------------
 
-#define SPIFFS_CFG_PHYS_SZ (1024 * 192)
-#define SPIFFS_CFG_PHYS_ERASE_SZ (4 * 1024)
-#define SPIFFS_CFG_PHYS_ADDR (0)
-#define SPIFFS_CFG_LOG_PAGE_SZ (256)
-#define SPIFFS_CFG_LOG_BLOCK_SZ (4 * 1024)
+#include "spiffs.h"
+
+#include <stdbool.h>
+
+#include "../../include/common.h"
+#include "spiffs_config.h"
+#include "palloc.h"
+#include "dbprint.h"
+
 #define LOG_PAGE_SIZE 256
 #define RDV40_SPIFFS_WORKBUF_SZ (LOG_PAGE_SIZE * 2)
 // Experimental : 4 full pages(LOG_PAGE_SIZE + file descript size) of cache for
@@ -54,9 +58,6 @@
     RDV40_SPIFFS_LLFUNCT                                                                                               \
     RDV40_SPIFFS_SAFE_FOOTER
 
-#include "spiffs.h"
-#include "palloc.h"
-#include "dbprint.h"
 
 ///// FLASH LEVEL R/W/E operations  for feeding SPIFFS Driver/////////////////
 static s32_t rdv40_spiffs_llread(u32_t addr, u32_t size, u8_t *dst) {
@@ -91,7 +92,7 @@ static s32_t rdv40_spiffs_llerase(u32_t addr, u32_t size) {
 
     if (PRINT_DEBUG) Dbprintf("LLERASEDBG : Result addr : %d\n", addr);
 
-    sector = addr / SPIFFS_CFG_LOG_BLOCK_SZ;
+    sector = addr / SPIFFS_CFG_LOG_BLOCK_SZ();
     Flash_CheckBusy(BUSY_TIMEOUT);
     Flash_WriteEnable();
 
@@ -245,7 +246,7 @@ uint32_t size_in_spiffs(const char *filename) {
 
 static rdv40_spiffs_fsinfo info_of_spiffs(void) {
     rdv40_spiffs_fsinfo fsinfo;
-    fsinfo.blockSize = SPIFFS_CFG_LOG_BLOCK_SZ;
+    fsinfo.blockSize = SPIFFS_CFG_LOG_BLOCK_SZ();
     fsinfo.pageSize = LOG_PAGE_SIZE;
     fsinfo.maxOpenFiles = RDV40_SPIFFS_MAX_FD;
     fsinfo.maxPathLength = SPIFFS_OBJ_NAME_LEN;
@@ -640,8 +641,8 @@ void rdv40_spiffs_safe_print_tree(void) {
     struct spiffs_dirent e;
     struct spiffs_dirent *pe = &e;
 
-    char *resolvedlink = (char *)BigBuf_calloc(11 + SPIFFS_OBJ_NAME_LEN);
-    char *linkdest = (char *)BigBuf_calloc(SPIFFS_OBJ_NAME_LEN);
+    char *resolvedlink = (char *)palloc(1, 11 + SPIFFS_OBJ_NAME_LEN);
+    char *linkdest = (char *)palloc(1, SPIFFS_OBJ_NAME_LEN);
     bool printed = false;
 
     SPIFFS_opendir(&fs, "/", &d);
@@ -660,12 +661,16 @@ void rdv40_spiffs_safe_print_tree(void) {
         Dbprintf("[%04x] " _YELLOW_("%5i") " B |-- %s%s", pe->obj_id, pe->size, pe->name, resolvedlink);
         printed = true;
     }
+
     if (printed == false) {
         DbpString("<empty>");
     }
+
     SPIFFS_closedir(&d);
     rdv40_spiffs_lazy_mount_rollback(changed);
-    BigBuf_free();
+    
+    palloc_free(resolvedlink);
+    palloc_free(linkdest);
 }
 
 void rdv40_spiffs_safe_wipe(void) {

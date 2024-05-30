@@ -56,7 +56,7 @@
 #include "string.h"
 #include "cardemu.h"
 #include "palloc.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #include "inttypes.h"
 #include "parity.h"
 #include "lfops.h"

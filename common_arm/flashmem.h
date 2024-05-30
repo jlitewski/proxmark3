@@ -22,6 +22,9 @@
 
 #include "common.h"
 
+#include <stdbool.h>
+#include <stdint.h>
+
 //    Used Command
 #define ID              0x90
 #define MANID           0x90

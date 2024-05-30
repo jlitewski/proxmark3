@@ -214,11 +214,6 @@ endif
 
 $(info $(findstring WITH_STANDALONE_*,$(PLATFORM_DEFS)))
 
-# Misc (LCD support)
-ifneq (,$(findstring WITH_LCD,$(PLATFORM_DEFS)))
-    #PLATFORM_DEFS += -DWITH_LCD
-endif
-
 # Add flags dependencies :
 
 # WITH_FPC_USART_* needs WITH_FPC_USART :

@@ -50,7 +50,7 @@ SRC_NFCBARCODE = thinfilm.c
 # RDV40 related hardware support
 ifneq (,$(findstring WITH_FLASH,$(APP_CFLAGS)))
     SRC_FLASH = flashmem.c
-    SRC_SPIFFS = spiffs.c spiffs_cache.c spiffs_check.c spiffs_gc.c spiffs_nucleus.c spiffs_hydrogen.c
+    SRC_SPIFFS = flash/spiffs.c flash/spiffs_cache.c flash/spiffs_check.c flash/spiffs_gc.c flash/spiffs_nucleus.c flash/spiffs_hydrogen.c
 else
     SRC_FLASH =
     SRC_SPIFFS =

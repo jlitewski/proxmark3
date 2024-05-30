@@ -35,7 +35,7 @@ from the client to view the stored quadlets.
 #include "iso14443a.h"
 #include "protocols.h"
 #include "util.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #include "appmain.h"
 #include "fpgaloader.h"
 #include "dbprint.h"

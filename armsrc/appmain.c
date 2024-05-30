@@ -90,7 +90,7 @@
 #ifdef WITH_FLASH
 #include "pmflash.h"
 #include "flashmem.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #endif
 
 #ifdef WITH_ISO15693

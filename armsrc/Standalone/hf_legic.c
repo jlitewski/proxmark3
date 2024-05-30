@@ -29,7 +29,7 @@
 #include "legicrf.h"
 #include "legicrfsim.h"
 #include "legic.h"          // legic_card_select_t struct
-#include "spiffs.h"         // flashmem
+#include "flash/spiffs.h"         // flashmem
 
 /*
  * To list all dump files from flash:

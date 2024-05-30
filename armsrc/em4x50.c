@@ -30,7 +30,7 @@
 #include "bruteforce.h"
 
 #ifdef WITH_FLASH
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #endif
 
 // Sam7s has several timers, we will use the source TIMER_CLOCK1 (aka AT91C_TC_CLKS_TIMER_DIV1_CLOCK)

@@ -36,7 +36,7 @@
 #include "dbprint.h"
 #include "ticks.h"
 #include "usb_cdc.h"  // usb_poll_validate_length
-#include "spiffs.h"   // spiffs
+#include "flash/spiffs.h"   // spiffs
 #include "appmain.h"  // print_stack_usage
 
 #ifndef HARDNESTED_AUTHENTICATION_TIMEOUT

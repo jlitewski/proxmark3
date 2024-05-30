@@ -26,7 +26,7 @@
 #include "fpgaloader.h"
 #include "util.h"
 #include "dbprint.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #include "../em4x50.h"
 
 /*

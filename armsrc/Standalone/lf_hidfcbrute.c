@@ -46,7 +46,7 @@
 #include "lfsampling.h"
 #include "util.h"
 #include "dbprint.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #include "ticks.h"
 #include "lfops.h"
 #include "fpgaloader.h"

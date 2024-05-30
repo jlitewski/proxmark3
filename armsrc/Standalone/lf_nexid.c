@@ -29,7 +29,7 @@
 #include "util.h"
 #include "dbprint.h"
 #include "printf.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #include "ticks.h"
 #include "lfdemod.h"
 #include "commonutil.h"

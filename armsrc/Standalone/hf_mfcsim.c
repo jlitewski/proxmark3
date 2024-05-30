@@ -24,7 +24,7 @@
 #include "fpgaloader.h"
 #include "util.h"
 #include "dbprint.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #include "standalone.h" // standalone definitions
 #include "appmain.h"
 #include "string.h"

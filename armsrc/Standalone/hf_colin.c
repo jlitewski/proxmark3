@@ -34,7 +34,7 @@
 #include "mifareutil.h"
 #include "mifaresim.h"
 #include "vtsend.h"
-#include "spiffs.h"
+#include "flash/spiffs.h"
 #include "frozen.h"
 
 #define MF1KSZ 1024
