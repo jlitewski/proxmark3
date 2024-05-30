@@ -1,6 +1,8 @@
 # NXTGEN Fork - Proxmark3
 
-The Proxmark3 is the swiss-army tool of RFID, allowing for interactions with the vast majority of RFID tags on a global scale. Originally built by Jonathan Westhues, the device is now the goto tool for RFID Analysis for enthusiasts. Forked from the Iceman repository, the NXTGEN firmware is a passion project to try and push the Proxmark3 Easy and RDV4 to it's limits. 
+The Proxmark3 is the swiss-army tool of RFID, allowing for interactions with the vast majority of RFID tags on a global scale. Originally built by Jonathan Westhues, the device is now the goto tool for RFID Analysis for enthusiasts. 
+
+Forked from the Iceman repository with the intention to keep it feature compatible, the NXTGEN firmware is a passion project to try and push the Proxmark3 Easy and RDV4 to it's limits, while attempting to moderize an aging codebase. Because of this, this firmware is extremely unstable and shouldn't be used, except for development for the Proxmark3 and/or any future Proxmark-like devices. If you want the latest stable firmware for your Proxmark3 device, please continue to use [the Iceman Firmware](https://github.com/RfidResearchGroup/proxmark3).
 
 
 | Latest Release | Coverity | Contributors |
